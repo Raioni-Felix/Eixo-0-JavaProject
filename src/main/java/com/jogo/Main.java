@@ -48,17 +48,7 @@ public class Main extends GameApplication {
 
     @Override
     protected void initInput() {
-        // DEBUG: println em onActionBegin() só pra confirmar que a tecla
-        // está mesmo chegando no jogo. Se apertar e NADA aparecer no
-        // terminal, o problema é a janela sem foco (a tecla nem chega
-        // no FXGL). Se aparecer o println mas o quadrado não mover, o
-        // problema é no movimento em si. Remove isso depois de testar.
         getInput().addAction(new UserAction("Mover Cima") {
-            @Override
-            protected void onActionBegin() {
-                System.out.println("[DEBUG] W pressionado");
-            }
-
             @Override
             protected void onAction() {
                 player.getComponent(PlayerComponent.class).moveUp(tpf());
@@ -67,11 +57,6 @@ public class Main extends GameApplication {
 
         getInput().addAction(new UserAction("Mover Baixo") {
             @Override
-            protected void onActionBegin() {
-                System.out.println("[DEBUG] S pressionado");
-            }
-
-            @Override
             protected void onAction() {
                 player.getComponent(PlayerComponent.class).moveDown(tpf());
             }
@@ -79,22 +64,12 @@ public class Main extends GameApplication {
 
         getInput().addAction(new UserAction("Mover Esquerda") {
             @Override
-            protected void onActionBegin() {
-                System.out.println("[DEBUG] A pressionado");
-            }
-
-            @Override
             protected void onAction() {
                 player.getComponent(PlayerComponent.class).moveLeft(tpf());
             }
         }, KeyCode.A);
 
         getInput().addAction(new UserAction("Mover Direita") {
-            @Override
-            protected void onActionBegin() {
-                System.out.println("[DEBUG] D pressionado");
-            }
-
             @Override
             protected void onAction() {
                 player.getComponent(PlayerComponent.class).moveRight(tpf());
