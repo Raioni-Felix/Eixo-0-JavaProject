@@ -4,7 +4,9 @@ import com.almasb.fxgl.app.GameApplication;
 import com.almasb.fxgl.app.GameSettings;
 import com.almasb.fxgl.entity.Entity;
 import com.almasb.fxgl.input.UserAction;
+import com.jogo.componentes.FlyingEnemyComponent;
 import com.jogo.componentes.PlayerComponent;
+import com.jogo.componentes.RangedEnemyComponent;
 import javafx.scene.input.KeyCode;
 
 import static com.almasb.fxgl.dsl.FXGL.*;
@@ -44,6 +46,25 @@ public class Main extends GameApplication {
                 .viewWithBBox("player.png")
                 .with(new PlayerComponent("Herói", 100, 200))
                 .buildAndAttach();
+
+        // TESTE: um voador em cima-direita e um ranged embaixo-esquerda,
+        // os dois com o player como alvo, pra ver os dois tipos de
+        // EnemyComponent perseguindo/atacando ao mesmo tempo.
+        // (usam enemy.png, o quadrado vermelho que já tínhamos)
+
+        Entity flyingEnemy = entityBuilder()
+                .at(600, 150)
+                .viewWithBBox("enemy.png")
+                .with(new FlyingEnemyComponent("Morcego", 30, 80, 5, 40, 250))
+                .buildAndAttach();
+        flyingEnemy.getComponent(FlyingEnemyComponent.class).setTarget(player);
+
+        Entity rangedEnemy = entityBuilder()
+                .at(150, 450)
+                .viewWithBBox("enemy.png")
+                .with(new RangedEnemyComponent("Atirador", 20, 60, 10, 40, 300))
+                .buildAndAttach();
+        rangedEnemy.getComponent(RangedEnemyComponent.class).setTarget(player);
     }
 
     @Override
