@@ -1,4 +1,4 @@
-package com.jogo.entidades;
+package com.jogo.componentes;
 
 /**
  * Classe/Componente base para todos os inimigos do jogo.

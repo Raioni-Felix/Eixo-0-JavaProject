@@ -1,4 +1,4 @@
-package com.jogo.entidades; 
+package com.jogo.componentes; 
 
 import com.almasb.fxgl.entity.component.Component;
 
