@@ -1,5 +1,8 @@
 package com.jogo.componentes;
 
+import com.almasb.fxgl.entity.Entity;
+
+
 /**
  * Classe/Componente base para todos os inimigos do jogo.
  *
