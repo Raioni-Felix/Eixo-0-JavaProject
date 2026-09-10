@@ -3,10 +3,12 @@ package com.jogo;
 import com.almasb.fxgl.app.GameApplication;
 import com.almasb.fxgl.app.GameSettings;
 import com.almasb.fxgl.entity.Entity;
+import com.almasb.fxgl.entity.SpawnData;
 import com.almasb.fxgl.input.UserAction;
 import com.jogo.componentes.FlyingEnemyComponent;
 import com.jogo.componentes.PlayerComponent;
 import com.jogo.componentes.RangedEnemyComponent;
+import com.jogo.factories.FabricaEntidades;
 import javafx.scene.input.KeyCode;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
@@ -45,41 +47,77 @@ public class Main extends GameApplication {
         settings.setIntroEnabled(false);
     }
 
+    // Gravidade do MUNDO de física (Box2D), não mais calculada na mão
+    // dentro do PlayerComponent. Só afeta quem tem PhysicsComponent —
+    // por enquanto, só o player e as plataformas. Valor em
+    // pixels/s², igual à gravidade manual que tínhamos antes (1200),
+    // pra manter a mesma "sensação" de queda.
+    @Override
+    protected void initPhysics() {
+        getPhysicsWorld().setGravity(0, 1200);
+    }
+
     @Override
     protected void initGame() {
+        // Registra a fábrica que sabe montar cada tipo de entidade
+        // (padrão trazido da versão do NetBeans: EntityFactory +
+        // @Spawns). A partir daqui, entidades nascem via spawn("nome",
+        // dados) em vez de entityBuilder() solto aqui no Main.
+        getGameWorld().addEntityFactory(new FabricaEntidades());
+
+        // O MAPA: por enquanto só um chão comprido cobrindo a largura
+        // da tela e uma plataforma flutuando no meio, só pra dar pra
+        // testar o pulo subindo em algo. Plataforma é um corpo
+        // ESTÁTICO (não se move) — ver FabricaEntidades.spawnPlataforma.
+        spawn("plataforma", new SpawnData(0, 560)
+                .put("width", 800.0)
+                .put("height", 40.0));
+
+        spawn("plataforma", new SpawnData(300, 420)
+                .put("width", 150.0)
+                .put("height", 20.0));
+
         // Player com textura provisória (quadrado azul) só pra já dar
         // pra ver na tela e testar movimento e XP. Troca por sprite
         // de verdade depois, em src/main/resources/assets/textures/.
-        player = entityBuilder()
-                .at(400, 300)
-                .viewWithBBox("player.png")
-                .with(new PlayerComponent("Herói", 100, 200))
-                .buildAndAttach();
+        // Spawna acima do chão — cai e já pousa em cima dele sozinho,
+        // por causa da gravidade/física de verdade.
+        player = spawn("jogador", new SpawnData(400, 300)
+                .put("name", "Herói")
+                .put("maxHealth", 100)
+                .put("moveSpeed", 200.0));
 
         // TESTE: um voador em cima-direita e um ranged embaixo-esquerda,
         // os dois com o player como alvo, pra ver os dois tipos de
         // EnemyComponent perseguindo/atacando ao mesmo tempo.
         // (usam enemy.png, o quadrado vermelho que já tínhamos)
+        // OBS: nenhum dos dois tem física ainda — continuam se movendo
+        // na mão (ver comentário em FabricaEntidades), então não caem
+        // nem colidem com o chão/plataformas.
 
-        Entity flyingEnemy = entityBuilder()
-                .at(600, 150)
-                .viewWithBBox("enemy.png")
-                .with(new FlyingEnemyComponent("Morcego", 30, 80, 5, 40, 250))
-                .buildAndAttach();
+        Entity flyingEnemy = spawn("inimigo_voador", new SpawnData(600, 150)
+                .put("name", "Morcego")
+                .put("maxHealth", 30)
+                .put("moveSpeed", 80.0)
+                .put("damage", 5)
+                .put("attackRange", 40.0)
+                .put("detectionRange", 250.0));
         flyingEnemy.getComponent(FlyingEnemyComponent.class).setTarget(player);
 
-        Entity rangedEnemy = entityBuilder()
-                .at(150, 450)
-                .viewWithBBox("enemy.png")
-                .with(new RangedEnemyComponent("Atirador", 20, 60, 10, 40, 300))
-                .buildAndAttach();
+        Entity rangedEnemy = spawn("inimigo_ranged", new SpawnData(150, 450)
+                .put("name", "Atirador")
+                .put("maxHealth", 20)
+                .put("moveSpeed", 60.0)
+                .put("damage", 10)
+                .put("attackRange", 40.0)
+                .put("detectionRange", 300.0));
         rangedEnemy.getComponent(RangedEnemyComponent.class).setTarget(player);
     }
 
     @Override
     protected void initInput() {
-        // Side-view agora: não existe mais "mover cima/baixo" livre —
-        // a vertical é gravidade + pulo. onActionBegin() dispara só uma
+        // Side-view: não existe mais "mover cima/baixo" livre — a
+        // vertical é gravidade + pulo. onActionBegin() dispara só uma
         // vez quando a tecla é apertada (não a cada frame como
         // onAction()), que é o certo pra jump() — senão ele tentaria
         // pular todo frame enquanto a tecla ficasse segurada.
@@ -93,13 +131,27 @@ public class Main extends GameApplication {
             }
         }, KeyCode.SPACE);
 
+        // Mover Esquerda/Direita: onAction roda todo frame enquanto a
+        // tecla estiver segurada (mantém a velocidade constante);
+        // onActionEnd roda uma vez quando solta, zerando a velocidade
+        // horizontal (sem isso o player deslizaria pra sempre depois
+        // de soltar a tecla, já que física de verdade não para sozinha
+        // como o translate manual de antes).
         getInput().addAction(new UserAction("Mover Esquerda") {
             @Override
             protected void onAction() {
                 if (!player.isActive()) {
                     return;
                 }
-                player.getComponent(PlayerComponent.class).moveLeft(tpf());
+                player.getComponent(PlayerComponent.class).moveLeft();
+            }
+
+            @Override
+            protected void onActionEnd() {
+                if (!player.isActive()) {
+                    return;
+                }
+                player.getComponent(PlayerComponent.class).stopHorizontal();
             }
         }, KeyCode.A);
 
@@ -109,7 +161,15 @@ public class Main extends GameApplication {
                 if (!player.isActive()) {
                     return;
                 }
-                player.getComponent(PlayerComponent.class).moveRight(tpf());
+                player.getComponent(PlayerComponent.class).moveRight();
+            }
+
+            @Override
+            protected void onActionEnd() {
+                if (!player.isActive()) {
+                    return;
+                }
+                player.getComponent(PlayerComponent.class).stopHorizontal();
             }
         }, KeyCode.D);
     }

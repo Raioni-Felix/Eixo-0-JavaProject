@@ -1,9 +1,9 @@
 package com.jogo.componentes;
 
 import com.almasb.fxgl.entity.Entity;
-import com.jogo.componentes.visual.ProjectileComponent;
+import com.almasb.fxgl.entity.SpawnData;
 
-import static com.almasb.fxgl.dsl.FXGL.entityBuilder;
+import static com.almasb.fxgl.dsl.FXGL.spawn;
 
 
 //Enemy sniper herda de EnemyComponent
@@ -48,14 +48,19 @@ public class RangedEnemyComponent extends EnemyComponent {
         spawnProjectile(target);
     }
 
-    // Cria o projétil de verdade: agora é uma bala reta (não homing) —
-    // passa "entity" (quem atirou) como origem, pra ProjectileComponent
-    // calcular a direção fixa no momento do disparo.
+    // Cria o projétil de verdade: agora passa pela FabricaEntidades
+    // (@Spawns("projetil")) em vez de montar a entidade na mão aqui —
+    // essa é a parte do padrão do NetBeans (EntityFactory + @Spawns)
+    // que foi incorporada. O SpawnData carrega a posição (x, y) e os
+    // dados extras que o ProjectileComponent precisa: origem (pra
+    // calcular a direção fixa da bala), alvo, dano e velocidade.
     private void spawnProjectile(Entity target) {
-        entityBuilder()
-                .at(entity.getX(), entity.getY())
-                .viewWithBBox("projectile.png")
-                .with(new ProjectileComponent(entity, target, damage, 500))
-                .buildAndAttach();
+        SpawnData data = new SpawnData(entity.getX(), entity.getY())
+                .put("origin", entity)
+                .put("target", target)
+                .put("damage", damage)
+                .put("speed", 500.0);
+
+        spawn("projetil", data);
     }
 }

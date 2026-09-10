@@ -1,16 +1,16 @@
 package com.jogo.componentes;
 
+import com.almasb.fxgl.physics.PhysicsComponent;
+
 /**
  * Componente do jogador.
  *
  * Herda de CharacterComponent (vida, dano recebido, movimento básico) e
  * adiciona o que é específico do player: frames de invencibilidade
  * depois de tomar dano, o sistema de XP/level (metroidvania, sem
- * score), gravidade + pulo (side-view, não birdseye) e os métodos de
- * movimento horizontal chamados pelos controles (ver initInput() em
- * Main.java).
+ * score) e o movimento (agora via física de verdade, não mais
+ * translate na mão).
  */
-
 public class PlayerComponent extends CharacterComponent {
 
     //Atributos de invencibilidade
@@ -22,52 +22,33 @@ public class PlayerComponent extends CharacterComponent {
     protected int xp = 0;
     protected int xpToNextLevel = 100;
 
-    // --- Física simples (gravidade manual, sem colisão real) ---
-    // Isso é um ponto de partida pro lado 2D side-view do jogo: o
-    // player cai sozinho até um "chão" fixo (FLOOR_Y) e só pode pular
-    // de lá. Não existe colisão de verdade com plataformas ainda — só
-    // esse chão único, fixo. Migrar isso pra física de verdade
-    // (FXGL/Box2D) depois é tranquilo, porque fica isolado aqui dentro
-    // (o resto do jogo — vida, dano, XP, UI — nem sabe como o
-    // movimento é feito por baixo dos panos).
-    private double velocityY = 0;
-    private boolean isOnGround = false;
+    // Velocidade vertical do pulo (negativo = pra cima; no FXGL/Box2D o
+    // eixo Y cresce pra baixo, igual tela). A gravidade em si não é
+    // mais calculada na mão aqui — quem cuida disso agora é o motor de
+    // física (ver Main.initPhysics(), que define a gravidade do
+    // PhysicsWorld uma vez só, pra todo mundo que tiver física).
+    private static final double JUMP_SPEED = -500;
 
-    private static final double GRAVITY = 1200;    // aceleração pra baixo (px/s^2)
-    private static final double JUMP_FORCE = -500;  // velocidade inicial do pulo (negativo = pra cima)
-    private static final double FLOOR_Y = 400;      // altura fixa do chão, por enquanto
+    // PhysicsComponent do FXGL: é ele quem realmente move a entidade
+    // agora (gravidade, colisão com plataformas). Pego a referência em
+    // onAdded() — chamado quando ESTE componente é anexado à entidade,
+    // momento em que o PhysicsComponent já foi anexado antes dele (ver
+    // ordem dos .with() em FabricaEntidades.spawnJogador()).
+    private PhysicsComponent physics;
 
-    //CONSTRUTOR
-    //Super chama o construtor da superclasse CharacterComponent
     public PlayerComponent(String name, int maxHealth, double moveSpeed) {
         super(name, maxHealth, moveSpeed);
     }
 
-    //onUpdate roda a cada frame do jogo: conta o tempo de
-    //invencibilidade e aplica a gravidade.
+    @Override
+    public void onAdded() {
+        physics = entity.getComponent(PhysicsComponent.class);
+    }
+
     @Override
     public void onUpdate(double tpf) {
         if (invincibilityTimer > 0) {
             invincibilityTimer -= tpf;
-        }
-
-        applyGravity(tpf);
-    }
-
-    // Acumula velocidade vertical a cada frame (gravidade) e move a
-    // entidade por ela. Ao "tocar" o chão fixo, trava a posição em
-    // FLOOR_Y e zera a velocidade — senão o player ia atravessar o
-    // chão (overshoot) e ficar oscilando pra sempre.
-    private void applyGravity(double tpf) {
-        velocityY += GRAVITY * tpf;
-        entity.translateY(velocityY * tpf);
-
-        if (entity.getY() >= FLOOR_Y) {
-            entity.setY(FLOOR_Y);
-            velocityY = 0;
-            isOnGround = true;
-        } else {
-            isOnGround = false;
         }
     }
 
@@ -88,24 +69,34 @@ public class PlayerComponent extends CharacterComponent {
     }
 
     //MOVIMENTO
-    //Chamados pelas UserAction dos controles em initInput().
-    //tpf (time per frame) garante que a velocidade seja igual em
-    //qualquer framerate.
+    //Agora tudo passa pelo PhysicsComponent (setVelocityX/Y) — com
+    //física de verdade a posição é controlada pelo motor, então mexer
+    //nela na mão (entity.translateX, setX...) seria ignorado ou
+    //brigaria com o Box2D.
 
-    //Só pula se estiver no chão — evita pulo duplo/infinito no ar.
+    //Só pula se physics.isOnGround() disser que está no chão (sensor
+    //colado nos pés, configurado na FabricaEntidades) — evita pulo
+    //infinito no ar.
     public void jump() {
-        if (isOnGround) {
-            velocityY = JUMP_FORCE;
-            isOnGround = false;
+        if (physics.isOnGround()) {
+            physics.setVelocityY(JUMP_SPEED);
         }
     }
 
-    public void moveLeft(double tpf) {
-        entity.translateX(-moveSpeed * tpf);
+    public void moveLeft() {
+        physics.setVelocityX(-moveSpeed);
     }
 
-    public void moveRight(double tpf) {
-        entity.translateX(moveSpeed * tpf);
+    public void moveRight() {
+        physics.setVelocityX(moveSpeed);
+    }
+
+    //Chamado quando A ou D é solto (onActionEnd em Main.initInput()) —
+    //zera a velocidade horizontal. Se a outra tecla ainda estiver
+    //segurada, o onAction dela nesse mesmo frame corrige de novo, então
+    //isso não trava/interrompe o movimento contínuo.
+    public void stopHorizontal() {
+        physics.setVelocityX(0);
     }
 
     //XP / LEVEL
