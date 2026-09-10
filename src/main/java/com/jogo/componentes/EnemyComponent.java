@@ -1,6 +1,7 @@
 package com.jogo.componentes;
 
 import com.almasb.fxgl.entity.Entity;
+import com.almasb.fxgl.entity.component.Component;
 
 
 /**
@@ -14,25 +15,25 @@ import com.almasb.fxgl.entity.Entity;
  */
 
 public class EnemyComponent extends CharacterComponent {
-    
+
     //Atributos específicos do inimigo
     protected int damage;
     protected double attackRange;
     protected double detectionRange;
-    
+
     protected boolean isFlying;
     protected boolean isRanged;
     protected boolean isAggressive;
-    
+
     //Alvo que o inimigo vai perseguir/atacar
     //Não preenche no construtor pq quando é criado não possui alvo até ser agressivo
     //setTarget é pra isso
     protected Entity target;
-    
+
     //tempo mínimo entre os ataques (cooldown)
     protected double attackCooldownSeconds = 1.0;
     protected double timeSinceLastAttack = 0;
-    
+
     //CONSTRUTOR
     //Super chama o construtor da superclasse Character
     //Sempre primeira linha, pq a parte comum do objeto
@@ -40,9 +41,9 @@ public class EnemyComponent extends CharacterComponent {
     public EnemyComponent(String name, int maxHealth, double moveSpeed, int damage,
             double attackRange, double detectionRange,
             boolean isFlying, boolean isRanged, boolean isAggressive) {
-        
+
         super(name, maxHealth, moveSpeed);
-        
+
         this.damage = damage;
         this.attackRange = attackRange;
         this.detectionRange = detectionRange;
@@ -50,36 +51,54 @@ public class EnemyComponent extends CharacterComponent {
         this.isRanged = isRanged;
         this.isAggressive = isAggressive;
     }
-    
+
     //COMPORTAMENTO DO INIMIGO
-    
+
     public void setTarget(Entity target) {
         this.target = target;
     }
-    
-       
-    
+
     public void attack(Entity target) {
         //Logica de ataque integrado do FXGL
         //Só ataque se estiver no range
         if (entity.distance(target) > attackRange) {
             return;
         }
-        
-        
+
         //IMPORTANTE ISSO. Explicar depois
-        target.getComponent(CharacterComponent.class).takeDamage(damage);
+        CharacterComponent character = getCharacterComponent(target);
+        if (character != null) {
+            character.takeDamage(damage);
+        }
     }
-    
+
+    // O FXGL guarda cada componente numa entidade usando a classe EXATA
+    // com que ele foi adicionado (ex: PlayerComponent.class), sem olhar
+    // herança. Por isso target.getComponent(CharacterComponent.class)
+    // nunca encontra nada — nenhuma entidade tem literalmente um
+    // "CharacterComponent" puro anexado, só subclasses dele (Player,
+    // Enemy, Flying, Ranged...). Esse helper procura na mão, entre TODOS
+    // os componentes da entidade, um que seja (ou herde de)
+    // CharacterComponent, usando instanceof em vez do getComponent do
+    // FXGL.
+    protected CharacterComponent getCharacterComponent(Entity target) {
+        for (Component c : target.getComponents()) {
+            if (c instanceof CharacterComponent) {
+                return (CharacterComponent) c;
+            }
+        }
+        return null;
+    }
+
     //onUpdate roda cada frame do jogo
-   @Override
+    @Override
     public void onUpdate(double tpf) {
         if (!isAggressive || target == null) {
             return;
         }
+
         followTarget(tpf, attackRange);
     }
-
 
     // Persegue o alvo até chegar em stopDistance; a partir daí, para de
     // andar e ataca (respeitando o cooldown). stopDistance é parâmetro
@@ -98,8 +117,7 @@ public class EnemyComponent extends CharacterComponent {
                 entity.translateX((dx / length) * moveSpeed * tpf);
                 entity.translateY((dy / length) * moveSpeed * tpf);
             }
-        }   
-
+        }
 
         timeSinceLastAttack += tpf;
         boolean inRange = distance <= stopDistance;
@@ -109,5 +127,5 @@ public class EnemyComponent extends CharacterComponent {
             attack(target);
             timeSinceLastAttack = 0;
         }
-    }   
+    }
 }

@@ -38,6 +38,13 @@ public class RangedEnemyComponent extends EnemyComponent {
         //Não tem projetil ainda
         //Deixar Hiago tomar de conta disso, pq as armas tão com ele
         //Até lá, dano instantâneo, só pra efeito de teste mesmo
-        target.getComponent(CharacterComponent.class).takeDamage(damage);
+
+        //getCharacterComponent() é herdado do EnemyComponent — procura
+        //manualmente por instanceof, porque o FXGL não acha componente
+        //por superclasse (só pelo tipo exato).
+        CharacterComponent character = getCharacterComponent(target);
+        if (character != null) {
+            character.takeDamage(damage);
+        }
     }
 }
