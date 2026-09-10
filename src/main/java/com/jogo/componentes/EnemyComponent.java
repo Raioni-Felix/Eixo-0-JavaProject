@@ -73,39 +73,41 @@ public class EnemyComponent extends CharacterComponent {
     
     //onUpdate roda cada frame do jogo
    @Override
-public void onUpdate(double tpf) {
-    if (!isAggressive || target == null) {
-        return;
-    }
-
-    followTarget(tpf, attackRange);
-}
-
-// Persegue o alvo até chegar em stopDistance; a partir daí, para de
-// andar e ataca (respeitando o cooldown). stopDistance é parâmetro
-// de propósito: um inimigo corpo a corpo passa attackRange (chega
-// bem perto pra bater), um ranged pode passar detectionRange (atira
-// de mais longe, sem precisar encostar no alvo).
-protected void followTarget(double tpf, double stopDistance) {
-    double distance = entity.distance(target);
-
-    if (distance > stopDistance) {
-        double dx = target.getX() - entity.getX();
-        double dy = target.getY() - entity.getY();
-        double length = Math.hypot(dx, dy);
-
-        if (length > 0) {
-            entity.translateX((dx / length) * moveSpeed * tpf);
-            entity.translateY((dy / length) * moveSpeed * tpf);
+    public void onUpdate(double tpf) {
+        if (!isAggressive || target == null) {
+            return;
         }
+        followTarget(tpf, attackRange);
     }
 
-    timeSinceLastAttack += tpf;
-    boolean inRange = distance <= stopDistance;
-    boolean endCooldown = timeSinceLastAttack >= attackCooldownSeconds;
 
-    if (inRange && endCooldown) {
-        attack(target);
-        timeSinceLastAttack = 0;
-    }
+    // Persegue o alvo até chegar em stopDistance; a partir daí, para de
+    // andar e ataca (respeitando o cooldown). stopDistance é parâmetro
+    // de propósito: um inimigo corpo a corpo passa attackRange (chega
+    // bem perto pra bater), um ranged pode passar detectionRange (atira
+    // de mais longe, sem precisar encostar no alvo).
+    protected void followTarget(double tpf, double stopDistance) {
+        double distance = entity.distance(target);
+
+        if (distance > stopDistance) {
+            double dx = target.getX() - entity.getX();
+            double dy = target.getY() - entity.getY();
+            double length = Math.hypot(dx, dy);
+
+            if (length > 0) {
+                entity.translateX((dx / length) * moveSpeed * tpf);
+                entity.translateY((dy / length) * moveSpeed * tpf);
+            }
+        }   
+
+
+        timeSinceLastAttack += tpf;
+        boolean inRange = distance <= stopDistance;
+        boolean endCooldown = timeSinceLastAttack >= attackCooldownSeconds;
+
+        if (inRange && endCooldown) {
+            attack(target);
+            timeSinceLastAttack = 0;
+        }
+    }   
 }
