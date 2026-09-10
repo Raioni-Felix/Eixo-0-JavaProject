@@ -8,6 +8,8 @@ import com.jogo.componentes.FlyingEnemyComponent;
 import com.jogo.componentes.PlayerComponent;
 import com.jogo.componentes.RangedEnemyComponent;
 import javafx.scene.input.KeyCode;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 
 import static com.almasb.fxgl.dsl.FXGL.*;
 
@@ -21,6 +23,13 @@ import static com.almasb.fxgl.dsl.FXGL.*;
 public class Main extends GameApplication {
 
     private Entity player;
+
+    // Barra de vida (HUD): fundo escuro fixo + barra colorida que
+    // encolhe conforme o player perde vida.
+    private Rectangle hpBarBackground;
+    private Rectangle hpBarFill;
+    private static final double HP_BAR_WIDTH = 200;
+    private static final double HP_BAR_HEIGHT = 20;
 
     @Override
     protected void initSettings(GameSettings settings) {
@@ -72,6 +81,9 @@ public class Main extends GameApplication {
         getInput().addAction(new UserAction("Mover Cima") {
             @Override
             protected void onAction() {
+                if (!player.isActive()) {
+                    return;
+                }
                 player.getComponent(PlayerComponent.class).moveUp(tpf());
             }
         }, KeyCode.W);
@@ -79,6 +91,9 @@ public class Main extends GameApplication {
         getInput().addAction(new UserAction("Mover Baixo") {
             @Override
             protected void onAction() {
+                if (!player.isActive()) {
+                    return;
+                }
                 player.getComponent(PlayerComponent.class).moveDown(tpf());
             }
         }, KeyCode.S);
@@ -86,6 +101,9 @@ public class Main extends GameApplication {
         getInput().addAction(new UserAction("Mover Esquerda") {
             @Override
             protected void onAction() {
+                if (!player.isActive()) {
+                    return;
+                }
                 player.getComponent(PlayerComponent.class).moveLeft(tpf());
             }
         }, KeyCode.A);
@@ -93,9 +111,49 @@ public class Main extends GameApplication {
         getInput().addAction(new UserAction("Mover Direita") {
             @Override
             protected void onAction() {
+                if (!player.isActive()) {
+                    return;
+                }
                 player.getComponent(PlayerComponent.class).moveRight(tpf());
             }
         }, KeyCode.D);
+    }
+
+    @Override
+    protected void initUI() {
+        // Fundo da barra: cinza escuro, tamanho fixo, sempre no canto
+        // superior esquerdo da tela (coordenadas de UI, não do mundo —
+        // não se mexe quando o player anda).
+        hpBarBackground = new Rectangle(HP_BAR_WIDTH, HP_BAR_HEIGHT, Color.DARKSLATEGRAY);
+        hpBarBackground.setTranslateX(20);
+        hpBarBackground.setTranslateY(20);
+
+        // Barra de vida em si: verde, começa cheia (mesma largura do
+        // fundo) e vai encolhendo conforme currentHealth cai.
+        hpBarFill = new Rectangle(HP_BAR_WIDTH, HP_BAR_HEIGHT, Color.LIMEGREEN);
+        hpBarFill.setTranslateX(20);
+        hpBarFill.setTranslateY(20);
+
+        getGameScene().addUINode(hpBarBackground);
+        getGameScene().addUINode(hpBarFill);
+    }
+
+    @Override
+    protected void onUpdate(double tpf) {
+        // Se o player já morreu (removido do mundo), não tem
+        // PlayerComponent pra consultar — deixa a barra como estava.
+        if (!player.isActive()) {
+            return;
+        }
+
+        PlayerComponent playerComponent = player.getComponent(PlayerComponent.class);
+        double healthPercent = (double) playerComponent.getCurrentHealth() / playerComponent.getMaxHealth();
+
+        hpBarFill.setWidth(HP_BAR_WIDTH * healthPercent);
+
+        // Fica vermelha quando a vida está baixa (abaixo de 30%), pra
+        // dar um aviso visual de perigo.
+        hpBarFill.setFill(healthPercent <= 0.3 ? Color.CRIMSON : Color.LIMEGREEN);
     }
 
     public static void main(String[] args) {

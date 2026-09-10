@@ -1,6 +1,10 @@
 package com.jogo.componentes;
 
 import com.almasb.fxgl.entity.Entity;
+import com.jogo.componentes.visual.ProjectileVisualComponent;
+import javafx.geometry.Point2D;
+
+import static com.almasb.fxgl.dsl.FXGL.entityBuilder;
 
 
 //Enemy sniper herda de EnemyComponent
@@ -35,7 +39,7 @@ public class RangedEnemyComponent extends EnemyComponent {
 
     @Override
     public void attack(Entity target) {
-        //Não tem projetil ainda
+        //Não tem projetil de verdade (com colisão) ainda
         //Deixar Hiago tomar de conta disso, pq as armas tão com ele
         //Até lá, dano instantâneo, só pra efeito de teste mesmo
 
@@ -46,5 +50,21 @@ public class RangedEnemyComponent extends EnemyComponent {
         if (character != null) {
             character.takeDamage(damage);
         }
+
+        spawnProjectileEffect(target);
+    }
+
+    // Cria só o efeito visual do tiro (uma bolinha viajando até onde o
+    // alvo estava no momento do disparo). O dano já foi aplicado acima,
+    // isso aqui é 100% estético.
+    private void spawnProjectileEffect(Entity target) {
+        Point2D origin = entity.getCenter();
+        Point2D targetPoint = target.getCenter();
+
+        entityBuilder()
+                .at(origin.getX(), origin.getY())
+                .viewWithBBox("projectile.png")
+                .with(new ProjectileVisualComponent(targetPoint, 500, origin.distance(targetPoint)))
+                .buildAndAttach();
     }
 }
