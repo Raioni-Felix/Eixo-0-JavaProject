@@ -31,7 +31,7 @@ public class EnemyComponent extends CharacterComponent {
     
     //tempo mínimo entre os ataques (cooldown)
     protected double attackCooldownSeconds = 1.0;
-    private double timeSinceLastAttack = 0;
+    protected double timeSinceLastAttack = 0;
     
     //CONSTRUTOR
     //Super chama o construtor da superclasse Character
@@ -72,61 +72,40 @@ public class EnemyComponent extends CharacterComponent {
     }
     
     //onUpdate roda cada frame do jogo
-    @Override
-    public void onUpdate (double tpf) {
-        if (!isAggressive) {
-            return;
+   @Override
+public void onUpdate(double tpf) {
+    if (!isAggressive || target == null) {
+        return;
+    }
+
+    followTarget(tpf, attackRange);
+}
+
+// Persegue o alvo até chegar em stopDistance; a partir daí, para de
+// andar e ataca (respeitando o cooldown). stopDistance é parâmetro
+// de propósito: um inimigo corpo a corpo passa attackRange (chega
+// bem perto pra bater), um ranged pode passar detectionRange (atira
+// de mais longe, sem precisar encostar no alvo).
+protected void followTarget(double tpf, double stopDistance) {
+    double distance = entity.distance(target);
+
+    if (distance > stopDistance) {
+        double dx = target.getX() - entity.getX();
+        double dy = target.getY() - entity.getY();
+        double length = Math.hypot(dx, dy);
+
+        if (length > 0) {
+            entity.translateX((dx / length) * moveSpeed * tpf);
+            entity.translateY((dy / length) * moveSpeed * tpf);
         }
-        
-        if (target == null) {
-            return;
-        }
-        
-        timeSinceLastAttack += tpf;
-        
-        boolean inRange = entity.distance(target) <= attackRange;
-        boolean endCooldown = timeSinceLastAttack >= attackCooldownSeconds;
-        
-        if (inRange && endCooldown) {
-            attack(target);
-            timeSinceLastAttack = 0;
-        }
     }
-    
-    //GETTERS DO INIMIGO
-    public int getDamage() {
-        return damage;
-    }
-    
-    public double getAttackRange() {
-        return attackRange;
-    }
-    
-    public double getDetectionRange(){
-        return detectionRange;
-    }
-    
-    public boolean isFlying() {
-        return isFlying;
-    }
-    
-    public boolean isRanged() {
-        return isRanged;
-    }
-    
-    public boolean isAggressive() {
-        return isAggressive;
-    }
-    
-    
-    @Override
-    public String toString() {
-            return "Enemy{" +
-                "name='" + name + '\'' +
-                ", hp=" + currentHealth + "/" + maxHealth +
-                ", damage=" + damage +
-                ", flying=" + isFlying +
-                ", ranged=" + isRanged +
-                '}';
+
+    timeSinceLastAttack += tpf;
+    boolean inRange = distance <= stopDistance;
+    boolean endCooldown = timeSinceLastAttack >= attackCooldownSeconds;
+
+    if (inRange && endCooldown) {
+        attack(target);
+        timeSinceLastAttack = 0;
     }
 }
