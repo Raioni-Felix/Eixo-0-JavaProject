@@ -78,25 +78,20 @@ public class Main extends GameApplication {
 
     @Override
     protected void initInput() {
-        getInput().addAction(new UserAction("Mover Cima") {
+        // Side-view agora: não existe mais "mover cima/baixo" livre —
+        // a vertical é gravidade + pulo. onActionBegin() dispara só uma
+        // vez quando a tecla é apertada (não a cada frame como
+        // onAction()), que é o certo pra jump() — senão ele tentaria
+        // pular todo frame enquanto a tecla ficasse segurada.
+        getInput().addAction(new UserAction("Pular") {
             @Override
-            protected void onAction() {
+            protected void onActionBegin() {
                 if (!player.isActive()) {
                     return;
                 }
-                player.getComponent(PlayerComponent.class).moveUp(tpf());
+                player.getComponent(PlayerComponent.class).jump();
             }
-        }, KeyCode.W);
-
-        getInput().addAction(new UserAction("Mover Baixo") {
-            @Override
-            protected void onAction() {
-                if (!player.isActive()) {
-                    return;
-                }
-                player.getComponent(PlayerComponent.class).moveDown(tpf());
-            }
-        }, KeyCode.S);
+        }, KeyCode.SPACE);
 
         getInput().addAction(new UserAction("Mover Esquerda") {
             @Override
@@ -118,6 +113,7 @@ public class Main extends GameApplication {
             }
         }, KeyCode.D);
     }
+
 
     @Override
     protected void initUI() {
@@ -141,8 +137,11 @@ public class Main extends GameApplication {
     @Override
     protected void onUpdate(double tpf) {
         // Se o player já morreu (removido do mundo), não tem
-        // PlayerComponent pra consultar — deixa a barra como estava.
+        // PlayerComponent pra consultar — força a barra a ficar
+        // zerada (em vez de deixar como estava, que podia travar num
+        // valor > 0 dependendo do frame em que a morte aconteceu).
         if (!player.isActive()) {
+            hpBarFill.setWidth(0);
             return;
         }
 

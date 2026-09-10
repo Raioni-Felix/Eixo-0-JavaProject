@@ -1,7 +1,6 @@
 package com.jogo.componentes;
 
 import com.almasb.fxgl.entity.Entity;
-import com.almasb.fxgl.entity.component.Component;
 
 
 /**
@@ -72,28 +71,20 @@ public class EnemyComponent extends CharacterComponent {
         }
     }
 
-    // O FXGL guarda cada componente numa entidade usando a classe EXATA
-    // com que ele foi adicionado (ex: PlayerComponent.class), sem olhar
-    // herança. Por isso target.getComponent(CharacterComponent.class)
-    // nunca encontra nada — nenhuma entidade tem literalmente um
-    // "CharacterComponent" puro anexado, só subclasses dele (Player,
-    // Enemy, Flying, Ranged...). Esse helper procura na mão, entre TODOS
-    // os componentes da entidade, um que seja (ou herde de)
-    // CharacterComponent, usando instanceof em vez do getComponent do
-    // FXGL.
+    // Repassa pro helper estático do CharacterComponent (getFrom) — fica
+    // esse método aqui também só pra não ter que reescrever
+    // "CharacterComponent.getFrom(...)" toda hora nas subclasses.
     protected CharacterComponent getCharacterComponent(Entity target) {
-        for (Component c : target.getComponents()) {
-            if (c instanceof CharacterComponent) {
-                return (CharacterComponent) c;
-            }
-        }
-        return null;
+        return CharacterComponent.getFrom(target);
     }
 
     //onUpdate roda cada frame do jogo
     @Override
     public void onUpdate(double tpf) {
-        if (!isAggressive || target == null) {
+        // !target.isActive() cobre o caso do alvo já ter morrido
+        // (removido do mundo) — sem isso, o inimigo continua
+        // perseguindo/atacando um alvo que não existe mais.
+        if (!isAggressive || target == null || !target.isActive()) {
             return;
         }
 
