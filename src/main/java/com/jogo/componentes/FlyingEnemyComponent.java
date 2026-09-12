@@ -13,16 +13,13 @@ public class FlyingEnemyComponent extends EnemyComponent {
 
     //Tudo fixo (por agora) pra facilitar minha vida
     private double hoverTime = 0;
-    private final double hoverAmplitude = 30; // Amplitude do movimento,
-    // agora em pixels/segundo (velocidade), não mais pixels por frame —
-    // physics.setLinearVelocity trabalha com velocidade, não com
-    // deslocamento direto.
+    private final double hoverAmplitude = 30; //Amplitude, em pixels/segundo (velocidade)
     private final double hoverSpeed = 2; //"frequência" da subida e descida
 
 
     //CONSTRUTOR
     //Super chama o construtor da superclasse EnemyComponent, já fixando
-    //isFlying=true, isRanged=false, isAggressive=true — um
+    //isFlying=true, isRanged=false, isAggressive=true, um
     //FlyingEnemyComponent SEMPRE é assim, quem cria não escolhe isso.
     public FlyingEnemyComponent(String name, int maxHealth, double moveSpeed,
             int damage, double attackRange, double detectionRange) {
@@ -43,13 +40,9 @@ public class FlyingEnemyComponent extends EnemyComponent {
         }
     }
 
-    // Antes: entity.translateY(offset) direto, deslocando a posição na
-    // mão a cada frame. Isso não funciona mais com PhysicsComponent
-    // anexado (a posição da entidade é controlada pelo corpo físico,
-    // que sobrescreveria o translate todo frame). Agora seta uma
-    // VELOCIDADE vertical oscilante (derivada do seno = cosseno) — o
-    // corpo é KINEMATIC (ver FabricaEntidades), então tem física de
-    // verdade mas ignora gravidade, exatamente como o voador precisa.
+    //Seta uma velocidade vertical oscilante (corpo é DYNAMIC com
+    //gravityScale 0, ver FabricaEntidades, física de verdade, sem
+    //gravidade).
     private void hover(double tpf) {
         hoverTime += tpf * hoverSpeed;
         double verticalVelocity = Math.cos(hoverTime) * hoverAmplitude;

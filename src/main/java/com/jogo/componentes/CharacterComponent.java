@@ -78,18 +78,9 @@ public class CharacterComponent extends Component {
                 '}';
     }
 
-    // O FXGL guarda cada componente numa entidade usando a classe EXATA
-    // com que ele foi adicionado (ex: PlayerComponent.class), sem olhar
-    // herança — entity.getComponent(CharacterComponent.class) nunca
-    // encontra nada, porque nenhuma entidade tem um "CharacterComponent"
-    // puro, só subclasses (Player, Enemy, Flying, Ranged...).
-    //
-    // Esse helper estático procura na mão, entre TODOS os componentes
-    // da entidade, um que seja (ou herde de) CharacterComponent, usando
-    // instanceof em vez do getComponent do FXGL. Fica aqui (em vez de
-    // só no EnemyComponent) pra qualquer classe do jogo poder usar,
-    // mesmo uma que não seja um Enemy — como o ProjectileComponent, que
-    // precisa achar o CharacterComponent do alvo pra aplicar dano.
+    //FXGL guarda componente pela classe EXATA, então
+    //getComponent(CharacterComponent.class) nunca acha nada (só
+    //existem subclasses). Esse helper varre e acha por instanceof.
     public static CharacterComponent getFrom(Entity target) {
         for (Component c : target.getComponents()) {
             if (c instanceof CharacterComponent) {

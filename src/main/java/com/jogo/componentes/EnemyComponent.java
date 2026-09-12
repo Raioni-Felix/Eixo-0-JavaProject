@@ -1,6 +1,7 @@
 package com.jogo.componentes;
 
 import com.almasb.fxgl.entity.Entity;
+import com.almasb.fxgl.entity.component.Component;
 import com.almasb.fxgl.physics.PhysicsComponent;
 
 
@@ -34,11 +35,8 @@ public class EnemyComponent extends CharacterComponent {
     protected double attackCooldownSeconds = 1.0;
     protected double timeSinceLastAttack = 0;
 
-    // PhysicsComponent do FXGL — agora o movimento (perseguição, hover
-    // do voador) passa por aqui, via setLinearVelocity/setVelocityX,
-    // em vez de translate na mão. Pego em onAdded(), que roda depois
-    // que o PhysicsComponent já foi anexado à entidade (ver ordem dos
-    // .with() em FabricaEntidades).
+    //PhysicsComponent do FXGL, movimento (perseguição, hover) passa
+    //por aqui agora, via setLinearVelocity/setVelocityX.
     protected PhysicsComponent physics;
 
     //CONSTRUTOR
@@ -70,6 +68,11 @@ public class EnemyComponent extends CharacterComponent {
         this.target = target;
     }
 
+    //Quanto de dano esse inimigo causa (usado no contato com o player)
+    public int getDamage() {
+        return damage;
+    }
+
     public void attack(Entity target) {
         //Logica de ataque integrado do FXGL
         //Só ataque se estiver no range
@@ -84,18 +87,29 @@ public class EnemyComponent extends CharacterComponent {
         }
     }
 
-    // Repassa pro helper estático do CharacterComponent (getFrom) — fica
-    // esse método aqui também só pra não ter que reescrever
-    // "CharacterComponent.getFrom(...)" toda hora nas subclasses.
+    //Repassa pro helper estático (getFrom), pra não reescrever toda hora
     protected CharacterComponent getCharacterComponent(Entity target) {
         return CharacterComponent.getFrom(target);
+    }
+
+    //FXGL guarda componente pela classe EXATA (FlyingEnemyComponent
+    //etc.), então getComponent(EnemyComponent.class) nunca acha nada.
+    //Esse helper varre os componentes reais e devolve o que É/herda
+    //de EnemyComponent, não importa o tipo concreto.
+    public static EnemyComponent getFrom(Entity target) {
+        for (Component c : target.getComponents()) {
+            if (c instanceof EnemyComponent) {
+                return (EnemyComponent) c;
+            }
+        }
+        return null;
     }
 
     //onUpdate roda cada frame do jogo
     @Override
     public void onUpdate(double tpf) {
         // !target.isActive() cobre o caso do alvo já ter morrido
-        // (removido do mundo) — sem isso, o inimigo continua
+        // (removido do mundo), sem isso, o inimigo continua
         // perseguindo/atacando um alvo que não existe mais.
         if (!isAggressive || target == null || !target.isActive()) {
             return;
@@ -104,22 +118,9 @@ public class EnemyComponent extends CharacterComponent {
         followTarget(tpf, attackRange);
     }
 
-    // Persegue o alvo até chegar em stopDistance; a partir daí, para de
-    // andar e ataca (respeitando o cooldown). stopDistance é parâmetro
-    // de propósito: um inimigo corpo a corpo passa attackRange (chega
-    // bem perto pra bater), um ranged pode passar detectionRange (atira
-    // de mais longe, sem precisar encostar no alvo).
-    //
-    // Migrado pra física de verdade (setLinearVelocity), não mais
-    // translate:
-    //  - Voador (isFlying): persegue livremente nos dois eixos — o
-    //    corpo dele é KINEMATIC (ver FabricaEntidades), então tem
-    //    física de verdade (colide, é sólido) mas NÃO sofre gravidade,
-    //    exatamente como antes (ele "voava" livre).
-    //  - Terrestre (ranged): só persegue no eixo X. A vertical é a
-    //    gravidade do corpo DYNAMIC dele — por isso a velocidade Y não
-    //    é mexida aqui, senão ele "flutuaria" até a altura do alvo em
-    //    vez de respeitar o chão/plataforma.
+    //Persegue o alvo até stopDistance, depois para e ataca. Voador
+    //(isFlying) persegue nos dois eixos (física própria, sem
+    //gravidade); terrestre só no X (Y é a gravidade do corpo DYNAMIC).
     protected void followTarget(double tpf, double stopDistance) {
         double distance = entity.distance(target);
 

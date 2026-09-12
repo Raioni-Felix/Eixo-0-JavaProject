@@ -1,7 +1,7 @@
 package com.jogo.entidades;
 
 /**
- * Tipos de entidade do jogo — usado pela FabricaEntidades (.type(...))
+ * Tipos de entidade do jogo, usado pela FabricaEntidades (.type(...))
  * e disponível pra quem precisar filtrar/consultar entidades por tipo
  * (ex.: colisões, getGameWorld().getEntitiesByType(...)).
  */

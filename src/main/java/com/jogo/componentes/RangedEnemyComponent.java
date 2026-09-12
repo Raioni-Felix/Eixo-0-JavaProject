@@ -21,11 +21,15 @@ public class RangedEnemyComponent extends EnemyComponent {
 
         super(name, maxHealth, moveSpeed, damage, attackRange, detectionRange,
                 false, true, true);
+
+        //Cadência mais lenta que o padrão (1.0s, pensado pro corpo a
+        //corpo), dá tempo do player se esquivar entre um tiro e outro.
+        attackCooldownSeconds = 2.5;
     }
 
     @Override
     public void onUpdate(double tpf) {
-        // !target.isActive() cobre o alvo já ter morrido — sem isso o
+        // !target.isActive() cobre o alvo já ter morrido, sem isso o
         // atirador continua "atirando" num player que já não existe
         // mais (e ficaria assim pra sempre, já que isAggressive nunca
         // vira false sozinho).
@@ -34,7 +38,7 @@ public class RangedEnemyComponent extends EnemyComponent {
         }
 
         // Usa detectionRange como distância de parada, em vez de
-        // attackRange (que seria corpo a corpo) — persegue até ficar
+        // attackRange (que seria corpo a corpo). Persegue até ficar
         // "de longe o suficiente" pra atirar, não precisa encostar
         followTarget(tpf, detectionRange);
     }
@@ -42,14 +46,14 @@ public class RangedEnemyComponent extends EnemyComponent {
 
     @Override
     public void attack(Entity target) {
-        // O dano NÃO é mais aplicado aqui — só o ProjectileComponent
+        // O dano NÃO é mais aplicado aqui, só o ProjectileComponent
         // aplica, e só quando o projétil realmente alcança o alvo.
         // attack() agora só dispara o projétil.
         spawnProjectile(target);
     }
 
     // Cria o projétil de verdade: agora passa pela FabricaEntidades
-    // (@Spawns("projetil")) em vez de montar a entidade na mão aqui —
+    // (@Spawns("projetil")) em vez de montar a entidade na mão aqui,
     // essa é a parte do padrão do NetBeans (EntityFactory + @Spawns)
     // que foi incorporada. O SpawnData carrega a posição (x, y) e os
     // dados extras que o ProjectileComponent precisa: origem (pra
