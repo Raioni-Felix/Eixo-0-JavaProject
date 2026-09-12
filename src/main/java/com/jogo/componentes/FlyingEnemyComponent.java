@@ -7,16 +7,17 @@ package com.jogo.componentes;
 //  que é o que diferencia um inimigo voado de um inimigo terrestre.
 
 public class FlyingEnemyComponent extends EnemyComponent {
-    
+
     //Só pra efeito visual e fazer o enemy voar subindo e descendo
     //em loop. Nada a ver com perseguir o alvo, só aesthetic mesmo.
 
-
     //Tudo fixo (por agora) pra facilitar minha vida
     private double hoverTime = 0;
-    private final double hoverAmplitude = 5; // Amplitude do
-    //movimento de subida e descida
-    private final double hoverSpeed = 2; //Movespeed da subida e descida
+    private final double hoverAmplitude = 30; // Amplitude do movimento,
+    // agora em pixels/segundo (velocidade), não mais pixels por frame —
+    // physics.setLinearVelocity trabalha com velocidade, não com
+    // deslocamento direto.
+    private final double hoverSpeed = 2; //"frequência" da subida e descida
 
 
     //CONSTRUTOR
@@ -42,9 +43,16 @@ public class FlyingEnemyComponent extends EnemyComponent {
         }
     }
 
+    // Antes: entity.translateY(offset) direto, deslocando a posição na
+    // mão a cada frame. Isso não funciona mais com PhysicsComponent
+    // anexado (a posição da entidade é controlada pelo corpo físico,
+    // que sobrescreveria o translate todo frame). Agora seta uma
+    // VELOCIDADE vertical oscilante (derivada do seno = cosseno) — o
+    // corpo é KINEMATIC (ver FabricaEntidades), então tem física de
+    // verdade mas ignora gravidade, exatamente como o voador precisa.
     private void hover(double tpf) {
         hoverTime += tpf * hoverSpeed;
-        double offset = Math.sin(hoverTime) * hoverAmplitude * tpf;
-        entity.translateY(offset);
+        double verticalVelocity = Math.cos(hoverTime) * hoverAmplitude;
+        physics.setLinearVelocity(0, verticalVelocity);
     }
 }

@@ -13,6 +13,7 @@ import com.almasb.fxgl.physics.box2d.dynamics.FixtureDef;
 import com.jogo.componentes.FlyingEnemyComponent;
 import com.jogo.componentes.PlayerComponent;
 import com.jogo.componentes.RangedEnemyComponent;
+import com.jogo.componentes.MeleeEnemyComponent;
 import com.jogo.componentes.visual.ProjectileComponent;
 import com.jogo.entidades.EntityType;
 import javafx.geometry.Point2D;
@@ -24,14 +25,6 @@ import static com.almasb.fxgl.dsl.FXGL.entityBuilder;
 /**
  * Fábrica central de entidades do jogo.
  *
- * Ideia trazida da versão que o time estava fazendo no NetBeans
- * (EntityFactory + @Spawns) — em vez de descartar, foi incorporada
- * aqui em cima do que já tínhamos: ela só organiza a CRIAÇÃO das
- * entidades num lugar só (via FXGL.spawn("nome", dados)), delegando o
- * comportamento de cada uma pros componentes que já existiam
- * (PlayerComponent, FlyingEnemyComponent, RangedEnemyComponent,
- * ProjectileComponent).
- *
  * Registrada uma vez em Main.initGame():
  *   getGameWorld().addEntityFactory(new FabricaEntidades());
  *
@@ -41,16 +34,15 @@ import static com.almasb.fxgl.dsl.FXGL.entityBuilder;
  * não existir — por isso todo spawn precisa vir com todos os .put()
  * necessários (não tem valor "default" escondido aqui).
  *
- * NOVO (migração pra física real): jogador e plataformas agora ganham
- * um PhysicsComponent (motor Box2D do FXGL) — é ele quem lida com
- * gravidade e colisão de verdade agora, não mais a gravidade manual
- * que tínhamos no PlayerComponent. Os inimigos (voador/ranged) ainda
- * NÃO têm física: continuam se movendo na mão (translateX/Y dentro de
- * EnemyComponent/FlyingEnemyComponent/RangedEnemyComponent), porque
- * dar PhysicsComponent a eles exigiria reescrever aquela lógica de
- * perseguição pra usar velocidade em vez de translate — fica pra um
- * próximo passo, se/quando fizer sentido eles também pisarem em
- * plataforma.
+ * NOVO (migração pra física real): jogador, inimigos e plataformas
+ * agora têm um PhysicsComponent (motor Box2D do FXGL) — gravidade e
+ * colisão de verdade, não mais translate/gravidade manual na mão.
+ *  - Jogador e inimigo ranged (terrestre): corpo DYNAMIC — caem,
+ *    colidem com plataformas.
+ *  - Inimigo voador: corpo KINEMATIC — tem física (colide, é sólido),
+ *    mas NÃO sofre gravidade, porque kinematic ignora gravidade/forças
+ *    no Box2D (só se move quando a gente seta velocidade nele).
+ *  - Plataforma: corpo STATIC — nunca se move, só serve de chão.
  */
 public class FabricaEntidades implements EntityFactory {
 
@@ -100,9 +92,20 @@ public class FabricaEntidades implements EntityFactory {
         double attackRange = data.get("attackRange");
         double detectionRange = data.get("detectionRange");
 
+        // KINEMATIC: tem física de verdade (colide, é sólido pros
+        // outros corpos), mas o Box2D nunca aplica gravidade/força
+        // nele — só se move quando a gente seta velocidade na mão (é
+        // exatamente isso que EnemyComponent.followTarget()/
+        // FlyingEnemyComponent.hover() fazem). Não precisa de
+        // fixedRotation nem de FixtureDef especial: corpo kinematic não
+        // reage a torque/força de qualquer forma.
+        var physics = new PhysicsComponent();
+        physics.setBodyType(BodyType.KINEMATIC);
+
         return entityBuilder(data)
                 .type(EntityType.INIMIGO_VOADOR)
                 .viewWithBBox("enemy.png")
+                .with(physics)
                 .with(new FlyingEnemyComponent(name, maxHealth, moveSpeed, damage, attackRange, detectionRange))
                 .build();
     }
@@ -116,10 +119,50 @@ public class FabricaEntidades implements EntityFactory {
         double attackRange = data.get("attackRange");
         double detectionRange = data.get("detectionRange");
 
+        // DYNAMIC igual o player: sofre gravidade, cai e pisa nas
+        // plataformas. fixedRotation pelo mesmo motivo do player (não
+        // deixar ele tombar ao encostar do lado em algo).
+        var physics = new PhysicsComponent();
+
+        var bodyDef = new BodyDef();
+        bodyDef.setType(BodyType.DYNAMIC);
+        bodyDef.setFixedRotation(true);
+        physics.setBodyDef(bodyDef);
+        physics.setFixtureDef(new FixtureDef().friction(0.2f).density(1f));
+
         return entityBuilder(data)
                 .type(EntityType.INIMIGO_RANGED)
                 .viewWithBBox("enemy.png")
+                .with(physics)
                 .with(new RangedEnemyComponent(name, maxHealth, moveSpeed, damage, attackRange, detectionRange))
+                .build();
+    }
+
+    @Spawns ("inimigo_melee")
+    public Entity spawnInimigoMelee(SpawnData data) {
+        String name = data.get("name");
+        int maxHealth = data.get("maxHealth");
+        double moveSpeed = data.get("moveSpeed");
+        int damage = data.get("damage");
+        double attackRange = data.get("attackRange");
+        double detectionRange = data.get("detectionRange");
+
+        // Mesma física do ranged: DYNAMIC (cai, pisa em plataforma) +
+        // fixedRotation (não tomba ao encostar do lado em algo).
+
+        var physics = new PhysicsComponent();
+
+        var bodyDef = new BodyDef();
+        bodyDef.setType(BodyType.DYNAMIC);
+        bodyDef.setFixedRotation(true);
+        physics.setBodyDef(bodyDef);
+        physics.setFixtureDef(new FixtureDef().friction(0.2f).density(1f));
+
+        return entityBuilder(data)
+                .type(EntityType.INIMIGO_MELEE)
+                .viewWithBBox("enemy.png")
+                .with(physics)
+                .with(new MeleeEnemyComponent(name, maxHealth, moveSpeed, damage, attackRange, detectionRange))
                 .build();
     }
 

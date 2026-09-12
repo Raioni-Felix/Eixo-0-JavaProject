@@ -8,6 +8,7 @@ import com.almasb.fxgl.input.UserAction;
 import com.jogo.componentes.FlyingEnemyComponent;
 import com.jogo.componentes.PlayerComponent;
 import com.jogo.componentes.RangedEnemyComponent;
+import com.jogo.componentes.MeleeEnemyComponent;
 import com.jogo.factories.FabricaEntidades;
 import javafx.scene.input.KeyCode;
 import javafx.scene.paint.Color;
@@ -112,6 +113,15 @@ public class Main extends GameApplication {
                 .put("attackRange", 40.0)
                 .put("detectionRange", 300.0));
         rangedEnemy.getComponent(RangedEnemyComponent.class).setTarget(player);
+
+        Entity meleeEnemy = spawn("inimigo_melee", new SpawnData(400, 450)
+                .put("name", "Espadachim")
+                .put("maxHealth", 50)
+                .put("moveSpeed", 70.0)
+                .put("damage", 15)
+                .put("attackRange", 30.0)
+                .put("detectionRange", 200.0));
+        meleeEnemy.getComponent(MeleeEnemyComponent.class).setTarget(player);
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.jogo.componentes;
 
 import com.almasb.fxgl.entity.Entity;
+import com.almasb.fxgl.physics.PhysicsComponent;
 
 
 /**
@@ -33,6 +34,13 @@ public class EnemyComponent extends CharacterComponent {
     protected double attackCooldownSeconds = 1.0;
     protected double timeSinceLastAttack = 0;
 
+    // PhysicsComponent do FXGL — agora o movimento (perseguição, hover
+    // do voador) passa por aqui, via setLinearVelocity/setVelocityX,
+    // em vez de translate na mão. Pego em onAdded(), que roda depois
+    // que o PhysicsComponent já foi anexado à entidade (ver ordem dos
+    // .with() em FabricaEntidades).
+    protected PhysicsComponent physics;
+
     //CONSTRUTOR
     //Super chama o construtor da superclasse Character
     //Sempre primeira linha, pq a parte comum do objeto
@@ -49,6 +57,11 @@ public class EnemyComponent extends CharacterComponent {
         this.isFlying = isFlying;
         this.isRanged = isRanged;
         this.isAggressive = isAggressive;
+    }
+
+    @Override
+    public void onAdded() {
+        physics = entity.getComponent(PhysicsComponent.class);
     }
 
     //COMPORTAMENTO DO INIMIGO
@@ -96,17 +109,40 @@ public class EnemyComponent extends CharacterComponent {
     // de propósito: um inimigo corpo a corpo passa attackRange (chega
     // bem perto pra bater), um ranged pode passar detectionRange (atira
     // de mais longe, sem precisar encostar no alvo).
+    //
+    // Migrado pra física de verdade (setLinearVelocity), não mais
+    // translate:
+    //  - Voador (isFlying): persegue livremente nos dois eixos — o
+    //    corpo dele é KINEMATIC (ver FabricaEntidades), então tem
+    //    física de verdade (colide, é sólido) mas NÃO sofre gravidade,
+    //    exatamente como antes (ele "voava" livre).
+    //  - Terrestre (ranged): só persegue no eixo X. A vertical é a
+    //    gravidade do corpo DYNAMIC dele — por isso a velocidade Y não
+    //    é mexida aqui, senão ele "flutuaria" até a altura do alvo em
+    //    vez de respeitar o chão/plataforma.
     protected void followTarget(double tpf, double stopDistance) {
         double distance = entity.distance(target);
 
         if (distance > stopDistance) {
             double dx = target.getX() - entity.getX();
             double dy = target.getY() - entity.getY();
-            double length = Math.hypot(dx, dy);
 
-            if (length > 0) {
-                entity.translateX((dx / length) * moveSpeed * tpf);
-                entity.translateY((dy / length) * moveSpeed * tpf);
+            if (isFlying) {
+                double length = Math.hypot(dx, dy);
+                double vx = length > 0 ? (dx / length) * moveSpeed : 0;
+                double vy = length > 0 ? (dy / length) * moveSpeed : 0;
+                physics.setLinearVelocity(vx, vy);
+            } else {
+                physics.setVelocityX(dx > 0 ? moveSpeed : -moveSpeed);
+            }
+        } else {
+            // Perto o suficiente pra atacar: para de andar. Pro
+            // terrestre só zera a horizontal (deixa a gravidade seguir
+            // seu curso, senão ele "flutuaria" parado no ar).
+            if (isFlying) {
+                physics.setLinearVelocity(0, 0);
+            } else {
+                physics.setVelocityX(0);
             }
         }
 
