@@ -13,21 +13,29 @@ import com.almasb.fxgl.physics.PhysicsComponent;
  * score), o movimento (via física de verdade) e o empurrão (recoil)
  * de contato com inimigos.
  */
+
+
 public class PlayerComponent extends CharacterComponent {
 
     //Atributos de invencibilidade
     protected double invincibilityDuration = 1.0; //segundos de invencibilidade após tomar dano
     private double invincibilityTimer = 0;
 
+
+
     //Atributos de progressão (XP / level)
     protected int level = 1;
     protected int xp = 0;
     protected int xpToNextLevel = 100;
 
+
+
     //Velocidade vertical do pulo (negativo é pra cima, no FXGL/Box2D o
     //eixo Y cresce pra baixo, igual tela). A gravidade quem cuida é o
     //motor de física agora (Main.initPhysics()).
     private static final double JUMP_SPEED = -500;
+
+
 
     //Força do empurrão de contato (recoil). Sempre pra direção oposta
     //de onde o player está olhando (facingRight), não mais baseada na
@@ -36,11 +44,15 @@ public class PlayerComponent extends CharacterComponent {
     private static final double KNOCKBACK_HORIZONTAL_SPEED = 220;
     private static final double KNOCKBACK_UPWARD_SPEED = 260;
 
+
+
     //Player não tem atrito nenhum (friction 0, ver FabricaEntidades),
     //então sem isso o empurrão do knockback deslizava pra sempre se
     //não apertasse nenhuma tecla. Corta a velocidade horizontal quando
     //zera (mesma janela do hit-stun).
     private double knockbackRecoveryTimer = 0;
+
+
 
     //"Hit-stun" de verdade, só trava o CONTROLE do player (ver
     //isStunned()) por essa janela bem curta, bem menor que
@@ -48,6 +60,8 @@ public class PlayerComponent extends CharacterComponent {
     //dano/invencibilidade, 1s). Sem essa separação o movimento ficava
     //travado o segundo inteiro, e piorava o "preso entre inimigos".
     private static final double HIT_STUN_DURATION = 0.2;
+
+
 
     //Por quanto tempo o player fica piscando depois de um hit. Só
     //efeito visual, não mexe em colisão nem física. O empurrão roda
@@ -211,7 +225,7 @@ public class PlayerComponent extends CharacterComponent {
     }
 
     //XP / LEVEL
-    //Metroidvania não tem score, então progressão vem de subir de
+    //Metroidvania, então a progressão vem de subir de
     //nível: ganhar XP suficiente aumenta o level e melhora os
     //atributos do personagem (vida e velocidade), curando ele.
     public void addXp(int quant) {

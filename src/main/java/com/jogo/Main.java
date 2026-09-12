@@ -23,6 +23,7 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 
 import static com.almasb.fxgl.dsl.FXGL.*;
+import com.almasb.fxgl.texture.Texture;
 
 /**
  * Ponto de entrada do jogo.
@@ -87,11 +88,9 @@ public class Main extends GameApplication {
         getGameWorld().addEntityFactory(new FabricaEntidades());
 
         entityBuilder()
-                .at(0, 0)
-                .view(texture("background.png", LEVEL_WIDTH, LEVEL_HEIGHT))
-                .zIndex(-100) // fundo atrás de tudo
+                .view(new Texture(image("background.png")))
+                .zIndex(-1) // fundo atrás de tudo
                 .buildAndAttach();
-
         //O mapa: chão cobrindo o nível inteiro + plataformas
         //espalhadas. Plataforma é um corpo estático, não se move, ver
         //FabricaEntidades.spawnPlataforma.

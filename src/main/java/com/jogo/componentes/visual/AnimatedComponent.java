@@ -41,6 +41,8 @@ public class AnimatedComponent extends Component {
         currentState = newState;
     }
 
+
+
     public AnimState getState() {
         return currentState;
     }
