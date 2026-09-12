@@ -303,7 +303,7 @@ public class FabricaEntidades implements EntityFactory {
         return entityBuilder(data)
                 .type(EntityType.PLATAFORMA)
                 .bbox(new HitBox(BoundingShape.box(width, height)))
-                .view(new Rectangle(width, height, Color.SADDLEBROWN))
+                .view(new Rectangle(width, height, Color.BLACK))
                 .with(physics)
                 .build();
     }

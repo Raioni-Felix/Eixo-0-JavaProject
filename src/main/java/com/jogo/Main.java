@@ -87,10 +87,24 @@ public class Main extends GameApplication {
         //dados) em vez de entityBuilder() solto aqui no Main.
         getGameWorld().addEntityFactory(new FabricaEntidades());
 
-        entityBuilder()
-                .view(new Texture(image("background.png")))
-                .zIndex(-1) // fundo atrás de tudo
-                .buildAndAttach();
+        //Background repetido lado a lado (tiling) cobrindo o nível
+        //inteiro. A imagem original é 320x240, então estica só a
+        //altura pra 600 (LEVEL_HEIGHT) e repete na horizontal até
+        //cobrir os 3000 de largura (LEVEL_WIDTH).
+        int tileWidth = 320;
+        int tiles = (int) Math.ceil(LEVEL_WIDTH / tileWidth);
+
+        for (int i = 0; i < tiles; i++) {
+            Texture bg = new Texture(image("background.png"));
+            bg.setFitHeight(LEVEL_HEIGHT);
+
+            entityBuilder()
+                    .at(i * tileWidth, 0)
+                    .view(bg)
+                    .zIndex(-1) // fundo atrás de tudo
+                    .buildAndAttach();
+        }
+
         //O mapa: chão cobrindo o nível inteiro + plataformas
         //espalhadas. Plataforma é um corpo estático, não se move, ver
         //FabricaEntidades.spawnPlataforma.
