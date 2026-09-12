@@ -12,18 +12,39 @@ import com.jogo.componentes.RangedEnemyComponent;
 import com.jogo.componentes.visual.BackgroundAnimationComponent;
 import com.almasb.fxgl.texture.Texture;
 import com.jogo.factories.FabricaEntidades;
+import javafx.animation.Interpolator;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.ScaleTransition;
+import javafx.animation.Timeline;
+import javafx.animation.TranslateTransition;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Cursor;
+import javafx.scene.Group;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
+import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.CycleMethod;
+import javafx.scene.paint.LinearGradient;
+import javafx.scene.paint.RadialGradient;
+import javafx.scene.paint.Stop;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
+import javafx.util.Duration;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -61,6 +82,12 @@ public class Main extends GameApplication {
     //novo a cada frame enquanto o player continuar morto.
     private StackPane gameOverOverlay;
     private boolean gameOverShown = false;
+
+    //Menu principal: aparece visível desde o início (ver initUI()),
+    //com o motor já pausado, e só libera o jogo quando aperta
+    //"Jogar". Só aparece uma vez no começo do app, não reaparece ao
+    //reiniciar depois de um Game Over (initUI() roda só uma vez).
+    private StackPane mainMenuOverlay;
 
     @Override
     protected void initSettings(GameSettings settings) {
@@ -106,6 +133,24 @@ public class Main extends GameApplication {
             return new Image(stream, 1000, 180, true, false);
         } catch (Exception e) {
             throw new RuntimeException("Falha ao carregar frame do background: " + path, e);
+        }
+    }
+
+    //Carrega a arte de fundo do menu principal (corredor de cryo-lab,
+    //320x180... na real 320x240). É uma imagem só, pequena, então
+    //carrega no tamanho nativo mesmo (sem downscale, diferente do
+    //loadCryoLabFrame) e a exibição (ImageView) que estica pro
+    //tamanho da tela, sem suavizar, pra manter o pixel art nítido.
+    private Image loadMenuBackgroundImage() {
+        String path = "/assets/textures/menu/scifi-lab.png";
+
+        try (InputStream stream = Main.class.getResourceAsStream(path)) {
+            if (stream == null) {
+                throw new IllegalStateException("Imagem não encontrada: " + path);
+            }
+            return new Image(stream);
+        } catch (Exception e) {
+            throw new RuntimeException("Falha ao carregar fundo do menu: " + path, e);
         }
     }
 
@@ -321,6 +366,14 @@ public class Main extends GameApplication {
         // Instancia a tela de Game Over e adiciona à cena
         gameOverOverlay = buildGameOverOverlay();
         getGameScene().addUINode(gameOverOverlay);
+
+        //Menu principal, já visível por cima de tudo, e pausa o
+        //motor aqui (initUI roda depois do initGame/initPhysics,
+        //então o mundo já existe e pausar não quebra nada). Só
+        //despausa no startGame(), quando aperta "Jogar".
+        mainMenuOverlay = buildMainMenuOverlay();
+        getGameScene().addUINode(mainMenuOverlay);
+        getGameController().pauseEngine();
     }
 
     //Painel de Game Over: fundo escuro semi transparente cobrindo a
@@ -363,23 +416,322 @@ public class Main extends GameApplication {
         return overlay;
     }
 
+    //Painel do menu principal: aparece visível desde o início (o
+    //motor já nasce pausado, ver initUI()), some quando aperta
+    //"Jogar". Layout baseado no mockup "EIXO Game Main Menu" que o
+    //Lincoln mandou (imagem de fundo do corredor de cryo-lab +
+    //título com aberração cromática + linhas/scanlines/vinheta +
+    //itens de menu estilo HUD). A fonte "Press Start 2P" do mockup
+    //não é uma fonte instalada por padrão, então usa Consolas em
+    //negrito no lugar (mesma família usada no resto da UI).
+    private StackPane buildMainMenuOverlay() {
+        double width = getAppWidth();
+        double height = getAppHeight();
+
+        //Camada 1: imagem de fundo (corredor de cryo-lab), esticada
+        //pra cobrir a tela toda sem suavizar (mantém o pixel art
+        //nítido, mesma técnica do background animado do nível).
+        ImageView background = new ImageView(loadMenuBackgroundImage());
+        background.setFitWidth(width);
+        background.setFitHeight(height);
+        background.setSmooth(false);
+
+        //Camada 2: vinheta (escurece as bordas, deixa o centro mais
+        //visível) via gradiente radial.
+        Rectangle vignette = new Rectangle(width, height);
+        vignette.setFill(new RadialGradient(
+                0, 0, 0.5, 0.45, 0.75, true, CycleMethod.NO_CYCLE,
+                new Stop(0.28, Color.rgb(6, 16, 26, 0)),
+                new Stop(1.0, Color.rgb(4, 10, 18, 0.86))
+        ));
+        vignette.setMouseTransparent(true);
+
+        //Camada 3: scanlines (listras horizontais bem sutis), efeito
+        //de monitor CRT antigo/holograma.
+        Node scanlines = buildScanlineOverlay(width, height);
+
+        //Camada 4: uma faixa de brilho ciano que desce a tela em
+        //loop, feito só pra dar uma sensação de "scanner" ativo.
+        Rectangle sweep = new Rectangle(width, 160);
+        sweep.setFill(new LinearGradient(
+                0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.rgb(77, 232, 212, 0)),
+                new Stop(0.5, Color.rgb(77, 232, 212, 0.055)),
+                new Stop(1, Color.rgb(77, 232, 212, 0))
+        ));
+        sweep.setMouseTransparent(true);
+        sweep.setTranslateY(-160);
+
+        TranslateTransition sweepAnim = new TranslateTransition(Duration.seconds(7), sweep);
+        sweepAnim.setFromY(-160);
+        sweepAnim.setToY(height + 160);
+        sweepAnim.setInterpolator(Interpolator.LINEAR);
+        sweepAnim.setCycleCount(TranslateTransition.INDEFINITE);
+        sweepAnim.play();
+
+        //Linha "CRYOGENIC DIVISION" com tracinhos dos dois lados.
+        Rectangle divisionLineLeft = new Rectangle(56, 1, Color.web("#4de8d4"));
+        Text divisionLabel = new Text(spaced("CRYOGENIC DIVISION"));
+        divisionLabel.setFont(Font.font("Consolas", FontWeight.NORMAL, 11));
+        divisionLabel.setFill(Color.web("#4de8d4"));
+        divisionLabel.setOpacity(0.7);
+        Rectangle divisionLineRight = new Rectangle(56, 1, Color.web("#4de8d4"));
+        HBox divisionRow = new HBox(18, divisionLineLeft, divisionLabel, divisionLineRight);
+        divisionRow.setAlignment(Pos.CENTER);
+
+        //Título "EIXO 0" com aberração cromática (cópias azul/magenta
+        //levemente deslocadas atrás do texto ciano principal) +
+        //brilho neon, igual o mockup.
+        Node eixoText = buildAberratedText("EIXO", 64, "#dffdf7", 22);
+        Rectangle titleDivider = new Rectangle(34, 6, Color.web("#4de8d4"));
+        titleDivider.setEffect(new DropShadow(16, Color.web("#4de8d4")));
+        Node zeroText = buildAberratedText("0", 64, "#4de8d4", 26);
+
+        HBox titleRow = new HBox(22, eixoText, titleDivider, zeroText);
+        titleRow.setAlignment(Pos.CENTER);
+
+        Text protocolLabel = new Text(spaced("SUBJECT ZERO PROTOCOL"));
+        protocolLabel.setFont(Font.font("Consolas", FontWeight.NORMAL, 10));
+        protocolLabel.setFill(Color.web("#6fb3c4"));
+
+        VBox titleContent = new VBox(18, titleRow, protocolLabel);
+        titleContent.setAlignment(Pos.CENTER);
+
+        //Painel do título: fundo escuro translúcido, borda superior
+        //ciano e inferior azul-petróleo, com 4 "cantos" decorativos
+        //(estilo mira/HUD) por cima.
+        StackPane titlePanel = new StackPane(titleContent);
+        titlePanel.setPadding(new Insets(26, 44, 26, 44));
+        titlePanel.setStyle(
+                "-fx-background-color: rgba(6,20,30,0.72);"
+                + " -fx-border-color: #4de8d4 transparent #1c5f74 transparent;"
+                + " -fx-border-width: 2 0 2 0;"
+                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 24, 0, 0, 0);"
+        );
+
+        AnchorPane titleWrapper = new AnchorPane(titlePanel);
+        AnchorPane.setTopAnchor(titlePanel, 0.0);
+        AnchorPane.setLeftAnchor(titlePanel, 0.0);
+        AnchorPane.setRightAnchor(titlePanel, 0.0);
+        AnchorPane.setBottomAnchor(titlePanel, 0.0);
+
+        Node cornerTopLeft = buildCornerBracket("#4de8d4");
+        Node cornerTopRight = buildCornerBracket("#4de8d4");
+        Node cornerBottomLeft = buildCornerBracket("#1c5f74");
+        Node cornerBottomRight = buildCornerBracket("#1c5f74");
+        AnchorPane.setTopAnchor(cornerTopLeft, -6.0);
+        AnchorPane.setLeftAnchor(cornerTopLeft, -6.0);
+        AnchorPane.setTopAnchor(cornerTopRight, -6.0);
+        AnchorPane.setRightAnchor(cornerTopRight, -6.0);
+        AnchorPane.setBottomAnchor(cornerBottomLeft, -6.0);
+        AnchorPane.setLeftAnchor(cornerBottomLeft, -6.0);
+        AnchorPane.setBottomAnchor(cornerBottomRight, -6.0);
+        AnchorPane.setRightAnchor(cornerBottomRight, -6.0);
+        titleWrapper.getChildren().addAll(cornerTopLeft, cornerTopRight, cornerBottomLeft, cornerBottomRight);
+
+        VBox titleBlock = new VBox(14, divisionRow, titleWrapper);
+        titleBlock.setAlignment(Pos.CENTER);
+
+        //Itens do menu: linhas estilo HUD (indicador + label + tecla
+        //de atalho), em vez de botões redondos comuns.
+        Region playRow = buildMenuRow("PLAY", "ENTER", true, this::startGame);
+        Region optionsRow = buildMenuRow("OPTIONS", "O", false, null);
+        Region quitRow = buildMenuRow("QUIT", "ESC", false, () -> getGameController().exit());
+        VBox menuRows = new VBox(10, playRow, optionsRow, quitRow);
+        menuRows.setAlignment(Pos.CENTER);
+
+        VBox centerContent = new VBox(76, titleBlock, menuRows);
+        centerContent.setAlignment(Pos.CENTER);
+
+        Text footerLeft = new Text(spaced("CRYOBAY 7 · SYS v0.4.1"));
+        footerLeft.setFont(Font.font("Consolas", 10));
+        footerLeft.setFill(Color.web("#3f7a96"));
+
+        Text footerRight = new Text(spaced("SELECT ENTER CONFIRM"));
+        footerRight.setFont(Font.font("Consolas", 10));
+        footerRight.setFill(Color.web("#3f7a96"));
+
+        StackPane overlay = new StackPane(background, vignette, scanlines, sweep, centerContent, footerLeft, footerRight);
+        overlay.setPrefSize(width, height);
+        StackPane.setAlignment(sweep, Pos.TOP_LEFT);
+        StackPane.setAlignment(centerContent, Pos.CENTER);
+        StackPane.setAlignment(footerLeft, Pos.BOTTOM_LEFT);
+        StackPane.setMargin(footerLeft, new Insets(0, 0, 22, 28));
+        StackPane.setAlignment(footerRight, Pos.BOTTOM_RIGHT);
+        StackPane.setMargin(footerRight, new Insets(0, 28, 22, 0));
+
+        return overlay;
+    }
+
+    //Overlay de scanlines: um monte de linhas horizontais finas e bem
+    //translúcidas, geradas uma vez só na construção do menu (não é
+    //por frame, então não pesa nada).
+    private Node buildScanlineOverlay(double width, double height) {
+        Pane pane = new Pane();
+        pane.setPrefSize(width, height);
+        pane.setMouseTransparent(true);
+
+        for (double y = 0; y < height; y += 4) {
+            Rectangle line = new Rectangle(width, 2, Color.rgb(0, 0, 0, 0.3));
+            line.setLayoutY(y);
+            pane.getChildren().add(line);
+        }
+
+        return pane;
+    }
+
+    //Texto com "aberração cromática": duas cópias levemente
+    //deslocadas (azul e magenta) atrás do texto principal, técnica
+    //visual do mockup pra dar aquele efeito de tela/holograma com
+    //leve desalinhamento de cor.
+    private Node buildAberratedText(String text, double size, String mainColorHex, double glowRadius) {
+        Text ghostBlue = new Text(text);
+        ghostBlue.setFont(Font.font("Consolas", FontWeight.BLACK, size));
+        ghostBlue.setFill(Color.web("#1f4e8c"));
+        ghostBlue.setOpacity(0.85);
+        ghostBlue.setTranslateX(-3);
+        ghostBlue.setTranslateY(2);
+
+        Text ghostMagenta = new Text(text);
+        ghostMagenta.setFont(Font.font("Consolas", FontWeight.BLACK, size));
+        ghostMagenta.setFill(Color.web("#7a2f4a"));
+        ghostMagenta.setOpacity(0.7);
+        ghostMagenta.setTranslateX(3);
+        ghostMagenta.setTranslateY(-2);
+
+        Text front = new Text(text);
+        front.setFont(Font.font("Consolas", FontWeight.BLACK, size));
+        front.setFill(Color.web(mainColorHex));
+        DropShadow glow = new DropShadow(glowRadius, Color.web("#4de8d4"));
+        glow.setSpread(0.2);
+        front.setEffect(glow);
+
+        StackPane stack = new StackPane(ghostBlue, ghostMagenta, front);
+        stack.setAlignment(Pos.CENTER);
+        return stack;
+    }
+
+    //Cantinho decorativo estilo "mira de HUD": um traço horizontal +
+    //um vertical formando um "L", usado nos 4 cantos do painel de
+    //título.
+    private Node buildCornerBracket(String colorHex) {
+        Color color = Color.web(colorHex);
+        Rectangle horizontal = new Rectangle(16, 2, color);
+        Rectangle vertical = new Rectangle(2, 16, color);
+        return new Group(horizontal, vertical);
+    }
+
+    //Item de menu estilo HUD: quadradinho indicador + label + tecla
+    //de atalho à direita, com destaque (borda/fundo mais forte) pro
+    //item primário (PLAY) e hover que clareia o fundo. Passar
+    //action=null deixa o item só visual (é o caso de "OPTIONS", que
+    //ainda não tem tela própria).
+    private Region buildMenuRow(String label, String hotkey, boolean primary, Runnable action) {
+        Rectangle indicator = new Rectangle(8, 8, Color.web(primary ? "#4de8d4" : "#1c5f74"));
+        if (primary) {
+            indicator.setEffect(new DropShadow(10, Color.web("#4de8d4")));
+        }
+
+        Text labelText = new Text(spaced(label));
+        labelText.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
+        labelText.setFill(Color.web(primary ? "#dffdf7" : "#8fc3d1"));
+
+        Text hotkeyText = new Text(spaced(hotkey));
+        hotkeyText.setFont(Font.font("Consolas", FontWeight.NORMAL, 10));
+        hotkeyText.setFill(Color.web(primary ? "#4de8d4" : "#3f7a96"));
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        HBox row = new HBox(14, indicator, labelText, spacer, hotkeyText);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setPrefWidth(340);
+        row.setPadding(new Insets(16, 20, 16, 20));
+        row.setCursor(Cursor.HAND);
+
+        String baseStyle = primary
+                ? "-fx-background-color: rgba(77,232,212,0.14); -fx-border-color: transparent transparent transparent #4de8d4;"
+                        + " -fx-border-width: 0 0 0 4; -fx-effect: dropshadow(gaussian, rgba(77,232,212,0.18), 24, 0, 0, 0);"
+                : "-fx-background-color: rgba(10,26,38,0.66); -fx-border-color: transparent transparent transparent #1c5f74;"
+                        + " -fx-border-width: 0 0 0 4;";
+        String hoverStyle = primary
+                ? "-fx-background-color: rgba(77,232,212,0.22); -fx-border-color: transparent transparent transparent #4de8d4;"
+                        + " -fx-border-width: 0 0 0 4; -fx-effect: dropshadow(gaussian, rgba(77,232,212,0.25), 28, 0, 0, 0);"
+                : "-fx-background-color: rgba(77,232,212,0.14); -fx-border-color: transparent transparent transparent #4de8d4;"
+                        + " -fx-border-width: 0 0 0 4;";
+
+        row.setStyle(baseStyle);
+        row.setOnMouseEntered(e -> row.setStyle(hoverStyle));
+        row.setOnMouseExited(e -> row.setStyle(baseStyle));
+
+        if (action != null) {
+            row.setOnMouseClicked(e -> action.run());
+        }
+
+        return row;
+    }
+
+    //Insere espaço entre cada caractere, pra simular o "letter
+    //spacing" bem aberto do mockup (JavaFX não tem uma propriedade
+    //nativa de espaçamento de letra em Text).
+    private String spaced(String text) {
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < text.length(); i++) {
+            result.append(text.charAt(i));
+            if (i < text.length() - 1) {
+                result.append(' ');
+            }
+        }
+        return result.toString();
+    }
+
     //Botão de menu com visual consistente (cantos arredondados, texto
     //branco em negrito) e um hover simples (troca de cor ao passar o
     //mouse), sem precisar de um arquivo .css separado, só inline via
-    //setStyle().
+    //setStyle(). Overload de 2 cores (usado pelo Game Over) mantém o
+    //comportamento de antes, só usando a própria cor de hover como
+    //brilho.
     private Button buildMenuButton(String label, String baseColorHex, String hoverColorHex) {
+        return buildMenuButton(label, baseColorHex, hoverColorHex, hoverColorHex);
+    }
+
+    //Versão "estilizada" do botão, usada no menu principal: borda fina
+    //na cor de destaque (glowColorHex), leve brilho e um crescimento
+    //suave (scale) ao passar o mouse, em vez de só trocar a cor.
+    private Button buildMenuButton(String label, String baseColorHex, String hoverColorHex, String glowColorHex) {
         Button button = new Button(label);
-        button.setPrefWidth(200);
-        button.setPrefHeight(46);
-        button.setFont(Font.font("Arial", FontWeight.BOLD, 16));
+        button.setPrefWidth(220);
+        button.setPrefHeight(50);
+        button.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
         button.setTextFill(Color.WHITE);
 
-        String baseStyle = "-fx-background-color: " + baseColorHex + "; -fx-background-radius: 8; -fx-cursor: hand;";
-        String hoverStyle = "-fx-background-color: " + hoverColorHex + "; -fx-background-radius: 8; -fx-cursor: hand;";
+        String baseStyle = "-fx-background-color: " + baseColorHex + "; -fx-background-radius: 6;"
+                + " -fx-border-color: " + glowColorHex + "; -fx-border-radius: 6; -fx-border-width: 1; -fx-cursor: hand;";
+        String hoverStyle = "-fx-background-color: " + hoverColorHex + "; -fx-background-radius: 6;"
+                + " -fx-border-color: " + glowColorHex + "; -fx-border-radius: 6; -fx-border-width: 1.5; -fx-cursor: hand;";
 
         button.setStyle(baseStyle);
-        button.setOnMouseEntered(e -> button.setStyle(hoverStyle));
-        button.setOnMouseExited(e -> button.setStyle(baseStyle));
+
+        DropShadow glow = new DropShadow(18, Color.web(glowColorHex));
+
+        ScaleTransition growIn = new ScaleTransition(Duration.millis(120), button);
+        growIn.setToX(1.06);
+        growIn.setToY(1.06);
+
+        ScaleTransition shrinkBack = new ScaleTransition(Duration.millis(120), button);
+        shrinkBack.setToX(1.0);
+        shrinkBack.setToY(1.0);
+
+        button.setOnMouseEntered(e -> {
+            button.setStyle(hoverStyle);
+            button.setEffect(glow);
+            growIn.playFromStart();
+        });
+        button.setOnMouseExited(e -> {
+            button.setStyle(baseStyle);
+            button.setEffect(null);
+            shrinkBack.playFromStart();
+        });
 
         return button;
     }
@@ -394,6 +746,15 @@ public class Main extends GameApplication {
         gameOverOverlay.setMouseTransparent(true);
         getGameController().resumeEngine();
         getGameController().startNewGame();
+    }
+
+    //Botão "Jogar" do menu principal: some com o menu e despausa o
+    //motor, que nasceu pausado em initUI(). Só roda uma vez, no
+    //começo do app.
+    private void startGame() {
+        mainMenuOverlay.setVisible(false);
+        mainMenuOverlay.setMouseTransparent(true);
+        getGameController().resumeEngine();
     }
 
     //Câmera suave: anda uma fração do caminho até o alvo por frame,

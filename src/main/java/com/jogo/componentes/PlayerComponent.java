@@ -38,9 +38,8 @@ public class PlayerComponent extends CharacterComponent {
 
 
     //Força do empurrão de contato (recoil). Sempre pra direção oposta
-    //de onde o player está olhando (facingRight), não mais baseada na
-    //posição do inimigo, já que o player atravessa ele fisicamente
-    //agora.
+    //de quem causou o hit (ver knockback()), não da direção que o
+    //player tá olhando.
     private static final double KNOCKBACK_HORIZONTAL_SPEED = 220;
     private static final double KNOCKBACK_UPWARD_SPEED = 260;
 
@@ -83,7 +82,9 @@ public class PlayerComponent extends CharacterComponent {
     private ViewComponent view;
 
     //Pra qual lado o player está olhando, atualizado em
-    //moveLeft()/moveRight(). Define a direção do knockback.
+    //moveLeft()/moveRight(). Só usado pra saber se o player pode se
+    //mexer (isStunned()), o knockback agora usa a posição de quem
+    //bateu, não isso aqui.
     private boolean facingRight = true;
 
     public PlayerComponent(String name, int maxHealth, double moveSpeed) {
@@ -157,7 +158,7 @@ public class PlayerComponent extends CharacterComponent {
     //acontece sempre, dano e piscada só se não estiver invencível
     //ainda.
     public void hitBy(Entity source, int damage) {
-        knockback();
+        knockback(source);
 
         if (!isInvincible()) {
             takeDamage(damage);
@@ -165,12 +166,18 @@ public class PlayerComponent extends CharacterComponent {
         }
     }
 
-    //Empurra na direção oposta de onde o player está olhando, mais um
-    //pouco pra cima. setLinearVelocity troca a velocidade toda de uma
-    //vez, pro recoil ficar nítido tipo soco, em vez de só somar em
-    //cima do que já tinha.
-    private void knockback() {
-        double pushX = facingRight ? -KNOCKBACK_HORIZONTAL_SPEED : KNOCKBACK_HORIZONTAL_SPEED;
+    //Empurra pro lado oposto de quem bateu (baseado na posição de
+    //quem causou o hit, não mais em facingRight). Antes só olhava pra
+    //onde o player tava olhando, então levar um hit pelas costas
+    //empurrava errado (pra trás de novo, na cara de quem bateu). Agora
+    //funciona igual pro contato de inimigo e pro projétil do ranged
+    //(os dois passam o "source" certo aqui). setLinearVelocity troca
+    //a velocidade toda de uma vez, pro recoil ficar nítido tipo soco,
+    //em vez de só somar em cima do que já tinha.
+    private void knockback(Entity source) {
+        double pushX = source.getCenter().getX() < entity.getCenter().getX()
+                ? KNOCKBACK_HORIZONTAL_SPEED
+                : -KNOCKBACK_HORIZONTAL_SPEED;
         physics.setLinearVelocity(pushX, -KNOCKBACK_UPWARD_SPEED);
         knockbackRecoveryTimer = HIT_STUN_DURATION;
     }

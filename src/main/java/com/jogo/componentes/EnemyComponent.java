@@ -80,9 +80,20 @@ public class EnemyComponent extends CharacterComponent {
             return;
         }
 
-        //IMPORTANTE ISSO. Explicar depois
         CharacterComponent character = getCharacterComponent(target);
-        if (character != null) {
+        if (character == null) {
+            return;
+        }
+
+        //Se o alvo é o player, usa hitBy() em vez de takeDamage() na
+        //mão, assim melee e voador também dão empurrão (knockback) e
+        //ganham a invencibilidade temporária, igual o contato físico e
+        //o projétil do ranged já faziam. Sem isso esse caminho de
+        //ataque (por cooldown/range, não por toque físico) só tirava
+        //vida e não empurrava.
+        if (character instanceof PlayerComponent) {
+            ((PlayerComponent) character).hitBy(entity, damage);
+        } else {
             character.takeDamage(damage);
         }
     }
