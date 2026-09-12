@@ -235,28 +235,38 @@ public class Main extends GameApplication {
     }
 
 
-    @Override
+   @Override
     protected void initUI() {
-        //Fundo da barra: cinza escuro, tamanho fixo, sempre no canto
-        //superior esquerdo da tela (coordenadas de UI, não do mundo,
-        //não se mexe quando o player anda).
         hpBarBackground = new Rectangle(HP_BAR_WIDTH, HP_BAR_HEIGHT, Color.DARKSLATEGRAY);
         hpBarBackground.setTranslateX(20);
         hpBarBackground.setTranslateY(20);
 
-        //Barra de vida em si: verde, começa cheia (mesma largura do
-        //fundo) e vai encolhendo conforme currentHealth cai.
         hpBarFill = new Rectangle(HP_BAR_WIDTH, HP_BAR_HEIGHT, Color.LIMEGREEN);
         hpBarFill.setTranslateX(20);
         hpBarFill.setTranslateY(20);
 
+        // 1. Resgatamos o componente do jogador (que já foi instanciado no initGame)
+        PlayerComponent pComponent = player.getComponent(PlayerComponent.class);
+
+        // mudança por evento:
+        // Amarramos a propriedade 'width' do retângulo à equação da vida do jogador.
+        // O JavaFX recalcula a expressão matemática SOMENTE quando currentHealth sofrer um .set().
+        hpBarFill.widthProperty().bind(
+            pComponent.currentHealthProperty()
+                .multiply(HP_BAR_WIDTH)
+                .divide(pComponent.getMaxHealth())
+        );
+
+
+        // Adicionamos um "sensor que dispara uma ação toda vez que o valor muda.
+        // Isso resolve a troca de cores (verde para vermelho).
+        pComponent.currentHealthProperty().addListener((observable, oldValue, newValue) -> {
+            double percent = newValue.doubleValue() / pComponent.getMaxHealth();
+            hpBarFill.setFill(percent <= 0.3 ? Color.CRIMSON : Color.LIMEGREEN);
+        });
+
         getGameScene().addUINode(hpBarBackground);
         getGameScene().addUINode(hpBarFill);
-
-        //Tela de Game Over: criada uma vez só (initUI roda só no
-        //início do app, não em cada novo jogo), começa escondida.
-        gameOverOverlay = buildGameOverOverlay();
-        getGameScene().addUINode(gameOverOverlay);
     }
 
     //Painel de Game Over: fundo escuro semi transparente cobrindo a
