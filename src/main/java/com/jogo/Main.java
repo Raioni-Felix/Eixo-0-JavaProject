@@ -9,10 +9,13 @@ import com.jogo.componentes.FlyingEnemyComponent;
 import com.jogo.componentes.MeleeEnemyComponent;
 import com.jogo.componentes.PlayerComponent;
 import com.jogo.componentes.RangedEnemyComponent;
+import com.jogo.componentes.visual.BackgroundAnimationComponent;
+import com.almasb.fxgl.texture.Texture;
 import com.jogo.factories.FabricaEntidades;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -22,8 +25,11 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
+
 import static com.almasb.fxgl.dsl.FXGL.*;
-import com.almasb.fxgl.texture.Texture;
 
 /**
  * Ponto de entrada do jogo.
@@ -43,7 +49,7 @@ public class Main extends GameApplication {
     private static final double HP_BAR_WIDTH = 200;
     private static final double HP_BAR_HEIGHT = 20;
     private static final double LEVEL_WIDTH = 3000;
-    private static final double LEVEL_HEIGHT = 600;
+    private static final double LEVEL_HEIGHT = 720;
 
     //Quão rápido a câmera alcança o player a cada frame, maior gruda
     //mais rápido. Atrasada de propósito (em vez de bindToEntity()),
@@ -58,10 +64,16 @@ public class Main extends GameApplication {
 
     @Override
     protected void initSettings(GameSettings settings) {
-        settings.setWidth(800);
-        settings.setHeight(600);
+        settings.setWidth(1280);
+        settings.setHeight(720);
         settings.setTitle("Eixo 0");
         settings.setVersion("0.1");
+
+        //Deixa o fullscreen disponível (atalho padrão do FXGL é F11).
+        //setFullScreenFromStart em false só pra já abrir em janela
+        //normal, quem quiser tela cheia aperta o atalho.
+        settings.setFullScreenAllowed(true);
+        settings.setFullScreenFromStart(false);
 
         //Desliga menu principal e intro por enquanto, pra prototipar e
         //testar rápido é melhor cair direto no jogo. Reativa quando já
@@ -79,6 +91,24 @@ public class Main extends GameApplication {
         getPhysicsWorld().setGravity(0, 1200);
     }
 
+    //Carrega um frame do background já pedindo pro JavaFX decodificar
+    //em 1000x180 em vez do 4000x720 que o arquivo tem de verdade. O
+    //arquivo é um upscale 4x nearest-neighbor do desenho original, e
+    //smooth=false aqui desfaz esse upscale de volta pro tamanho real
+    //sem borrar nada, só que gastando 16x menos memória por frame.
+    private Image loadCryoLabFrame(int index) {
+        String path = "/assets/textures/cryolab/frame_" + String.format("%03d", index) + ".png";
+
+        try (InputStream stream = Main.class.getResourceAsStream(path)) {
+            if (stream == null) {
+                throw new IllegalStateException("Frame não encontrado: " + path);
+            }
+            return new Image(stream, 1000, 180, true, false);
+        } catch (Exception e) {
+            throw new RuntimeException("Falha ao carregar frame do background: " + path, e);
+        }
+    }
+
     @Override
     protected void initGame() {
         //Registra a fábrica que sabe montar cada tipo de entidade
@@ -87,35 +117,56 @@ public class Main extends GameApplication {
         //dados) em vez de entityBuilder() solto aqui no Main.
         getGameWorld().addEntityFactory(new FabricaEntidades());
 
-        //Background repetido lado a lado (tiling) cobrindo o nível
-        //inteiro. A imagem original é 320x240, então estica só a
-        //altura pra 600 (LEVEL_HEIGHT) e repete na horizontal até
-        //cobrir os 3000 de largura (LEVEL_WIDTH).
-        int tileWidth = 320;
-        int tiles = (int) Math.ceil(LEVEL_WIDTH / tileWidth);
+        //Background animado (cryo lab), 60 frames em loop a 15fps.
+        //Cada frame já vem em 4000x720 (upscale 4x de 1000x180), mas
+        //carregar isso tudo em memória é muito pesado (uns 700MB só
+        //de background, e trocar imagem gigante 15-30x por segundo
+        //trava o jogo). loadCryoLabFrame() decodifica direto em
+        //1000x180 (a resolução real do desenho) e a Texture reestica
+        //isso pra 4000x720 na exibição, então fica leve sem perder
+        //nitidez. Fica parado no nível e repete lado a lado (tiling)
+        //se o LEVEL_WIDTH passar de 4000 (hoje com 3000 só precisa de
+        //uma cópia). As imagens só são carregadas uma vez e
+        //reaproveitadas entre as cópias, pra não multiplicar memória.
+        List<Image> cryoLabFrames = new ArrayList<>();
+        for (int i = 0; i < 60; i++) {
+            cryoLabFrames.add(loadCryoLabFrame(i));
+        }
 
-        for (int i = 0; i < tiles; i++) {
-            Texture bg = new Texture(image("background.png"));
-            bg.setFitHeight(LEVEL_HEIGHT);
+        int backgroundTileWidth = 4000;
+        int backgroundTiles = (int) Math.ceil(LEVEL_WIDTH / backgroundTileWidth);
+
+        for (int i = 0; i < backgroundTiles; i++) {
+            BackgroundAnimationComponent cryoLabBackground = new BackgroundAnimationComponent(cryoLabFrames, 15);
+
+            Texture bgView = cryoLabBackground.getView();
+            bgView.setFitWidth(backgroundTileWidth);
+            bgView.setFitHeight(LEVEL_HEIGHT);
+            bgView.setSmooth(false); //nearest neighbor, pixel art sem borrão
 
             entityBuilder()
-                    .at(i * tileWidth, 0)
-                    .view(bg)
+                    .at(i * backgroundTileWidth, 0)
+                    .view(bgView)
                     .zIndex(-1) // fundo atrás de tudo
+                    .with(cryoLabBackground)
                     .buildAndAttach();
         }
 
         //O mapa: chão cobrindo o nível inteiro + plataformas
         //espalhadas. Plataforma é um corpo estático, não se move, ver
         //FabricaEntidades.spawnPlataforma.
-        spawn("plataforma", new SpawnData(0, 560)
+        //Chão reposicionado pro fundo do nível (LEVEL_HEIGHT - 40), e as
+        //plataformas soltas deslocadas +120 em Y junto com ele (mesma
+        //distância que o LEVEL_HEIGHT cresceu de 600 pra 720), pra
+        //manter a mesma cara do level de antes, só mais alto.
+        spawn("plataforma", new SpawnData(0, LEVEL_HEIGHT - 40)
                 .put("width", LEVEL_WIDTH)
                 .put("height", 40.0));
 
-        spawn("plataforma", new SpawnData(300, 420).put("width", 150.0).put("height", 20.0));
-        spawn("plataforma", new SpawnData(900, 400).put("width", 150.0).put("height", 20.0));
-        spawn("plataforma", new SpawnData(1500, 450).put("width", 200.0).put("height", 20.0));
-        spawn("plataforma", new SpawnData(2200, 380).put("width", 150.0).put("height", 20.0));
+        spawn("plataforma", new SpawnData(300, 540).put("width", 150.0).put("height", 20.0));
+        spawn("plataforma", new SpawnData(900, 520).put("width", 150.0).put("height", 20.0));
+        spawn("plataforma", new SpawnData(1500, 570).put("width", 200.0).put("height", 20.0));
+        spawn("plataforma", new SpawnData(2200, 500).put("width", 150.0).put("height", 20.0));
 
         //Paredes invisíveis nas bordas do nível (ver
         //FabricaEntidades.spawnParede). Sem elas o player andava pra
@@ -128,7 +179,7 @@ public class Main extends GameApplication {
         //verdade depois, em src/main/resources/assets/textures/.
         //Spawna acima do chão, cai e já pousa em cima dele sozinho por
         //causa da gravidade/física de verdade.
-        player = spawn("jogador", new SpawnData(400, 300)
+        player = spawn("jogador", new SpawnData(400, 420)
                 .put("name", "Herói")
                 .put("maxHealth", 100)
                 .put("moveSpeed", 200.0));
@@ -147,7 +198,7 @@ public class Main extends GameApplication {
         //verdade agora (ver FabricaEntidades): o voador colide com
         //plataforma em vez de atravessar, o ranged fica em cima da
         //plataforma de x=900 em vez de flutuando no vazio.
-        Entity flyingEnemy = spawn("inimigo_voador", new SpawnData(1100, 170)
+        Entity flyingEnemy = spawn("inimigo_voador", new SpawnData(1100, 290)
                 .put("name", "Morcego")
                 .put("maxHealth", 30)
                 .put("moveSpeed", 80.0)
@@ -155,7 +206,7 @@ public class Main extends GameApplication {
                 .put("attackRange", 40.0)
                 .put("detectionRange", 250.0));
         flyingEnemy.getComponent(FlyingEnemyComponent.class).setTarget(player);
-        Entity rangedEnemy = spawn("inimigo_ranged", new SpawnData(950, 360)
+        Entity rangedEnemy = spawn("inimigo_ranged", new SpawnData(950, 480)
                 .put("name", "Atirador")
                 .put("maxHealth", 20)
                 .put("moveSpeed", 60.0)
@@ -164,7 +215,7 @@ public class Main extends GameApplication {
                 .put("detectionRange", 300.0));
         rangedEnemy.getComponent(RangedEnemyComponent.class).setTarget(player);
 
-        Entity meleeEnemy = spawn("inimigo_melee", new SpawnData(800, 450)
+        Entity meleeEnemy = spawn("inimigo_melee", new SpawnData(800, 570)
                 .put("name", "Espadachim")
                 .put("maxHealth", 50)
                 .put("moveSpeed", 70.0)
