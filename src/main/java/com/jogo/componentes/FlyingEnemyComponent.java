@@ -19,7 +19,7 @@ public class FlyingEnemyComponent extends EnemyComponent {
 
     //CONSTRUTOR
     //Super chama o construtor da superclasse EnemyComponent, já fixando
-    //isFlying=true, isRanged=false, isAggressive=true, um
+    //isFlying=true, isRanged=false, isAggressive=true — um
     //FlyingEnemyComponent SEMPRE é assim, quem cria não escolhe isso.
     public FlyingEnemyComponent(String name, int maxHealth, double moveSpeed,
             int damage, double attackRange, double detectionRange) {
@@ -41,7 +41,7 @@ public class FlyingEnemyComponent extends EnemyComponent {
     }
 
     //Seta uma velocidade vertical oscilante (corpo é DYNAMIC com
-    //gravityScale 0, ver FabricaEntidades, física de verdade, sem
+    //gravityScale 0, ver FabricaEntidades física de verdade, sem
     //gravidade).
     private void hover(double tpf) {
         hoverTime += tpf * hoverSpeed;
