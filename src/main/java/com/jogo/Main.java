@@ -318,6 +318,9 @@ public class Main extends GameApplication {
 
         getGameScene().addUINode(hpBarBackground);
         getGameScene().addUINode(hpBarFill);
+        // Instancia a tela de Game Over e adiciona à cena
+        gameOverOverlay = buildGameOverOverlay();
+        getGameScene().addUINode(gameOverOverlay);
     }
 
     //Painel de Game Over: fundo escuro semi transparente cobrindo a
@@ -426,15 +429,12 @@ public class Main extends GameApplication {
     protected void onUpdate(double tpf) {
         updateCamera(tpf);
 
-        //Se o player já morreu (removido do mundo) não tem
-        //PlayerComponent pra consultar, força a barra a ficar zerada
-        //em vez de deixar como estava.
         if (!player.isActive()) {
-            hpBarFill.setWidth(0);
-
-            //Só mostra a tela de Game Over (e só pausa o motor) uma
-            //vez, sem o gameOverShown isso rodaria de novo a cada
-            //frame enquanto o player continuasse inativo.
+            // REMOVIDO: hpBarFill.setWidth(0); 
+            // Motivo: hpBarFill está "bound" (vinculada) à vida. Como takeDamage() 
+            // zera a vida ao morrer, a barra diminui automaticamente. Tentar 
+            // alterar a largura manualmente aqui causaria uma RuntimeException.
+            
             if (!gameOverShown) {
                 gameOverShown = true;
                 gameOverOverlay.setVisible(true);
@@ -444,14 +444,9 @@ public class Main extends GameApplication {
             return;
         }
 
-        PlayerComponent playerComponent = player.getComponent(PlayerComponent.class);
-        double healthPercent = (double) playerComponent.getCurrentHealth() / playerComponent.getMaxHealth();
-
-        hpBarFill.setWidth(HP_BAR_WIDTH * healthPercent);
-
-        //Fica vermelha quando a vida está baixa (abaixo de 30%), pra
-        //dar um aviso visual de perigo.
-        hpBarFill.setFill(healthPercent <= 0.3 ? Color.CRIMSON : Color.LIMEGREEN);
+        // REMOVIDO: Todo o bloco final que calculava healthPercent e atualizava hpBarFill
+        // Motivo: As ações hpBarFill.widthProperty().bind(...) e .addListener(...)
+        // no initUI() já fazem isso de forma puramente orientada a eventos.
     }
 
     public static void main(String[] args) {

@@ -55,21 +55,9 @@ public class CharacterComponent extends Component {
         return currentHealth;
     }
 
-    public int getMaxHealth() {
-        return maxHealth;
-    }
-
-    public static CharacterComponent getFrom(Entity target) {
-        for (Component c : target.getComponents()) {
-            if (c instanceof CharacterComponent) {
-                return (CharacterComponent) c;
-            }
-        }
-        return null;
-    }
-
     public boolean isDead() {
-        return currentHealth <= 0;
+        // CORREÇÃO: Necessário usar .get() para extrair o primitivo int antes de comparar
+        return currentHealth.get() <= 0;
     }
 
     public void move() {
@@ -82,7 +70,7 @@ public class CharacterComponent extends Component {
     }
 
     public int getCurrentHealth() {
-        return currentHealth;
+        return currentHealth.get();
     }
 
     public int getMaxHealth() {
@@ -95,12 +83,12 @@ public class CharacterComponent extends Component {
 
     @Override
     public String toString() {
+        // Usar .get() para evitar imprimir a referência de memória do objeto Property
         return "Character{" +
                 "name='" + name + '\'' +
-                "hp=" + currentHealth + "/" + maxHealth +
+                "hp=" + currentHealth.get() + "/" + maxHealth +
                 '}';
     }
-
     //FXGL guarda componente pela classe EXATA, então
     //getComponent(CharacterComponent.class) nunca acha nada (só
     //existem subclasses). Esse helper varre e acha por instanceof.

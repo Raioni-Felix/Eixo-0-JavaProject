@@ -239,13 +239,14 @@ public class PlayerComponent extends CharacterComponent {
 
     private void levelUp() {
         level++;
-
-        //Aumenta os atributos base a cada level e cura o player
         maxHealth += 20;
-        currentHealth = maxHealth;
+        
+        // MODIFICADO: Substitui "currentHealth = maxHealth;"
+        // Motivo: Usar "=" sobrescreve a referência na memória e desliga a UI 
+        // dos eventos. O método .set() altera apenas o valor interno notificado.
+        currentHealth.set(maxHealth); 
+        
         moveSpeed += 5;
-
-        //Próximo nível exige mais XP (curva simples, ajustável depois)
         xpToNextLevel = 100 + (level - 1) * 50;
     }
 
@@ -265,7 +266,7 @@ public class PlayerComponent extends CharacterComponent {
     public String toString() {
         return "Player{" +
                 "name='" + name + '\'' +
-                "hp=" + currentHealth + "/" + maxHealth +
+                "hp=" + currentHealth.get() + "/" + maxHealth +
                 ", lvl=" + level +
                 ", xp=" + xp + "/" + xpToNextLevel +
                 '}';
