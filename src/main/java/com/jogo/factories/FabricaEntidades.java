@@ -17,6 +17,7 @@ import com.jogo.componentes.FlyingEnemyComponent;
 import com.jogo.componentes.PlayerComponent;
 import com.jogo.componentes.RangedEnemyComponent;
 import com.jogo.componentes.MeleeEnemyComponent;
+import com.jogo.componentes.WeaponComponent;
 import com.jogo.componentes.visual.ProjectileComponent;
 import com.jogo.entidades.EntityType;
 import javafx.geometry.Point2D;
@@ -112,19 +113,21 @@ public class FabricaEntidades implements EntityFactory {
                 .collidable()
                 .with(physics)
                 .with(new PlayerComponent(name, maxHealth, moveSpeed))
+                .with(new WeaponComponent())
                 .build();
     }
     // Construtor da Hitbox do Ataque Corpo a Corpo
     @Spawns("ataque_jogador")
     public Entity spawnAtaqueJogador(SpawnData data) {
         int damage = data.get("damage");
-        
+        double size = data.get("size"); // vem do Weapon.getRange(), ver WeaponComponent
+
         var physics = new PhysicsComponent();
         // KINEMATIC: move-se livremente mas não sofre influência da gravidade
         physics.setBodyType(BodyType.KINEMATIC); 
         
-        // Sensor invisível de 40x40 pixels que detecta e fere os inimigos
-        physics.addSensor(new HitBox("MELEE_HIT", BoundingShape.box(40, 40)), new SensorCollisionHandler() {
+        // Sensor invisível do tamanho do alcance da arma equipada
+        physics.addSensor(new HitBox("MELEE_HIT", BoundingShape.box(size, size)), new SensorCollisionHandler() {
             @Override
             protected void onCollisionBegin(Entity other) {
                 EnemyComponent enemy = EnemyComponent.getFrom(other);
@@ -136,6 +139,7 @@ public class FabricaEntidades implements EntityFactory {
 
         return entityBuilder(data)
                 .type(EntityType.ATAQUE_JOGADOR)
+                .view(new Rectangle(size, size, Color.rgb(255, 255, 255, 0.6)))
                 .with(physics)
                 // Remove a caixa de colisão do jogo automaticamente após 0.15 segundos
                 .with(new ExpireCleanComponent(Duration.seconds(0.15))) 
