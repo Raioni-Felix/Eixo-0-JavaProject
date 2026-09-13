@@ -94,9 +94,6 @@ public class PlayerComponent extends CharacterComponent {
     private double dashCooldownTimer = 0;
     private static final double DASH_SPEED = 600;
     private static final double DASH_COOLDOWN = 1.0;
-    
-    private double attackTimer = 0;
-    private static final double ATTACK_COOLDOWN = 0.5;
 
 
 
@@ -114,7 +111,6 @@ public class PlayerComponent extends CharacterComponent {
     public void onUpdate(double tpf) {
 
         if (dashCooldownTimer > 0) dashCooldownTimer -= tpf;
-        if (attackTimer > 0) attackTimer -= tpf;
 
         //reseta as habilidades aéreas sempre que tocar o chão
         if (physics.isOnGround()) {
@@ -153,8 +149,9 @@ public class PlayerComponent extends CharacterComponent {
 
     //Controla só o controle do player (move/stop), bem mais curto
     //que isInvincible() (que rege o cooldown de dano). Ver comentário
-    //de HIT_STUN_DURATION.
-    private boolean isStunned() {
+    //de HIT_STUN_DURATION. Público porque o WeaponComponent também
+    //usa (não pode atacar durante o hit-stun).
+    public boolean isStunned() {
         return invincibilityTimer > (invincibilityDuration - HIT_STUN_DURATION);
     }
 
@@ -248,20 +245,14 @@ public class PlayerComponent extends CharacterComponent {
         invincibilityTimer = 0.2; // Pequena janela de invencibilidade (i-frames) durante o dash
     }
 
-    // Dispara a hitbox invisível do ataque corpo a corpo.
-    public void attack() {
-        if (isStunned() || attackTimer > 0) return;
+    // Dispara o ataque agora vive em WeaponComponent (attack()), que
+    // usa esse isStunned() e o facingRight abaixo pra saber se pode
+    // agir e pra que lado golpear/mirar.
 
-        // Calcula onde a hitbox nasce com base na direção que o player está olhando
-        double offsetX = facingRight ? entity.getWidth() : -40; // 40 é a largura configurada na fábrica
-        double spawnX = entity.getX() + offsetX;
-        double spawnY = entity.getY();
-
-        // Spawna a entidade efêmera que aplica o dano nos inimigos via sensor
-        com.almasb.fxgl.dsl.FXGL.spawn("ataque_jogador", new com.almasb.fxgl.entity.SpawnData(spawnX, spawnY)
-                .put("damage", 20)); 
-
-        attackTimer = ATTACK_COOLDOWN;
+    //Exposto pro WeaponComponent saber pra que lado o player está
+    //olhando (mira do ataque melee/ranged).
+    public boolean isFacingRight() {
+        return facingRight;
     }
 
     public void moveLeft() {

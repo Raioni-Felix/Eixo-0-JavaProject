@@ -9,7 +9,10 @@ import com.almasb.fxgl.physics.CollisionHandler;
 import com.almasb.fxgl.physics.PhysicsComponent;
 import com.jogo.componentes.PlayerComponent;
 import com.jogo.componentes.EnemyComponent;
+import com.jogo.componentes.WeaponComponent;
 import com.jogo.componentes.visual.BackgroundAnimationComponent;
+import com.jogo.itens.Weapon;
+import com.jogo.itens.WeaponType;
 import com.almasb.fxgl.texture.Texture;
 import com.jogo.entidades.EntityType;
 import com.jogo.factories.FabricaEntidades;
@@ -32,6 +35,7 @@ import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
+import javafx.scene.input.MouseButton;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
@@ -278,6 +282,12 @@ public class Main extends GameApplication {
                 .put("name", sala.player.name)
                 .put("maxHealth", sala.player.maxHealth)
                 .put("moveSpeed", sala.player.moveSpeed));
+
+        //Arma inicial do player. Trocar/adicionar armas depois (loot,
+        //upgrades) é só chamar equipWeapon() de novo em qualquer outro
+        //ponto do código.
+        player.getComponent(WeaponComponent.class).equipWeapon(
+                new Weapon("Espada", 20, 0.5, 40, WeaponType.MELEE));
 
         //Câmera: centraliza no player já de cara (sem suavização
         //inicial), o acompanhamento suave de verdade é o
@@ -559,14 +569,14 @@ public class Main extends GameApplication {
             protected void onActionBegin() {
                 if (player.isActive()) player.getComponent(PlayerComponent.class).dash();
             }
-        }, KeyCode.K);
+        }, MouseButton.SECONDARY);
 
         getInput().addAction(new UserAction("Atacar") {
             @Override
             protected void onActionBegin() {
-                if (player.isActive()) player.getComponent(PlayerComponent.class).attack();
+                if (player.isActive()) player.getComponent(WeaponComponent.class).attack();
             }
-        }, KeyCode.J);
+        }, MouseButton.PRIMARY);
     }
 
 
