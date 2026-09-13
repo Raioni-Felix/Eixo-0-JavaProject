@@ -1,0 +1,53 @@
+{
+  "levelWidth": 3000,
+  "levelHeight": 720,
+  "player": {
+    "x": 400,
+    "y": 420,
+    "name": "Herói",
+    "maxHealth": 100,
+    "moveSpeed": 200.0
+  },
+  "platforms": [
+    { "x": 0, "y": 680, "width": 3000, "height": 40 },
+    { "x": 300, "y": 540, "width": 150, "height": 20 },
+    { "x": 900, "y": 520, "width": 150, "height": 20 },
+    { "x": 1500, "y": 570, "width": 200, "height": 20 },
+    { "x": 2200, "y": 500, "width": 150, "height": 20 }
+  ],
+  "enemies": [
+    {
+      "type": "voador",
+      "x": 1100,
+      "y": 290,
+      "name": "Morcego",
+      "maxHealth": 30,
+      "moveSpeed": 80.0,
+      "damage": 5,
+      "attackRange": 40.0,
+      "detectionRange": 250.0
+    },
+    {
+      "type": "ranged",
+      "x": 950,
+      "y": 480,
+      "name": "Atirador",
+      "maxHealth": 20,
+      "moveSpeed": 60.0,
+      "damage": 10,
+      "attackRange": 40.0,
+      "detectionRange": 300.0
+    },
+    {
+      "type": "melee",
+      "x": 800,
+      "y": 570,
+      "name": "Espadachim",
+      "maxHealth": 50,
+      "moveSpeed": 70.0,
+      "damage": 15,
+      "attackRange": 30.0,
+      "detectionRange": 200.0
+    }
+  ]
+}

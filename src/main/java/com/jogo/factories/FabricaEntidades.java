@@ -358,4 +358,35 @@ public class FabricaEntidades implements EntityFactory {
                 .with(physics)
                 .build();
     }
+
+    //Gatilho de passagem entre salas: zona sem PhysicsComponent (só
+    //bounding box + collidable(), igual o player/inimigos), detectada
+    //pelo CollisionHandler(JOGADOR, GATILHO) registrado uma vez em
+    //Main.initPhysics(). targetIndex/entrySide guardam pra qual sala
+    //(índice em Main.SALAS_DO_MAPA) e por qual lado o player deve
+    //reaparecer (ver Main.iniciarTransicaoDeSala()/trocarSala()).
+    //Sem view nenhuma (igual a parede) — é só uma zona invisível, sem
+    //indicador visual chamando atenção pro "fim da sala".
+    @Spawns("gatilho")
+    public Entity spawnGatilho(SpawnData data) {
+        double width = data.get("width");
+        double height = data.get("height");
+        int targetIndex = data.get("targetIndex");
+        String entrySide = data.get("entrySide");
+
+        Entity gatilho = entityBuilder(data)
+                .type(EntityType.GATILHO)
+                .bbox(new HitBox(BoundingShape.box(width, height)))
+                .collidable()
+                .build();
+
+        //Guarda os dois dados extras no próprio Entity (não só no
+        //SpawnData, que não é acessível depois de construído), pra o
+        //CollisionHandler em Main.initPhysics() conseguir ler de volta
+        //no momento da colisão.
+        gatilho.setProperty("targetIndex", targetIndex);
+        gatilho.setProperty("entrySide", entrySide);
+
+        return gatilho;
+    }
 }
