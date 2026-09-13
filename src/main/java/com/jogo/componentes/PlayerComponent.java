@@ -87,6 +87,19 @@ public class PlayerComponent extends CharacterComponent {
     //bateu, não isso aqui.
     private boolean facingRight = true;
 
+
+    // Controle do Sistema de Habilidades
+    private boolean canDoubleJump = true; // Flag para autorizar o pulo no ar
+    private boolean hasDashed = false; // Evita que o player dê dashes infinitos sem pisar no chão
+    private double dashCooldownTimer = 0;
+    private static final double DASH_SPEED = 600;
+    private static final double DASH_COOLDOWN = 1.0;
+    
+    private double attackTimer = 0;
+    private static final double ATTACK_COOLDOWN = 0.5;
+
+
+
     public PlayerComponent(String name, int maxHealth, double moveSpeed) {
         super(name, maxHealth, moveSpeed);
     }
@@ -99,6 +112,15 @@ public class PlayerComponent extends CharacterComponent {
 
     @Override
     public void onUpdate(double tpf) {
+
+        if (dashCooldownTimer > 0) dashCooldownTimer -= tpf;
+        if (attackTimer > 0) attackTimer -= tpf;
+
+        //reseta as habilidades aéreas sempre que tocar o chão
+        if (physics.isOnGround()) {
+            canDoubleJump = true;
+            hasDashed = false;
+        }
         if (invincibilityTimer > 0) {
             invincibilityTimer -= tpf;
         }
@@ -187,15 +209,7 @@ public class PlayerComponent extends CharacterComponent {
     //física de verdade a posição é controlada pelo motor, então mexer
     //nela na mão (entity.translateX, setX...) seria ignorado ou
     //brigaria com o Box2D.
-
-    //Só pula se physics.isOnGround() disser que está no chão (sensor
-    //colado nos pés, configurado na FabricaEntidades). Evita pulo
-    //infinito no ar.
-    public void jump() {
-        if (physics.isOnGround()) {
-            physics.setVelocityY(JUMP_SPEED);
-        }
-    }
+    
 
     //Enquanto isStunned() (janela bem mais curta que a invencibilidade
     //inteira, ver HIT_STUN_DURATION), o player ignora comando de
@@ -204,6 +218,52 @@ public class PlayerComponent extends CharacterComponent {
     //apareceria de verdade. Depois desse tempinho curto o controle
     //volta, mesmo ainda invencível/piscando, pra dar tempo real do
     //player sair andando de perto de outros inimigos.
+
+    
+    // Só pula se estiver no chão ou se tiver o pulo duplo disponível. 
+    // Evita pulo infinito no ar.
+    public void jump() {
+        if (isStunned()) return; // Ignora comando se estiver no hit-stun do knockback
+
+        if (physics.isOnGround()) {
+            physics.setVelocityY(JUMP_SPEED);
+        } else if (canDoubleJump) {
+            // Pulo duplo é levemente mais fraco e consome a flag até pisar no chão de novo
+            physics.setVelocityY(JUMP_SPEED * 0.9); 
+            canDoubleJump = false;
+        }
+    }
+
+    // Investida horizontal rápida. Concede invencibilidade temporária.
+    public void dash() {
+        // Bloqueia se atordoado, se já usou no ar sem pisar no chão, ou se está em cooldown
+        if (isStunned() || hasDashed || dashCooldownTimer > 0) return;
+
+        double dashDirection = facingRight ? DASH_SPEED : -DASH_SPEED;
+        physics.setVelocityX(dashDirection);
+        physics.setVelocityY(0); // Zera o eixo Y para o dash ser perfeitamente reto no ar
+
+        hasDashed = true;
+        dashCooldownTimer = DASH_COOLDOWN;
+        invincibilityTimer = 0.2; // Pequena janela de invencibilidade (i-frames) durante o dash
+    }
+
+    // Dispara a hitbox invisível do ataque corpo a corpo.
+    public void attack() {
+        if (isStunned() || attackTimer > 0) return;
+
+        // Calcula onde a hitbox nasce com base na direção que o player está olhando
+        double offsetX = facingRight ? entity.getWidth() : -40; // 40 é a largura configurada na fábrica
+        double spawnX = entity.getX() + offsetX;
+        double spawnY = entity.getY();
+
+        // Spawna a entidade efêmera que aplica o dano nos inimigos via sensor
+        com.almasb.fxgl.dsl.FXGL.spawn("ataque_jogador", new com.almasb.fxgl.entity.SpawnData(spawnX, spawnY)
+                .put("damage", 20)); 
+
+        attackTimer = ATTACK_COOLDOWN;
+    }
+
     public void moveLeft() {
         if (isStunned()) {
             return;

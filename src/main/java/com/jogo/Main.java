@@ -328,6 +328,21 @@ public class Main extends GameApplication {
                 player.getComponent(PlayerComponent.class).stopHorizontal();
             }
         }, KeyCode.D);
+
+        //Inputs das novas habilidades
+        getInput().addAction(new UserAction("Dash") {
+            @Override
+            protected void onActionBegin() {
+                if (player.isActive()) player.getComponent(PlayerComponent.class).dash();
+            }
+        }, KeyCode.K); // Tecla Shift para usar Investida
+
+        getInput().addAction(new UserAction("Atacar") {
+            @Override
+            protected void onActionBegin() {
+                if (player.isActive()) player.getComponent(PlayerComponent.class).attack();
+            }
+        }, KeyCode.J); // Tecla J para atacar
     }
 
 

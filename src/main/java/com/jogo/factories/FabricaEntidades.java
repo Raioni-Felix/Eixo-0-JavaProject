@@ -22,6 +22,8 @@ import com.jogo.entidades.EntityType;
 import javafx.geometry.Point2D;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
+import com.almasb.fxgl.dsl.components.ExpireCleanComponent;
+import javafx.util.Duration;
 
 import static com.almasb.fxgl.dsl.FXGL.entityBuilder;
 
@@ -110,6 +112,33 @@ public class FabricaEntidades implements EntityFactory {
                 .collidable()
                 .with(physics)
                 .with(new PlayerComponent(name, maxHealth, moveSpeed))
+                .build();
+    }
+    // Construtor da Hitbox do Ataque Corpo a Corpo
+    @Spawns("ataque_jogador")
+    public Entity spawnAtaqueJogador(SpawnData data) {
+        int damage = data.get("damage");
+        
+        var physics = new PhysicsComponent();
+        // KINEMATIC: move-se livremente mas não sofre influência da gravidade
+        physics.setBodyType(BodyType.KINEMATIC); 
+        
+        // Sensor invisível de 40x40 pixels que detecta e fere os inimigos
+        physics.addSensor(new HitBox("MELEE_HIT", BoundingShape.box(40, 40)), new SensorCollisionHandler() {
+            @Override
+            protected void onCollisionBegin(Entity other) {
+                EnemyComponent enemy = EnemyComponent.getFrom(other);
+                if (enemy != null) {
+                    enemy.takeDamage(damage); 
+                }
+            }
+        });
+
+        return entityBuilder(data)
+                .type(EntityType.ATAQUE_JOGADOR)
+                .with(physics)
+                // Remove a caixa de colisão do jogo automaticamente após 0.15 segundos
+                .with(new ExpireCleanComponent(Duration.seconds(0.15))) 
                 .build();
     }
 

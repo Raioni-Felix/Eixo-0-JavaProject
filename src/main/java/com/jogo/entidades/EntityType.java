@@ -13,5 +13,6 @@ public enum EntityType {
     INIMIGO_RANGED,
     INIMIGO_MELEE,
     PROJETIL,
-    PLATAFORMA
+    PLATAFORMA,
+    ATAQUE_JOGADOR
 }
