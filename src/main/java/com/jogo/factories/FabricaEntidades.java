@@ -12,6 +12,7 @@ import com.almasb.fxgl.physics.box2d.dynamics.BodyDef;
 import com.almasb.fxgl.physics.box2d.dynamics.BodyType;
 import com.almasb.fxgl.physics.box2d.dynamics.FixtureDef;
 import com.almasb.fxgl.physics.box2d.dynamics.Fixture;
+import com.jogo.componentes.AtaqueJogadorComponent;
 import com.jogo.componentes.EnemyComponent;
 import com.jogo.componentes.FlyingEnemyComponent;
 import com.jogo.componentes.PlayerComponent;
@@ -122,6 +123,15 @@ public class FabricaEntidades implements EntityFactory {
         int damage = data.get("damage");
         double size = data.get("size"); // vem do Weapon.getRange(), ver WeaponComponent
 
+        // jogador/offsetX/offsetY vêm de WeaponComponent.performMeleeAttack()
+        // e alimentam AtaqueJogadorComponent, que gruda essa hitbox no
+        // player todo frame (ver comentário lá) — sem isso ela nascia
+        // numa posição fixa e ficava pra trás se o player se mexesse
+        // durante o golpe.
+        Entity jogador = data.get("jogador");
+        double offsetX = data.get("offsetX");
+        double offsetY = data.get("offsetY");
+
         var physics = new PhysicsComponent();
         // KINEMATIC: move-se livremente mas não sofre influência da gravidade
         physics.setBodyType(BodyType.KINEMATIC); 
@@ -141,8 +151,9 @@ public class FabricaEntidades implements EntityFactory {
                 .type(EntityType.ATAQUE_JOGADOR)
                 .view(new Rectangle(size, size, Color.rgb(255, 255, 255, 0.6)))
                 .with(physics)
+                .with(new AtaqueJogadorComponent(jogador, offsetX, offsetY))
                 // Remove a caixa de colisão do jogo automaticamente após 0.15 segundos
-                .with(new ExpireCleanComponent(Duration.seconds(0.15))) 
+                .with(new ExpireCleanComponent(Duration.seconds(0.15)))
                 .build();
     }
 

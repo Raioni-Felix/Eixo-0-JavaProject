@@ -35,7 +35,6 @@ import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
-import javafx.scene.input.MouseButton;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
@@ -513,7 +512,10 @@ public class Main extends GameApplication {
         }, KeyCode.ESCAPE);
 
         //Side-view: vertical é só gravidade + pulo. onActionBegin
-        //dispara uma vez só (não todo frame), certo pra jump().
+        //dispara uma vez só (não todo frame), certo pra jump(). SPACE e
+        //a seta pra CIMA fazem a mesma coisa — precisam ser dois
+        //addAction separados (um UserAction só liga a UM trigger),
+        //então a lógica de jump() fica duplicada nos dois blocos.
         getInput().addAction(new UserAction("Pular") {
             @Override
             protected void onActionBegin() {
@@ -524,8 +526,19 @@ public class Main extends GameApplication {
             }
         }, KeyCode.SPACE);
 
+        getInput().addAction(new UserAction("Pular (seta)") {
+            @Override
+            protected void onActionBegin() {
+                if (!player.isActive()) {
+                    return;
+                }
+                player.getComponent(PlayerComponent.class).jump();
+            }
+        }, KeyCode.UP);
+
         //onAction roda todo frame segurado, onActionEnd zera a
-        //velocidade ao soltar (senão deslizaria pra sempre).
+        //velocidade ao soltar (senão deslizaria pra sempre). WASD saiu
+        //dos controles (pedido explícito) — só as setas movem agora.
         getInput().addAction(new UserAction("Mover Esquerda") {
             @Override
             protected void onAction() {
@@ -542,7 +555,7 @@ public class Main extends GameApplication {
                 }
                 player.getComponent(PlayerComponent.class).stopHorizontal();
             }
-        }, KeyCode.A);
+        }, KeyCode.LEFT);
 
         getInput().addAction(new UserAction("Mover Direita") {
             @Override
@@ -560,23 +573,27 @@ public class Main extends GameApplication {
                 }
                 player.getComponent(PlayerComponent.class).stopHorizontal();
             }
-        }, KeyCode.D);
+        }, KeyCode.RIGHT);
 
-        //Inputs das habilidades (dash/ataque corpo a corpo, ver
-        //PlayerComponent.dash()/attack() e FabricaEntidades.spawnAtaqueJogador()).
-        getInput().addAction(new UserAction("Dash") {
-            @Override
-            protected void onActionBegin() {
-                if (player.isActive()) player.getComponent(PlayerComponent.class).dash();
-            }
-        }, MouseButton.SECONDARY);
+        //Não existe agachar/olhar pra baixo no jogo ainda, então a
+        //seta pra BAIXO não tem o que fazer por enquanto — nada
+        //registrado nela.
+
+        //O dash NÃO é registrado aqui via addAction: o FXGL proíbe bind
+        //direto em teclas modificadoras (SHIFT/CONTROL/ALT) — addAction
+        //com KeyCode.SHIFT derruba o jogo com
+        //"IllegalArgumentException: Cannot bind to illegal key: SHIFT"
+        //assim que o loop principal inicia. Em vez disso, um
+        //TriggerListener registrado em PlayerComponent.onAdded() é
+        //avisado de toda tecla pressionada no jogo e só reage quando
+        //for Shift, chamando dash() — ver comentário lá.
 
         getInput().addAction(new UserAction("Atacar") {
             @Override
             protected void onActionBegin() {
                 if (player.isActive()) player.getComponent(WeaponComponent.class).attack();
             }
-        }, MouseButton.PRIMARY);
+        }, KeyCode.Z);
     }
 
 

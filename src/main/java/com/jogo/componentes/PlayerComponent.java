@@ -2,7 +2,12 @@ package com.jogo.componentes;
 
 import com.almasb.fxgl.entity.Entity;
 import com.almasb.fxgl.entity.components.ViewComponent;
+import com.almasb.fxgl.input.KeyTrigger;
+import com.almasb.fxgl.input.TriggerListener;
 import com.almasb.fxgl.physics.PhysicsComponent;
+import javafx.scene.input.KeyCode;
+
+import static com.almasb.fxgl.dsl.FXGL.getInput;
 
 /**
  * Componente do jogador.
@@ -95,8 +100,44 @@ public class PlayerComponent extends CharacterComponent {
     private static final double DASH_SPEED = 600;
     private static final double DASH_COOLDOWN = 1.0;
 
+    //Quanto tempo dura a "rajada" do dash (estilo Hollow Knight/Silksong:
+    //um impulso curto e fixo, não uma velocidade que fica pra sempre).
+    //Enquanto dashTimer > 0 o player está "trancado" nessa velocidade —
+    //nem moveLeft/moveRight nem stopHorizontal mexem nela (ver
+    //isDashing() abaixo) — e ao zerar o controle normal volta. Sem
+    //isso, como o player não tem fricção nenhuma (todo movimento é
+    //velocidade setada na mão, ver moveLeft/moveRight/stopHorizontal),
+    //a velocidade do dash nunca era desfeita e o player ficava
+    //deslizando na velocidade do dash pra sempre.
+    private double dashTimer = 0;
+    private static final double DASH_DURATION = 0.15;
 
+    //Pequeno bônus de velocidade pra recompensar quem segura o Shift
+    //depois do dash em vez de soltar na hora (tipo um "sprint" curto
+    //puxado pelo próprio golpe do dash). shiftHeld é atualizado pelo
+    //TriggerListener (onKeyBegin/onKeyEnd) abaixo — precisa saber se o
+    //Shift AINDA está pressionado, não só o instante do toque, já que
+    //isso não existe como consulta pronta nessa versão do FXGL (ver
+    //comentário mais abaixo). dashBoostActive só fica true se o
+    //último dash realmente aconteceu (dash() só chega a ligar isso se
+    //passar pelas travas dele) e o Shift continuar segurado sem soltar
+    //depois — soltando o Shift (onKeyEnd) desliga o bônus na hora.
+    private boolean shiftHeld = false;
+    private boolean dashBoostActive = false;
+    private static final double DASH_BOOST_MULTIPLIER = 1.12; // bem pequeno, só pra fazer diferença
 
+    //O dash não é um UserAction registrado em Main.initInput() (o FXGL
+    //proíbe addAction em teclas modificadoras como SHIFT/CONTROL/ALT —
+    //ver comentário em Main.initInput() — e, nessa versão do FXGL,
+    //nem existe um Input.isHeld(KeyCode) pra consulta crua; só
+    //descobri isso depois de tentar e o Maven acusar "cannot find
+    //symbol"). O jeito certo, confirmado na fonte do próprio FXGL
+    //17.3 (Input.kt/TriggerListener.kt), é um TriggerListener: ele é
+    //avisado de TODA tecla pressionada no jogo (onKeyBegin/onKeyEnd),
+    //então o listener registrado em onAdded() só reage quando a tecla
+    //for Shift — dash() no toque (onKeyBegin dispara uma vez só, sem
+    //precisar controlar "borda de subida" na mão) e desliga o boost
+    //ao soltar (onKeyEnd).
     public PlayerComponent(String name, int maxHealth, double moveSpeed) {
         super(name, maxHealth, moveSpeed);
     }
@@ -105,12 +146,47 @@ public class PlayerComponent extends CharacterComponent {
     public void onAdded() {
         physics = entity.getComponent(PhysicsComponent.class);
         view = entity.getComponent(ViewComponent.class);
+
+        getInput().addTriggerListener(new TriggerListener() {
+            @Override
+            protected void onKeyBegin(KeyTrigger keyTrigger) {
+                if (keyTrigger.getKey() == KeyCode.SHIFT) {
+                    shiftHeld = true;
+                    dash();
+                }
+            }
+
+            @Override
+            protected void onKeyEnd(KeyTrigger keyTrigger) {
+                if (keyTrigger.getKey() == KeyCode.SHIFT) {
+                    shiftHeld = false;
+                    dashBoostActive = false;
+                }
+            }
+        });
     }
 
     @Override
     public void onUpdate(double tpf) {
 
         if (dashCooldownTimer > 0) dashCooldownTimer -= tpf;
+
+        //Conta a janela do dash. Ao terminar, corta a velocidade na
+        //hora — sem desaceleração suave. Pesquisei o comportamento
+        //documentado do dash de Hollow Knight/Silksong (não dá pra ver
+        //o código-fonte deles, é fechado) e o padrão do gênero é
+        //exatamente esse: uma rajada curta e "seca", onde o controle
+        //volta instantaneamente ao normal assim que ela termina — não
+        //um "glide" suave de saída. Tentei uma desaceleração suave
+        //antes (smoothstep) e ficou "flutuando" demais pro estilo
+        //pretendido; isso aqui é mais fiel.
+        if (dashTimer > 0) {
+            dashTimer -= tpf;
+
+            if (dashTimer <= 0) {
+                physics.setVelocityX(0);
+            }
+        }
 
         //reseta as habilidades aéreas sempre que tocar o chão
         if (physics.isOnGround()) {
@@ -232,6 +308,9 @@ public class PlayerComponent extends CharacterComponent {
     }
 
     // Investida horizontal rápida. Concede invencibilidade temporária.
+    // Pode ser usada andando ou no meio de um pulo (só trava o eixo Y
+    // e "sequestra" o controle horizontal por DASH_DURATION, ver
+    // isDashing()/onUpdate() e moveLeft/moveRight/stopHorizontal).
     public void dash() {
         // Bloqueia se atordoado, se já usou no ar sem pisar no chão, ou se está em cooldown
         if (isStunned() || hasDashed || dashCooldownTimer > 0) return;
@@ -242,7 +321,26 @@ public class PlayerComponent extends CharacterComponent {
 
         hasDashed = true;
         dashCooldownTimer = DASH_COOLDOWN;
+        dashTimer = DASH_DURATION;
         invincibilityTimer = 0.2; // Pequena janela de invencibilidade (i-frames) durante o dash
+
+        //Só chega aqui se o dash realmente aconteceu (passou pelas
+        //travas lá em cima). Como dash() só roda a partir do toque no
+        //Shift (ver TriggerListener em onAdded()), shiftHeld já está
+        //true nesse instante — o bônus passa a valer em moveLeft/
+        //moveRight() enquanto o Shift continuar segurado sem soltar.
+        dashBoostActive = true;
+    }
+
+    //Enquanto o dash está "rolando" (ver dash()/onUpdate()), o
+    //controle normal de horizontal não deve sobrescrever a velocidade
+    //dele — segurar A/D (que chamam moveLeft/moveRight todo frame,
+    //ver Main.initInput()) sobrescrevia a velocidade do dash no frame
+    //seguinte e cancelava a investida quase inteira. Exposto também
+    //pro WeaponComponent, se um dia quiser bloquear ataque durante o
+    //dash.
+    public boolean isDashing() {
+        return dashTimer > 0;
     }
 
     // Dispara o ataque agora vive em WeaponComponent (attack()), que
@@ -256,27 +354,35 @@ public class PlayerComponent extends CharacterComponent {
     }
 
     public void moveLeft() {
-        if (isStunned()) {
+        if (isStunned() || isDashing()) {
             return;
         }
         facingRight = false;
-        physics.setVelocityX(-moveSpeed);
+        physics.setVelocityX(-velocidadeComBoost());
     }
 
     public void moveRight() {
-        if (isStunned()) {
+        if (isStunned() || isDashing()) {
             return;
         }
         facingRight = true;
-        physics.setVelocityX(moveSpeed);
+        physics.setVelocityX(velocidadeComBoost());
     }
 
-    //Chamado quando A ou D é solto (onActionEnd em Main.initInput()),
-    //zera a velocidade horizontal. Também respeita o hit-stun curto,
+    //Aplica o pequeno bônus do dash (ver dashBoostActive/shiftHeld
+    //acima) em cima da moveSpeed normal, sem duplicar essa conta nos
+    //dois métodos de cima.
+    private double velocidadeComBoost() {
+        return dashBoostActive ? moveSpeed * DASH_BOOST_MULTIPLIER : moveSpeed;
+    }
+
+    //Chamado quando a seta de movimento é solta (onActionEnd em
+    //Main.initInput()), zera a velocidade horizontal. Também respeita
+    //o hit-stun curto,
     //mesmo motivo de moveLeft/moveRight: soltar a tecla no meio do
     //recoil não pode zerar o empurrão.
     public void stopHorizontal() {
-        if (isStunned()) {
+        if (isStunned() || isDashing()) {
             return;
         }
         physics.setVelocityX(0);

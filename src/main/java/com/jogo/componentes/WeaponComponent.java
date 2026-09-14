@@ -86,11 +86,22 @@ public class WeaponComponent extends Component {
     private void performMeleeAttack() {
         double range = equippedWeapon.getRange();
         boolean facingRight = player.isFacingRight();
-        double x = facingRight ? entity.getX() + entity.getWidth() : entity.getX() - range;
 
-        SpawnData data = new SpawnData(x, entity.getY())
+        //offsetX/offsetY são relativos ao player, não posições
+        //absolutas do mundo — manda o próprio player (entity) junto,
+        //pra AtaqueJogadorComponent conseguir seguir ele todo frame
+        //(ver comentário lá). Sem isso a hitbox nascia numa posição
+        //fixa e ficava pra trás se o player andasse/pulasse/desse
+        //dash durante os 0.15s do golpe.
+        double offsetX = facingRight ? entity.getWidth() : -range;
+        double offsetY = 0;
+
+        SpawnData data = new SpawnData(entity.getX() + offsetX, entity.getY() + offsetY)
                 .put("size", range)
-                .put("damage", equippedWeapon.getTotalDamage());
+                .put("damage", equippedWeapon.getTotalDamage())
+                .put("jogador", entity)
+                .put("offsetX", offsetX)
+                .put("offsetY", offsetY);
 
         spawn("ataque_jogador", data);
     }
