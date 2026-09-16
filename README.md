@@ -96,4 +96,4 @@ A UI é construída em `Main.initUI()`. A barra de vida do jogador fica amarrada
 
 Existe um componente `AnimatedComponent`, em `componentes/visual`, pensado pra trocar a textura do personagem conforme o estado dele (parado, andando, pulando, tomando dano), mas a troca de textura em si ainda não foi implementada, é um ponto em aberto pra quando existirem os spritesheets necessários.
 
-Este README é atualizado conforme o projeto muda. Qualquer alteração de código que mude comportamento, adicione sistema novo ou torne alguma explicação aqui desatualizada deve vir acompanhada da atualização correspondente neste arquivo.
+Este README é atualizado conforme o projeto muda.  
