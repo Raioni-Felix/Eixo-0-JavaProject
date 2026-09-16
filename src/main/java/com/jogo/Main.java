@@ -9,6 +9,7 @@ import com.almasb.fxgl.physics.CollisionHandler;
 import com.almasb.fxgl.physics.PhysicsComponent;
 import com.jogo.componentes.PlayerComponent;
 import com.jogo.componentes.EnemyComponent;
+import com.jogo.componentes.InventarioComponent;
 import com.jogo.componentes.WeaponComponent;
 import com.jogo.componentes.visual.BackgroundAnimationComponent;
 import com.jogo.itens.Weapon;
@@ -61,6 +62,11 @@ import java.util.List;
 import java.util.Map;
 
 import static com.almasb.fxgl.dsl.FXGL.*;
+
+
+
+
+
 
 /**
  * Ponto de entrada do jogo.
@@ -145,7 +151,10 @@ public class Main extends GameApplication {
     //que fechava o jogo inteiro em vez de voltar pro nosso menu
     //principal.
     private StackPane pauseOverlay;
-
+    // INSERIR  ÀS VARIÁVEIS DE TELA INVENTARIO (Logo após mainMenuOverlay):
+    private StackPane inventoryOverlay;
+    private VBox inventoryContentBox;
+    private boolean isInventoryOpen = false;
     @Override
     protected void initSettings(GameSettings settings) {
         settings.setWidth(1280);
@@ -192,6 +201,16 @@ public class Main extends GameApplication {
                 int targetIndex = gatilhoEntity.getInt("targetIndex");
                 String entrySide = gatilhoEntity.getString("entrySide");
                 iniciarTransicaoDeSala(targetIndex, entrySide);
+            }
+        });
+
+        getPhysicsWorld().addCollisionHandler(new com.almasb.fxgl.physics.CollisionHandler(EntityType.JOGADOR, EntityType.COLETAVEL) {
+            @Override
+            protected void onCollisionBegin(Entity jogador, Entity coletavel) {
+                com.jogo.componentes.ColetavelComponent comp = coletavel.getComponent(com.jogo.componentes.ColetavelComponent.class);
+                if (comp != null) {
+                    comp.transferirPara(jogador.getComponent(com.jogo.componentes.PlayerComponent.class));
+                }
             }
         });
     }
@@ -577,6 +596,47 @@ public class Main extends GameApplication {
                 if (player.isActive()) player.getComponent(WeaponComponent.class).attack();
             }
         }, MouseButton.PRIMARY);
+       
+        
+        // Ativa a Habilidade equipada no Slot 0
+        getInput().addAction(new UserAction("Habilidade 1") {
+            @Override
+            protected void onActionBegin() {
+                if (!player.isActive()) return;
+                InventarioComponent inv = player.getComponent(InventarioComponent.class);
+                if (inv != null) inv.usarHabilidade(0);
+            }
+        }, KeyCode.X);
+
+        // Ativa a Habilidade equipada no Slot 1
+        getInput().addAction(new UserAction("Habilidade 2") {
+            @Override
+            protected void onActionBegin() {
+                if (!player.isActive()) return;
+                InventarioComponent inv = player.getComponent(InventarioComponent.class);
+                if (inv != null) inv.usarHabilidade(1);
+            }
+        }, KeyCode.C);
+
+        // Ativa a Habilidade equipada no Slot 2
+        getInput().addAction(new UserAction("Habilidade 3") {
+            @Override
+            protected void onActionBegin() {
+                if (!player.isActive()) return;
+                InventarioComponent inv = player.getComponent(InventarioComponent.class);
+                if (inv != null) inv.usarHabilidade(2);
+            }
+        }, KeyCode.V);
+
+        // Input para alternar a tela do Inventário
+        getInput().addAction(new UserAction("Inventario") {
+            @Override
+            protected void onActionBegin() {
+                toggleInventory();
+            }
+        }, KeyCode.TAB);
+
+
     }
 
 
@@ -620,6 +680,12 @@ public class Main extends GameApplication {
         //escondido por padrão igual o Game Over.
         pauseOverlay = buildPauseOverlay();
         getGameScene().addUINode(pauseOverlay);
+
+        //  Menu do Inventario:
+        inventoryOverlay = buildInventoryOverlay();
+        getGameScene().addUINode(inventoryOverlay);
+
+
 
         //Menu principal, já visível por cima de tudo, e pausa o
         //motor aqui (initUI roda depois do initGame/initPhysics,
@@ -684,6 +750,119 @@ public class Main extends GameApplication {
     //o menu principal (sem a imagem de fundo/aberração cromática),
     //só pra dar uma pausa rápida com "Continuar" ou voltar pro menu
     //principal.
+
+    // Alterna o estado do painel e pausa a física para interações seguras
+    private void toggleInventory() {
+        if (!player.isActive() || gameOverShown || mainMenuOverlay.isVisible()) return;
+
+        isInventoryOpen = !isInventoryOpen;
+        inventoryOverlay.setVisible(isInventoryOpen);
+        inventoryOverlay.setMouseTransparent(!isInventoryOpen);
+
+        if (isInventoryOpen) {
+            getGameController().pauseEngine();
+            atualizarInterfaceInventario();
+            
+            // NOVO: Puxa o foco do teclado do jogo para a interface do Menu
+            inventoryOverlay.requestFocus(); 
+        } else {
+            getGameController().resumeEngine();
+            
+            // NOVO: Devolve o foco do teclado para o motor gráfico poder mover o jogador novamente
+            getGameScene().getRoot().requestFocus(); 
+        }
+    }
+
+    // Constrói o fundo e o esqueleto estático do menu
+    // Constrói o fundo e o esqueleto estático do menu
+    private StackPane buildInventoryOverlay() {
+        Rectangle background = new Rectangle(getAppWidth(), getAppHeight(), Color.rgb(6, 16, 26, 0.95));
+        background.setOnMouseClicked(e -> e.consume());
+        
+        Text title = new Text("INVENTÁRIO E SISTEMAS");
+        title.setFont(Font.font("Consolas", FontWeight.BOLD, 36));
+        title.setFill(Color.web("#4de8d4"));
+
+        inventoryContentBox = new VBox(25);
+        inventoryContentBox.setAlignment(Pos.CENTER);
+
+        // NOVO: Botão visual de fechamento para garantir a saída do menu
+        Button btnFechar = new Button("FECHAR INVENTÁRIO [TAB]");
+        btnFechar.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        btnFechar.setStyle("-fx-background-color: #d32f2f; -fx-text-fill: white; -fx-cursor: hand;");
+        btnFechar.setOnAction(e -> toggleInventory());
+
+        VBox box = new VBox(40, title, inventoryContentBox, btnFechar);
+        box.setAlignment(Pos.CENTER);
+
+        StackPane overlay = new StackPane(background, box);
+        overlay.setPrefSize(getAppWidth(), getAppHeight());
+        overlay.setVisible(false);
+        overlay.setMouseTransparent(true);
+        overlay.setFocusTraversable(true); 
+        
+        // CORREÇÃO CRÍTICA: addEventFilter intercepta o TAB antes dos botões roubarem o foco
+        overlay.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == javafx.scene.input.KeyCode.TAB) {
+                e.consume(); // Cancela o comportamento nativo do JavaFX
+                toggleInventory();
+            }
+        });
+        
+        return overlay;
+    }
+
+    // Reconstrói a interface iterando sobre as listas do InventarioComponent
+    private void atualizarInterfaceInventario() {
+        inventoryContentBox.getChildren().clear();
+        InventarioComponent inv = player.getComponent(InventarioComponent.class);
+        if (inv == null) return;
+
+        // SEÇÃO 1: HABILIDADES DESBLOQUEADAS
+        Text skillsTitle = new Text("HABILIDADES (Clique para equipar no Slot X)");
+        skillsTitle.setFill(Color.WHITE);
+        inventoryContentBox.getChildren().add(skillsTitle);
+
+        HBox skillsBox = new HBox(15);
+        skillsBox.setAlignment(Pos.CENTER);
+        for (com.jogo.interfaces.IHabilidade hab : inv.getHabilidadesDesbloqueadas()) {
+            Button btnHab = buildMenuButton(hab.getNome(), "#1c5f74", "#4de8d4");
+            btnHab.setOnAction(e -> {
+                inv.equiparHabilidade(0, hab); // Para simplicidade de teste, força no Slot 0 (Tecla X)
+                atualizarInterfaceInventario();
+            });
+            skillsBox.getChildren().add(btnHab);
+        }
+        inventoryContentBox.getChildren().add(skillsBox);
+
+        // Exibe o que está equipado no Slot 0
+        com.jogo.interfaces.IHabilidade habSlot0 = inv.getSlotsHabilidades()[0];
+        String nomeHabAtiva = (habSlot0 != null) ? habSlot0.getNome() : "[Nenhuma]";
+        Text slotDisplay = new Text("SLOT X ATUAL: " + nomeHabAtiva);
+        slotDisplay.setFill(Color.web("#dffdf7"));
+        slotDisplay.setFont(Font.font("Consolas", FontWeight.NORMAL, 16));
+        inventoryContentBox.getChildren().add(slotDisplay);
+
+        // SEÇÃO 2: CONSUMÍVEIS
+        Text itensTitle = new Text("CONSUMÍVEIS (Clique para usar)");
+        itensTitle.setFill(Color.WHITE);
+        inventoryContentBox.getChildren().add(itensTitle);
+
+        HBox itensBox = new HBox(15);
+        itensBox.setAlignment(Pos.CENTER);
+        for (com.jogo.interfaces.IConsumivel item : inv.getItens()) {
+            Button btnItem = buildMenuButton(item.getNome(), "#2e7d32", "#3fa043");
+            btnItem.setOnAction(e -> {
+                inv.usarItem(item); // O item consome a si mesmo e o inventário o apaga se retornar true
+                atualizarInterfaceInventario(); // Atualiza a tela (ex: botão some)
+            });
+            itensBox.getChildren().add(btnItem);
+        }
+        inventoryContentBox.getChildren().add(itensBox);
+    }
+
+
+
     private StackPane buildPauseOverlay() {
         Rectangle background = new Rectangle(getAppWidth(), getAppHeight(), Color.rgb(8, 6, 10, 0.88));
 

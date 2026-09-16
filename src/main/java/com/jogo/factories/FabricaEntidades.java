@@ -27,6 +27,11 @@ import com.almasb.fxgl.dsl.components.ExpireCleanComponent;
 import javafx.util.Duration;
 
 import static com.almasb.fxgl.dsl.FXGL.entityBuilder;
+import com.jogo.itens.CilindroDeCura;
+import com.jogo.itens.ModuloDash;
+import com.jogo.componentes.ColetavelComponent;
+import com.jogo.componentes.InventarioComponent;
+
 
 /**
  * Fábrica central de entidades do jogo.
@@ -114,6 +119,7 @@ public class FabricaEntidades implements EntityFactory {
                 .with(physics)
                 .with(new PlayerComponent(name, maxHealth, moveSpeed))
                 .with(new WeaponComponent())
+                .with(new InventarioComponent())
                 .build();
     }
     // Construtor da Hitbox do Ataque Corpo a Corpo
@@ -393,4 +399,60 @@ public class FabricaEntidades implements EntityFactory {
 
         return gatilho;
     }
+
+
+
+    @Spawns("drop_cura")
+    public Entity spawnDropCura(SpawnData data) {
+        var physics = new PhysicsComponent();
+        physics.setBodyType(BodyType.DYNAMIC);
+        
+        // Instancia o componente ANTES do sensor
+        ColetavelComponent coletavelComp = new ColetavelComponent(new CilindroDeCura());
+        
+        physics.addSensor(new HitBox("SENSOR_COLETA", BoundingShape.box(16, 16)), new SensorCollisionHandler() {
+            @Override
+            protected void onCollisionBegin(Entity other) {
+                if (other.hasComponent(PlayerComponent.class)) {
+                    // Usa a variável local em vez de tentar buscar da 'entity' que ainda não foi construída
+                    coletavelComp.transferirPara(other.getComponent(PlayerComponent.class));
+                }
+            }
+        });
+
+        return entityBuilder(data)
+                .type(EntityType.COLETAVEL)
+                .viewWithBBox(new Rectangle(16, 16, Color.GREEN))
+                .with(physics)
+                .with(coletavelComp) // Anexa a mesma instância
+                .build();
+    }
+
+    @Spawns("drop_dash")
+    public Entity spawnDropDash(SpawnData data) {
+        var physics = new PhysicsComponent();
+        physics.setBodyType(BodyType.DYNAMIC);
+        
+        // Instancia o componente ANTES do sensor
+        ColetavelComponent coletavelComp = new ColetavelComponent(new ModuloDash());
+        
+        physics.addSensor(new HitBox("SENSOR_COLETA", BoundingShape.box(16, 16)), new SensorCollisionHandler() {
+            @Override
+            protected void onCollisionBegin(Entity other) {
+                if (other.hasComponent(PlayerComponent.class)) {
+                    // Usa a variável local
+                    coletavelComp.transferirPara(other.getComponent(PlayerComponent.class));
+                }
+            }
+        });
+
+        return entityBuilder(data)
+                .type(EntityType.COLETAVEL)
+                .viewWithBBox(new Rectangle(16, 16, Color.CYAN))
+                .with(physics)
+                .with(coletavelComp) // Anexa a mesma instância
+                .build();
+    }
+
+
 }

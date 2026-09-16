@@ -1,5 +1,7 @@
 package com.jogo.componentes;
 
+import static com.almasb.fxgl.dsl.FXGL.spawn;
+
 //Inimigo corpo a corpo, herda de EnemyComponent,
 // mas não adiciona nada além do que já existe lá.
 //Literalmente um ranged sem range.
@@ -10,7 +12,7 @@ package com.jogo.componentes;
 //No construtor e deixa o resto pra superclasse
 
 public class MeleeEnemyComponent extends EnemyComponent {
-
+    private boolean droppou = false;
     //CONSTRUTOR
     public MeleeEnemyComponent(String name, int maxHealth,
         double moveSpeed, int damage, double attackRange, double detectionRange) {
@@ -22,4 +24,15 @@ public class MeleeEnemyComponent extends EnemyComponent {
     //O resto tá na mãe
     //Se quiser add algo dps, adiciona aqui
 
+    @Override
+    public void takeDamage(int quant) {
+        super.takeDamage(quant);
+        
+        if (isDead() && !droppou) {
+            droppou = true;
+            // Ejeta os espólios levemente deslocados do centro do inimigo
+            spawn("drop_cura", entity.getX() - 20, entity.getY());
+            spawn("drop_dash", entity.getX() + 20, entity.getY());
+        }
+    }
 }

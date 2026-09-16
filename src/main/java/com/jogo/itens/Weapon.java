@@ -1,5 +1,9 @@
 package com.jogo.itens;
-public class Weapon {
+import com.jogo.interfaces.IEquipavel;
+import com.jogo.componentes.PlayerComponent;
+import com.jogo.componentes.WeaponComponent;
+
+public class Weapon implements IEquipavel  {
     //atributos da classe
     private String name;
     private int damage;
@@ -50,6 +54,15 @@ public class Weapon {
     // Aplica um upgrade/buff de dano (ex: encontrou um item que aumenta dano em 20%)
     public void damageMultiplier(double multiplier) {
         this.damageMultiplier *= multiplier;
+    }
+
+    @Override
+    public void equipar(PlayerComponent player) {
+        // A própria arma busca o WeaponComponent existente e se injeta nele
+        WeaponComponent weaponComp = player.getEntity().getComponent(WeaponComponent.class);
+        if (weaponComp != null) {
+            weaponComp.equipWeapon(this);
+        }
     }
 
     // Getters básicos

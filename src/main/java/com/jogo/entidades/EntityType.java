@@ -15,5 +15,6 @@ public enum EntityType {
     PROJETIL,
     PLATAFORMA,
     ATAQUE_JOGADOR,
-    GATILHO
+    GATILHO,
+    COLETAVEL
 }

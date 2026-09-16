@@ -80,7 +80,11 @@ public class CharacterComponent extends Component {
     public double getMoveSpeed() {
         return moveSpeed;
     }
-
+    public void heal(int quant) {
+        // Garante que a cura não ultrapasse o teto de maxHealth
+        int novaVida = currentHealth.get() + quant;
+        currentHealth.set(Math.min(novaVida, maxHealth));
+    }
     @Override
     public String toString() {
         // Usar .get() para evitar imprimir a referência de memória do objeto Property
