@@ -13,14 +13,14 @@ import com.almasb.fxgl.physics.box2d.dynamics.BodyType;
 import com.almasb.fxgl.physics.box2d.dynamics.FixtureDef;
 import com.almasb.fxgl.physics.box2d.dynamics.Fixture;
 import com.jogo.componentes.AtaqueJogadorComponent;
-import com.jogo.componentes.EnemyComponent;
-import com.jogo.componentes.FlyingEnemyComponent;
-import com.jogo.componentes.PlayerComponent;
-import com.jogo.componentes.RangedEnemyComponent;
-import com.jogo.componentes.MeleeEnemyComponent;
-import com.jogo.componentes.WeaponComponent;
-import com.jogo.componentes.visual.ProjectileComponent;
-import com.jogo.entidades.EntityType;
+import com.jogo.componentes.ComponenteInimigo;
+import com.jogo.componentes.ComponenteInimigoVoador;
+import com.jogo.componentes.ComponenteJogador;
+import com.jogo.componentes.ComponenteInimigoDistancia;
+import com.jogo.componentes.ComponenteInimigoMelee;
+import com.jogo.componentes.ComponenteArma;
+import com.jogo.componentes.visual.ComponenteProjetil;
+import com.jogo.entidades.TipoEntidade;
 import javafx.geometry.Point2D;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
@@ -41,10 +41,21 @@ import static com.almasb.fxgl.dsl.FXGL.entityBuilder;
  * não existir, por isso todo spawn precisa vir com todos os .put()
  * necessários (não tem valor "default" escondido aqui).
  *
+ * As chaves usadas em .put()/.get() (ex.: "nome", "dano") são um
+ * contrato interno nosso (Main/ComponenteArma/ComponenteInimigoDistancia
+ * escrevem, FabricaEntidades lê) — não têm relação com as chaves do
+ * JSON dos níveis (essas continuam em inglês, ver os "Dados*" em
+ * com.jogo.niveis com @SerializedName), por isso podem ficar em
+ * português livremente. A ÚNICA exceção é a string do próprio
+ * @Spawns("inimigo_" + tipo): esse "tipo" vem direto do JSON
+ * ("voador"/"ranged"/"melee") e não foi traduzido, então os nomes dos
+ * métodos @Spawns("inimigo_ranged")/("inimigo_melee")/("inimigo_voador")
+ * continuam com essas strings originais de propósito.
+ *
  * Jogador, inimigos e plataformas têm um PhysicsComponent (motor
  * Box2D do FXGL) pra gravidade e colisão de verdade, não mais
  * translate/gravidade manual na mão.
- *  - Jogador, ranged e melee (terrestres): corpo DYNAMIC, caem e
+ *  - Jogador, atirador e melee (terrestres): corpo DYNAMIC, caem e
  *    colidem com plataformas.
  *  - Inimigo voador: também corpo DYNAMIC, mas com gravityScale(0),
  *    assim ele tem colisão de verdade (não atravessa mais plataforma)
@@ -54,104 +65,105 @@ import static com.almasb.fxgl.dsl.FXGL.entityBuilder;
  * .collidable() no jogador e nos 3 tipos de inimigo é o que ligava o
  * sistema de CollisionHandler do FXGL pra eles.
  *
- * O player nunca pode ficar em pé em cima de um inimigo (plataformar),
+ * O jogador nunca pode ficar em pé em cima de um inimigo (plataformar),
  * mas o empurrão/dano por toque tem que disparar em todo contato.
- * Solução: cada inimigo tem dois fixtures (ver setupContatoComPlayer):
- * o sólido de sempre, com o player tirado do maskBits (não colide mais
+ * Solução: cada inimigo tem dois fixtures (ver configurarContatoComJogador):
+ * o sólido de sempre, com o jogador tirado do maskBits (não colide mais
  * com ele, então nunca serve de chão), e um sensor extra do mesmo
- * tamanho, sem filtro, que continua vendo o player e chama
- * PlayerComponent.hitBy() a cada frame de contato.
+ * tamanho, sem filtro, que continua vendo o jogador e chama
+ * ComponenteJogador.serAtingido() a cada frame de contato.
  */
 public class FabricaEntidades implements EntityFactory {
 
-    //Bit de categoria exclusivo do player (Box2D Filter.categoryBits/
+    //Bit de categoria exclusivo do jogador (Box2D Filter.categoryBits/
     //maskBits, ambos int). Todo fixture sólido de inimigo tira esse
-    //bit do maskBits (ver setupContatoComPlayer) e para de colidir com
-    //o player fisicamente.
+    //bit do maskBits (ver configurarContatoComJogador) e para de
+    //colidir com o jogador fisicamente.
     private static final int CATEGORY_PLAYER = 0x0002;
 
     @Spawns("jogador")
     public Entity spawnJogador(SpawnData data) {
-        String name = data.get("name");
-        int maxHealth = data.get("maxHealth");
-        double moveSpeed = data.get("moveSpeed");
+        String nome = data.get("nome");
+        int vidaMaxima = data.get("vidaMaxima");
+        double velocidade = data.get("velocidade");
 
         //Corpo dinâmico, sofre gravidade e colide com as plataformas
-        //(corpos estáticos). fixedRotation impede o player de tombar
+        //(corpos estáticos). fixedRotation impede o jogador de tombar
         //ao encostar de lado numa parede/plataforma, senão o Box2D
         //deixaria ele girar tipo caixa caindo de ponta cabeça.
         //friction(0) evita que ele grude em parede vertical, fica
         //livre pra escorregar, como num metroidvania de verdade.
-        var physics = new PhysicsComponent();
+        var fisica = new PhysicsComponent();
 
         var bodyDef = new BodyDef();
         bodyDef.setType(BodyType.DYNAMIC);
         bodyDef.setFixedRotation(true);
-        physics.setBodyDef(bodyDef);
-        physics.setFixtureDef(new FixtureDef().friction(0f).density(1f));
+        fisica.setBodyDef(bodyDef);
+        fisica.setFixtureDef(new FixtureDef().friction(0f).density(1f));
 
         //Sensor fino colado nos pés, não é colisão de verdade, só
         //sente quando tem algo embaixo. É o que isOnGround() usa em
-        //PlayerComponent.jump() pra saber se pode pular.
+        //ComponenteJogador.pular() pra saber se pode pular.
         double w = 32; // tamanho do sprite provisório player.png
         double h = 32;
-        physics.addGroundSensor(new HitBox("GROUND_SENSOR", new Point2D(2, h - 1), BoundingShape.box(w - 4, 4)));
+        fisica.addGroundSensor(new HitBox("GROUND_SENSOR", new Point2D(2, h - 1), BoundingShape.box(w - 4, 4)));
 
-        //Marca todos os fixtures do player com CATEGORY_PLAYER. É essa
-        //marca que cada inimigo usa pra excluir o player do maskBits
-        //do seu fixture sólido (ver setupContatoComPlayer).
-        physics.setOnPhysicsInitialized(() -> {
-            for (Fixture fixture : physics.getBody().getFixtures()) {
-                var filter = fixture.getFilterData();
-                filter.categoryBits = CATEGORY_PLAYER;
-                fixture.setFilterData(filter);
+        //Marca todos os fixtures do jogador com CATEGORY_PLAYER. É essa
+        //marca que cada inimigo usa pra excluir o jogador do maskBits
+        //do seu fixture sólido (ver configurarContatoComJogador).
+        fisica.setOnPhysicsInitialized(() -> {
+            for (Fixture fixture : fisica.getBody().getFixtures()) {
+                var filtro = fixture.getFilterData();
+                filtro.categoryBits = CATEGORY_PLAYER;
+                fixture.setFilterData(filtro);
             }
         });
 
         return entityBuilder(data)
-                .type(EntityType.JOGADOR)
+                .type(TipoEntidade.JOGADOR)
                 .viewWithBBox("player.png")
                 .collidable()
-                .with(physics)
-                .with(new PlayerComponent(name, maxHealth, moveSpeed))
-                .with(new WeaponComponent())
+                .with(fisica)
+                .with(new ComponenteJogador(nome, vidaMaxima, velocidade))
+                .with(new ComponenteArma())
                 .build();
     }
     // Construtor da Hitbox do Ataque Corpo a Corpo
     @Spawns("ataque_jogador")
     public Entity spawnAtaqueJogador(SpawnData data) {
-        int damage = data.get("damage");
-        double size = data.get("size"); // vem do Weapon.getRange(), ver WeaponComponent
+        int dano = data.get("dano");
+        double tamanho = data.get("tamanho"); // vem de Arma.getAlcance(), ver ComponenteArma
 
-        // jogador/offsetX/offsetY vêm de WeaponComponent.performMeleeAttack()
-        // e alimentam AtaqueJogadorComponent, que gruda essa hitbox no
-        // player todo frame (ver comentário lá) — sem isso ela nascia
-        // numa posição fixa e ficava pra trás se o player se mexesse
+        // jogador/deslocamentoX/deslocamentoY vêm de
+        // ComponenteArma.executarAtaqueMelee() e alimentam
+        // AtaqueJogadorComponent, que gruda essa hitbox no jogador
+        // todo frame (ver comentário lá) — sem isso ela nascia numa
+        // posição fixa e ficava pra trás se o jogador se mexesse
         // durante o golpe.
         Entity jogador = data.get("jogador");
-        double offsetX = data.get("offsetX");
-        double offsetY = data.get("offsetY");
+        double deslocamentoX = data.get("deslocamentoX");
+        double deslocamentoY = data.get("deslocamentoY");
 
-        var physics = new PhysicsComponent();
+        var fisica = new PhysicsComponent();
         // KINEMATIC: move-se livremente mas não sofre influência da gravidade
-        physics.setBodyType(BodyType.KINEMATIC); 
-        
+        fisica.setBodyType(BodyType.KINEMATIC);
+
         // Sensor invisível do tamanho do alcance da arma equipada
-        physics.addSensor(new HitBox("MELEE_HIT", BoundingShape.box(size, size)), new SensorCollisionHandler() {
+        fisica.addSensor(new HitBox("MELEE_HIT", BoundingShape.box(tamanho, tamanho)), new SensorCollisionHandler() {
             @Override
             protected void onCollisionBegin(Entity other) {
-                EnemyComponent enemy = EnemyComponent.getFrom(other);
-                if (enemy != null) {
-                    enemy.takeDamage(damage); 
+                ComponenteInimigo inimigo = ComponenteInimigo.obterDe(other);
+                if (inimigo != null) {
+                    inimigo.tomarDano(dano);
                 }
             }
         });
 
         return entityBuilder(data)
-                .type(EntityType.ATAQUE_JOGADOR)
-                .view(new Rectangle(size, size, Color.rgb(255, 255, 255, 0.6)))
-                .with(physics)
-                .with(new AtaqueJogadorComponent(jogador, offsetX, offsetY))
+                .type(TipoEntidade.ATAQUE_JOGADOR)
+                .view(new Rectangle(tamanho, tamanho, Color.rgb(255, 255, 255, 0.6)))
+                .with(fisica)
+                .with(new AtaqueJogadorComponent(jogador, deslocamentoX, deslocamentoY))
                 // Remove a caixa de colisão do jogo automaticamente após 0.15 segundos
                 .with(new ExpireCleanComponent(Duration.seconds(0.15)))
                 .build();
@@ -159,143 +171,143 @@ public class FabricaEntidades implements EntityFactory {
 
     @Spawns("inimigo_voador")
     public Entity spawnInimigoVoador(SpawnData data) {
-        String name = data.get("name");
-        int maxHealth = data.get("maxHealth");
-        double moveSpeed = data.get("moveSpeed");
-        int damage = data.get("damage");
-        double attackRange = data.get("attackRange");
-        double detectionRange = data.get("detectionRange");
+        String nome = data.get("nome");
+        int vidaMaxima = data.get("vidaMaxima");
+        double velocidade = data.get("velocidade");
+        int dano = data.get("dano");
+        double alcanceAtaque = data.get("alcanceAtaque");
+        double alcanceDeteccao = data.get("alcanceDeteccao");
 
         //DYNAMIC + gravityScale(0), tem colisão de verdade (é sólido,
         //não atravessa plataforma) mas ignora a gravidade do mundo,
         //continua voando livre só que agora esbarra em coisa de
         //verdade. fixedRotation pelo mesmo motivo de sempre.
-        var physics = new PhysicsComponent();
+        var fisica = new PhysicsComponent();
 
         var bodyDef = new BodyDef();
         bodyDef.setType(BodyType.DYNAMIC);
         bodyDef.setFixedRotation(true);
         bodyDef.setGravityScale(0f);
-        physics.setBodyDef(bodyDef);
-        physics.setFixtureDef(new FixtureDef().friction(0f).density(1f));
+        fisica.setBodyDef(bodyDef);
+        fisica.setFixtureDef(new FixtureDef().friction(0f).density(1f));
 
         //Cor própria pra cada tipo de inimigo, pra dar pra distinguir
         //de longe. Roxo pro voador.
-        double enemySize = 32;
-        Entity enemy = entityBuilder(data)
-                .type(EntityType.INIMIGO_VOADOR)
-                .bbox(new HitBox(BoundingShape.box(enemySize, enemySize)))
-                .view(new Rectangle(enemySize, enemySize, Color.MEDIUMPURPLE))
+        double tamanhoInimigo = 32;
+        Entity inimigo = entityBuilder(data)
+                .type(TipoEntidade.INIMIGO_VOADOR)
+                .bbox(new HitBox(BoundingShape.box(tamanhoInimigo, tamanhoInimigo)))
+                .view(new Rectangle(tamanhoInimigo, tamanhoInimigo, Color.MEDIUMPURPLE))
                 .collidable()
-                .with(physics)
-                .with(new FlyingEnemyComponent(name, maxHealth, moveSpeed, damage, attackRange, detectionRange))
+                .with(fisica)
+                .with(new ComponenteInimigoVoador(nome, vidaMaxima, velocidade, dano, alcanceAtaque, alcanceDeteccao))
                 .build();
 
-        setupContatoComPlayer(physics, enemy, enemySize);
-        return enemy;
+        configurarContatoComJogador(fisica, inimigo, tamanhoInimigo);
+        return inimigo;
     }
 
     @Spawns("inimigo_ranged")
-    public Entity spawnInimigoRanged(SpawnData data) {
-        String name = data.get("name");
-        int maxHealth = data.get("maxHealth");
-        double moveSpeed = data.get("moveSpeed");
-        int damage = data.get("damage");
-        double attackRange = data.get("attackRange");
-        double detectionRange = data.get("detectionRange");
+    public Entity spawnInimigoDistancia(SpawnData data) {
+        String nome = data.get("nome");
+        int vidaMaxima = data.get("vidaMaxima");
+        double velocidade = data.get("velocidade");
+        int dano = data.get("dano");
+        double alcanceAtaque = data.get("alcanceAtaque");
+        double alcanceDeteccao = data.get("alcanceDeteccao");
 
-        //DYNAMIC igual o player, sofre gravidade, cai e pisa nas
-        //plataformas. fixedRotation pelo mesmo motivo do player.
-        var physics = new PhysicsComponent();
+        //DYNAMIC igual o jogador, sofre gravidade, cai e pisa nas
+        //plataformas. fixedRotation pelo mesmo motivo do jogador.
+        var fisica = new PhysicsComponent();
 
         var bodyDef = new BodyDef();
         bodyDef.setType(BodyType.DYNAMIC);
         bodyDef.setFixedRotation(true);
-        physics.setBodyDef(bodyDef);
-        physics.setFixtureDef(new FixtureDef().friction(0.2f).density(1f));
+        fisica.setBodyDef(bodyDef);
+        fisica.setFixtureDef(new FixtureDef().friction(0.2f).density(1f));
 
-        //Laranja pro ranged.
-        double enemySize = 32;
-        Entity enemy = entityBuilder(data)
-                .type(EntityType.INIMIGO_RANGED)
-                .bbox(new HitBox(BoundingShape.box(enemySize, enemySize)))
-                .view(new Rectangle(enemySize, enemySize, Color.DARKORANGE))
+        //Laranja pro atirador.
+        double tamanhoInimigo = 32;
+        Entity inimigo = entityBuilder(data)
+                .type(TipoEntidade.INIMIGO_DISTANCIA)
+                .bbox(new HitBox(BoundingShape.box(tamanhoInimigo, tamanhoInimigo)))
+                .view(new Rectangle(tamanhoInimigo, tamanhoInimigo, Color.DARKORANGE))
                 .collidable()
-                .with(physics)
-                .with(new RangedEnemyComponent(name, maxHealth, moveSpeed, damage, attackRange, detectionRange))
+                .with(fisica)
+                .with(new ComponenteInimigoDistancia(nome, vidaMaxima, velocidade, dano, alcanceAtaque, alcanceDeteccao))
                 .build();
 
-        setupContatoComPlayer(physics, enemy, enemySize);
-        return enemy;
+        configurarContatoComJogador(fisica, inimigo, tamanhoInimigo);
+        return inimigo;
     }
 
     @Spawns("inimigo_melee")
     public Entity spawnInimigoMelee(SpawnData data) {
-        String name = data.get("name");
-        int maxHealth = data.get("maxHealth");
-        double moveSpeed = data.get("moveSpeed");
-        int damage = data.get("damage");
-        double attackRange = data.get("attackRange");
-        double detectionRange = data.get("detectionRange");
+        String nome = data.get("nome");
+        int vidaMaxima = data.get("vidaMaxima");
+        double velocidade = data.get("velocidade");
+        int dano = data.get("dano");
+        double alcanceAtaque = data.get("alcanceAtaque");
+        double alcanceDeteccao = data.get("alcanceDeteccao");
 
-        //Mesma física do ranged: DYNAMIC (cai, pisa em plataforma) +
+        //Mesma física do atirador: DYNAMIC (cai, pisa em plataforma) +
         //fixedRotation (não tomba ao encostar do lado em algo).
-        var physics = new PhysicsComponent();
+        var fisica = new PhysicsComponent();
 
         var bodyDef = new BodyDef();
         bodyDef.setType(BodyType.DYNAMIC);
         bodyDef.setFixedRotation(true);
-        physics.setBodyDef(bodyDef);
-        physics.setFixtureDef(new FixtureDef().friction(0.2f).density(1f));
+        fisica.setBodyDef(bodyDef);
+        fisica.setFixtureDef(new FixtureDef().friction(0.2f).density(1f));
 
         //Vermelho (mais escuro que o CRIMSON da barra de HP baixa, pra
         //não confundir) pro melee.
-        double enemySize = 32;
-        Entity enemy = entityBuilder(data)
-                .type(EntityType.INIMIGO_MELEE)
-                .bbox(new HitBox(BoundingShape.box(enemySize, enemySize)))
-                .view(new Rectangle(enemySize, enemySize, Color.FIREBRICK))
+        double tamanhoInimigo = 32;
+        Entity inimigo = entityBuilder(data)
+                .type(TipoEntidade.INIMIGO_MELEE)
+                .bbox(new HitBox(BoundingShape.box(tamanhoInimigo, tamanhoInimigo)))
+                .view(new Rectangle(tamanhoInimigo, tamanhoInimigo, Color.FIREBRICK))
                 .collidable()
-                .with(physics)
-                .with(new MeleeEnemyComponent(name, maxHealth, moveSpeed, damage, attackRange, detectionRange))
+                .with(fisica)
+                .with(new ComponenteInimigoMelee(nome, vidaMaxima, velocidade, dano, alcanceAtaque, alcanceDeteccao))
                 .build();
 
-        setupContatoComPlayer(physics, enemy, enemySize);
-        return enemy;
+        configurarContatoComJogador(fisica, inimigo, tamanhoInimigo);
+        return inimigo;
     }
 
     //Configura, pra qualquer inimigo, o esquema de dois fixtures do
-    //comentário lá em cima da classe: tira o player do maskBits do
+    //comentário lá em cima da classe: tira o jogador do maskBits do
     //fixture sólido e adiciona um sensor extra (mesmo tamanho) que
-    //chama hitBy() no PlayerComponent a cada frame de contato.
-    private void setupContatoComPlayer(PhysicsComponent physics, Entity enemyEntity, double enemySize) {
-        physics.setOnPhysicsInitialized(() -> {
+    //chama serAtingido() no ComponenteJogador a cada frame de contato.
+    private void configurarContatoComJogador(PhysicsComponent fisica, Entity entidadeInimigo, double tamanhoInimigo) {
+        fisica.setOnPhysicsInitialized(() -> {
             //Pula fixture.isSensor(), só mexe no fixture sólido. Sem
             //isso o sensor "PLAYER_CONTACT" logo abaixo também ficava
-            //cego pro player, e o knockback parava de disparar.
-            for (Fixture fixture : physics.getBody().getFixtures()) {
+            //cego pro jogador, e o knockback parava de disparar.
+            for (Fixture fixture : fisica.getBody().getFixtures()) {
                 if (fixture.isSensor()) {
                     continue;
                 }
 
-                var filter = fixture.getFilterData();
-                filter.maskBits = filter.maskBits & ~CATEGORY_PLAYER;
-                fixture.setFilterData(filter);
+                var filtro = fixture.getFilterData();
+                filtro.maskBits = filtro.maskBits & ~CATEGORY_PLAYER;
+                fixture.setFilterData(filtro);
             }
         });
 
-        physics.addSensor(new HitBox("PLAYER_CONTACT", BoundingShape.box(enemySize, enemySize)), new SensorCollisionHandler() {
+        fisica.addSensor(new HitBox("PLAYER_CONTACT", BoundingShape.box(tamanhoInimigo, tamanhoInimigo)), new SensorCollisionHandler() {
             //onCollisionBegin e onCollision chamam a mesma coisa, o
-            //dano/piscada depende só de isInvincible() lá no hitBy(),
-            //não de qual evento disparou.
+            //dano/piscada depende só de estaInvencivel() lá no
+            //serAtingido(), não de qual evento disparou.
             @Override
             protected void onCollisionBegin(Entity other) {
-                handleContato(other);
+                tratarContato(other);
             }
 
             @Override
             protected void onCollision(Entity other) {
-                handleContato(other);
+                tratarContato(other);
             }
 
             @Override
@@ -304,32 +316,32 @@ public class FabricaEntidades implements EntityFactory {
                 //pra desligar, só disparam nos ticks de contato.
             }
 
-            private void handleContato(Entity other) {
-                if (!other.hasComponent(PlayerComponent.class)) {
+            private void tratarContato(Entity other) {
+                if (!other.hasComponent(ComponenteJogador.class)) {
                     return;
                 }
 
-                EnemyComponent enemy = EnemyComponent.getFrom(enemyEntity);
-                if (enemy == null) {
+                ComponenteInimigo inimigo = ComponenteInimigo.obterDe(entidadeInimigo);
+                if (inimigo == null) {
                     return;
                 }
 
-                other.getComponent(PlayerComponent.class).hitBy(enemyEntity, enemy.getDamage());
+                other.getComponent(ComponenteJogador.class).serAtingido(entidadeInimigo, inimigo.getDano());
             }
         });
     }
 
     @Spawns("projetil")
     public Entity spawnProjetil(SpawnData data) {
-        Entity origin = data.get("origin");
-        Entity target = data.get("target");
-        int damage = data.get("damage");
-        double speed = data.get("speed");
+        Entity origem = data.get("origem");
+        Entity alvo = data.get("alvo");
+        int dano = data.get("dano");
+        double velocidade = data.get("velocidade");
 
         return entityBuilder(data)
-                .type(EntityType.PROJETIL)
+                .type(TipoEntidade.PROJETIL)
                 .viewWithBBox("projectile.png")
-                .with(new ProjectileComponent(origin, target, damage, speed))
+                .with(new ComponenteProjetil(origem, alvo, dano, velocidade))
                 .build();
     }
 
@@ -338,60 +350,60 @@ public class FabricaEntidades implements EntityFactory {
     //enquanto, no lugar de um tileset de verdade.
     @Spawns("plataforma")
     public Entity spawnPlataforma(SpawnData data) {
-        double width = data.get("width");
-        double height = data.get("height");
+        double largura = data.get("largura");
+        double altura = data.get("altura");
 
-        var physics = new PhysicsComponent();
-        physics.setBodyType(BodyType.STATIC);
+        var fisica = new PhysicsComponent();
+        fisica.setBodyType(BodyType.STATIC);
 
         return entityBuilder(data)
-                .type(EntityType.PLATAFORMA)
-                .bbox(new HitBox(BoundingShape.box(width, height)))
-                .view(new Rectangle(width, height, Color.BLACK))
-                .with(physics)
+                .type(TipoEntidade.PLATAFORMA)
+                .bbox(new HitBox(BoundingShape.box(largura, altura)))
+                .view(new Rectangle(largura, altura, Color.BLACK))
+                .with(fisica)
                 .build();
     }
 
     //Parede invisível: mesma física da plataforma (corpo estático,
     //nunca se move), mas sem view nenhuma. Serve só de limite do
-    //nível (bordas esquerda/direita), pra impedir o player de andar
+    //nível (bordas esquerda/direita), pra impedir o jogador de andar
     //pra fora da área do chão e cair num vazio atrás do cenário. Usa
-    //o mesmo EntityType.PLATAFORMA, ninguém trata "parede" de forma
+    //o mesmo TipoEntidade.PLATAFORMA, ninguém trata "parede" de forma
     //especial, ela só existe pra colidir fisicamente igual qualquer
     //plataforma.
     @Spawns("parede")
     public Entity spawnParede(SpawnData data) {
-        double width = data.get("width");
-        double height = data.get("height");
+        double largura = data.get("largura");
+        double altura = data.get("altura");
 
-        var physics = new PhysicsComponent();
-        physics.setBodyType(BodyType.STATIC);
+        var fisica = new PhysicsComponent();
+        fisica.setBodyType(BodyType.STATIC);
 
         return entityBuilder(data)
-                .type(EntityType.PLATAFORMA)
-                .bbox(new HitBox(BoundingShape.box(width, height)))
-                .with(physics)
+                .type(TipoEntidade.PLATAFORMA)
+                .bbox(new HitBox(BoundingShape.box(largura, altura)))
+                .with(fisica)
                 .build();
     }
 
     //Gatilho de passagem entre salas: zona sem PhysicsComponent (só
-    //bounding box + collidable(), igual o player/inimigos), detectada
+    //bounding box + collidable(), igual o jogador/inimigos), detectada
     //pelo CollisionHandler(JOGADOR, GATILHO) registrado uma vez em
-    //Main.initPhysics(). targetIndex/entrySide guardam pra qual sala
-    //(índice em Main.SALAS_DO_MAPA) e por qual lado o player deve
-    //reaparecer (ver Main.iniciarTransicaoDeSala()/trocarSala()).
+    //Main.initPhysics(). indiceDestino/ladoEntrada guardam pra qual
+    //sala (índice em Main.SALAS_DO_MAPA) e por qual lado o jogador
+    //deve reaparecer (ver Main.iniciarTransicaoDeSala()/trocarSala()).
     //Sem view nenhuma (igual a parede) — é só uma zona invisível, sem
     //indicador visual chamando atenção pro "fim da sala".
     @Spawns("gatilho")
     public Entity spawnGatilho(SpawnData data) {
-        double width = data.get("width");
-        double height = data.get("height");
-        int targetIndex = data.get("targetIndex");
-        String entrySide = data.get("entrySide");
+        double largura = data.get("largura");
+        double altura = data.get("altura");
+        int indiceDestino = data.get("indiceDestino");
+        String ladoEntrada = data.get("ladoEntrada");
 
         Entity gatilho = entityBuilder(data)
-                .type(EntityType.GATILHO)
-                .bbox(new HitBox(BoundingShape.box(width, height)))
+                .type(TipoEntidade.GATILHO)
+                .bbox(new HitBox(BoundingShape.box(largura, altura)))
                 .collidable()
                 .build();
 
@@ -399,8 +411,8 @@ public class FabricaEntidades implements EntityFactory {
         //SpawnData, que não é acessível depois de construído), pra o
         //CollisionHandler em Main.initPhysics() conseguir ler de volta
         //no momento da colisão.
-        gatilho.setProperty("targetIndex", targetIndex);
-        gatilho.setProperty("entrySide", entrySide);
+        gatilho.setProperty("indiceDestino", indiceDestino);
+        gatilho.setProperty("ladoEntrada", ladoEntrada);
 
         return gatilho;
     }

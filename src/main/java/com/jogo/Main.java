@@ -7,14 +7,14 @@ import com.almasb.fxgl.entity.SpawnData;
 import com.almasb.fxgl.input.UserAction;
 import com.almasb.fxgl.physics.CollisionHandler;
 import com.almasb.fxgl.physics.PhysicsComponent;
-import com.jogo.componentes.PlayerComponent;
-import com.jogo.componentes.EnemyComponent;
-import com.jogo.componentes.WeaponComponent;
-import com.jogo.componentes.visual.BackgroundAnimationComponent;
-import com.jogo.itens.Weapon;
-import com.jogo.itens.WeaponType;
+import com.jogo.componentes.ComponenteJogador;
+import com.jogo.componentes.ComponenteInimigo;
+import com.jogo.componentes.ComponenteArma;
+import com.jogo.componentes.visual.ComponenteAnimacaoFundo;
+import com.jogo.itens.Arma;
+import com.jogo.itens.TipoArma;
 import com.almasb.fxgl.texture.Texture;
-import com.jogo.entidades.EntityType;
+import com.jogo.entidades.TipoEntidade;
 import com.jogo.factories.FabricaEntidades;
 import com.jogo.niveis.CarregadorDeNiveis;
 import com.jogo.niveis.DadosInimigo;
@@ -70,20 +70,20 @@ import static com.almasb.fxgl.dsl.FXGL.*;
  */
 public class Main extends GameApplication {
 
-    private Entity player;
+    private Entity jogador;
 
     //Barra de vida (HUD): fundo escuro fixo + barra colorida que
-    //encolhe conforme o player perde vida.
-    private Rectangle hpBarBackground;
-    private Rectangle hpBarFill;
-    private static final double HP_BAR_WIDTH = 200;
-    private static final double HP_BAR_HEIGHT = 20;
+    //encolhe conforme o jogador perde vida.
+    private Rectangle fundoBarraVida;
+    private Rectangle preenchimentoBarraVida;
+    private static final double LARGURA_BARRA_VIDA = 200;
+    private static final double ALTURA_BARRA_VIDA = 20;
 
     //Antes eram constantes fixas (3000x720). Agora vêm do mapa
     //montado em initGame() (ver CarregadorDeNiveis), então mexer no
     //tamanho é só editar os JSON das salas, sem tocar em código.
-    private double levelWidth;
-    private double levelHeight;
+    private double larguraNivel;
+    private double alturaNivel;
 
     //Salas (cada uma seu .json em assets/levels/), na ordem em que
     //aparecem da esquerda pra direita. Cada sala é carregada e
@@ -109,7 +109,7 @@ public class Main extends GameApplication {
 
     //Trava reentrância da troca de sala: true enquanto o fade (saída
     //+ troca de conteúdo + entrada) estiver em andamento, pra não
-    //disparar uma segunda troca se o player ficar parado bem em cima
+    //disparar uma segunda troca se o jogador ficar parado bem em cima
     //do gatilho (ou encostar em outro logo ao entrar na sala nova)
     //antes do fade de volta terminar.
     private boolean transicionando = false;
@@ -118,32 +118,68 @@ public class Main extends GameApplication {
     //cobre a tela, troca o conteúdo por trás enquanto opaca, e
     //descobre de novo já na sala nova — assim o "corte" fica
     //escondido, sem tela de carregamento visível.
-    private Rectangle fadeOverlay;
+    private Rectangle overlayFade;
 
-    //Quão rápido a câmera alcança o player a cada frame, maior gruda
+    //Quão rápido a câmera alcança o jogador a cada frame, maior gruda
     //mais rápido. Atrasada de propósito (em vez de bindToEntity()),
     //senão o recoil do knockback fica invisível.
-    private static final double CAMERA_SMOOTHING = 6.0;
+    private static final double SUAVIZACAO_CAMERA = 6.0;
 
     //Tela de Game Over: painel escondido por padrão, aparece quando o
-    //player morre (ver onUpdate()). gameOverShown evita mostrar de
-    //novo a cada frame enquanto o player continuar morto.
-    private StackPane gameOverOverlay;
-    private boolean gameOverShown = false;
+    //jogador morre (ver onUpdate()). gameOverExibido evita mostrar de
+    //novo a cada frame enquanto o jogador continuar morto.
+    private StackPane overlayGameOver;
+    private boolean gameOverExibido = false;
 
-    //Menu principal: aparece visível desde o início (ver initUI()),
-    //com o motor já pausado, e só libera o jogo quando aperta
-    //"Jogar". Só aparece uma vez no começo do app, não reaparece ao
-    //reiniciar depois de um Game Over (initUI() roda só uma vez).
-    private StackPane mainMenuOverlay;
+    //Menu principal: visível desde o início, motor já pausado (ver
+    //initUI()). initUI() roda de novo a cada startNewGame(), e por
+    //padrão sempre mostra esse overlay e pausa de novo — só
+    //"Reiniciar" pula isso, via pularMenuAoIniciar (ver comentário).
+    private StackPane overlayMenuPrincipal;
 
     //Menu de pausa: escondido por padrão, abre ao apertar ESC durante
-    //o jogo (ver initInput()/openPauseMenu()). Substitui o menu
+    //o jogo (ver initInput()/abrirMenuPausa()). Substitui o menu
     //interno padrão do FXGL (que a gente desligou em initSettings()
     //com setGameMenuEnabled(false)), já que aquele tinha um "Exit"
     //que fechava o jogo inteiro em vez de voltar pro nosso menu
     //principal.
-    private StackPane pauseOverlay;
+    private StackPane overlayPausa;
+
+    //"Período de graça" logo após despausar. Depois de um tempo
+    //pausado, o FXGL recupera o atraso disparando vários ticks em
+    //rajada, e isso fazia tudo que depende de tpf (câmera, hover dos
+    //voadores, timers do dash) "acelerar" por um instante. Ignorando
+    //esse instante inicial (ver emPeriodoDeGraca()), a rajada passa
+    //sem afetar nada visível.
+    private static long graceAteNanos = 0;
+    private static final long RESUME_GRACE_NANOS = 400_000_000L; // 0.4s
+
+    public static boolean emPeriodoDeGraca() {
+        return System.nanoTime() < graceAteNanos;
+    }
+
+    //IMPORTANTE: startNewGame() chama initGame()+initPhysics()+initUI()
+    //de novo TODA vez (não só no launch), e não é garantido que isso
+    //termine de forma síncrona (sem confirmação na fonte do FXGL).
+    //Por isso quem decide "mostrar o menu e pausar" é o próprio
+    //initUI() (não código depois de startNewGame() em
+    //voltarAoMenuPrincipal()), senão corre o risco de mexer num
+    //overlayMenuPrincipal já obsoleto ou pausar antes do reset acontecer
+    //de verdade (sintoma: jogo trava, sem menu, sem responder input).
+    //
+    //Por padrão initUI() sempre mostra o menu e pausa (certo pro
+    //launch e pro "Menu"/"Menu Principal"). Só reiniciarNivel() liga
+    //essa flag antes de chamar startNewGame(), pra pular esse passo
+    //e cair direto no jogo; initUI() desliga ela de novo ao consumir.
+    private boolean pularMenuAoIniciar = false;
+
+    //Usar sempre no lugar de resumeEngine() direto, pra marcar o
+    //período de graça junto. voltarAoMenuPrincipal() não usa, porque
+    //quer terminar pausado.
+    private void despausarMotor() {
+        getGameController().resumeEngine();
+        graceAteNanos = System.nanoTime() + RESUME_GRACE_NANOS;
+    }
 
     @Override
     protected void initSettings(GameSettings settings) {
@@ -174,7 +210,7 @@ public class Main extends GameApplication {
     //Gravidade do mundo de física (Box2D), só afeta quem tem
     //PhysicsComponent (voador ignora, gravityScale 0).
     //Dano/empurrão por toque não é mais CollisionHandler aqui, ver
-    //FabricaEntidades (CATEGORY_PLAYER / setupContatoComPlayer).
+    //FabricaEntidades (CATEGORY_PLAYER / configurarContatoComJogador).
     @Override
     protected void initPhysics() {
         getPhysicsWorld().setGravity(0, 1200);
@@ -183,40 +219,40 @@ public class Main extends GameApplication {
         //e prepararSala()): ao encostar, dispara a troca de sala com
         //fade (ver iniciarTransicaoDeSala()). Não mexe na física do
         //gatilho aqui (ele não tem PhysicsComponent, só bounding box +
-        //collidable()), só lê pra onde e por qual lado o player deve
+        //collidable()), só lê pra onde e por qual lado o jogador deve
         //reaparecer (guardado no próprio gatilho, ver spawnGatilho()).
-        getPhysicsWorld().addCollisionHandler(new CollisionHandler(EntityType.JOGADOR, EntityType.GATILHO) {
+        getPhysicsWorld().addCollisionHandler(new CollisionHandler(TipoEntidade.JOGADOR, TipoEntidade.GATILHO) {
             @Override
             protected void onCollisionBegin(Entity jogadorEntity, Entity gatilhoEntity) {
-                int targetIndex = gatilhoEntity.getInt("targetIndex");
-                String entrySide = gatilhoEntity.getString("entrySide");
-                iniciarTransicaoDeSala(targetIndex, entrySide);
+                int indiceDestino = gatilhoEntity.getInt("indiceDestino");
+                String ladoEntrada = gatilhoEntity.getString("ladoEntrada");
+                iniciarTransicaoDeSala(indiceDestino, ladoEntrada);
             }
         });
     }
 
-    //Carrega um frame do background de um tema (pasta em
+    //Carrega um quadro do background de um tema (pasta em
     //assets/textures/<tema>/) já pedindo pro JavaFX decodificar em
     //1000x180 em vez do 4000x720 que o arquivo tem de verdade. O
     //arquivo é um upscale 4x nearest-neighbor do desenho original, e
     //smooth=false aqui desfaz esse upscale de volta pro tamanho real
-    //sem borrar nada, só que gastando 16x menos memória por frame.
-    private Image loadBackgroundFrame(String tema, int index) {
-        String path = "/assets/textures/" + tema + "/frame_" + String.format("%03d", index) + ".png";
+    //sem borrar nada, só que gastando 16x menos memória por quadro.
+    private Image carregarQuadroFundo(String tema, int index) {
+        String caminho = "/assets/textures/" + tema + "/frame_" + String.format("%03d", index) + ".png";
 
-        try (InputStream stream = Main.class.getResourceAsStream(path)) {
+        try (InputStream stream = Main.class.getResourceAsStream(caminho)) {
             if (stream == null) {
-                throw new IllegalStateException("Frame não encontrado: " + path);
+                throw new IllegalStateException("Quadro não encontrado: " + caminho);
             }
             return new Image(stream, 1000, 180, true, false);
         } catch (Exception e) {
-            throw new RuntimeException("Falha ao carregar frame do background (" + tema + "): " + path, e);
+            throw new RuntimeException("Falha ao carregar quadro do background (" + tema + "): " + caminho, e);
         }
     }
 
-    //Cache dos frames por tema de background, carregados (decodificados)
+    //Cache dos quadros por tema de background, carregados (decodificados)
     //só uma vez pra vida inteira do app, um cache por tema (cada sala
-    //pode ter um tema diferente, ver DadosNivel.background/
+    //pode ter um tema diferente, ver DadosNivel.fundo/
     //prepararSala()). Antes isso rodava dentro de initGame(), que era
     //chamado de novo em TODO startNewGame() (Reiniciar, sair pro Menu
     //Principal) — ou seja, recarregava e redecodificava as 60 imagens
@@ -225,35 +261,35 @@ public class Main extends GameApplication {
     //tema aparece decodifica; toda vez seguinte (reload OU troca de
     //sala pro mesmo tema) reaproveita a mesma lista. Hoje só existe o
     //tema "cryolab" (pasta com as 60 imagens); um tema novo (ex.:
-    //"castelo") é só criar a pasta de frames com o mesmo padrão de
+    //"castelo") é só criar a pasta de quadros com o mesmo padrão de
     //nome e usar esse nome no campo "background" do JSON da sala.
-    private static final Map<String, List<Image>> backgroundFramesCache = new HashMap<>();
+    private static final Map<String, List<Image>> cacheQuadrosFundo = new HashMap<>();
 
-    private List<Image> getBackgroundFrames(String tema) {
-        return backgroundFramesCache.computeIfAbsent(tema, chave -> {
-            List<Image> frames = new ArrayList<>();
+    private List<Image> getQuadrosFundo(String tema) {
+        return cacheQuadrosFundo.computeIfAbsent(tema, chave -> {
+            List<Image> quadros = new ArrayList<>();
             for (int i = 0; i < 60; i++) {
-                frames.add(loadBackgroundFrame(chave, i));
+                quadros.add(carregarQuadroFundo(chave, i));
             }
-            return frames;
+            return quadros;
         });
     }
 
     //Carrega a arte de fundo do menu principal (corredor de cryo-lab,
     //320x180... na real 320x240). É uma imagem só, pequena, então
     //carrega no tamanho nativo mesmo (sem downscale, diferente do
-    //loadBackgroundFrame) e a exibição (ImageView) que estica pro
+    //carregarQuadroFundo) e a exibição (ImageView) que estica pro
     //tamanho da tela, sem suavizar, pra manter o pixel art nítido.
-    private Image loadMenuBackgroundImage() {
-        String path = "/assets/textures/menu/scifi-lab.png";
+    private Image carregarImagemFundoMenu() {
+        String caminho = "/assets/textures/menu/scifi-lab.png";
 
-        try (InputStream stream = Main.class.getResourceAsStream(path)) {
+        try (InputStream stream = Main.class.getResourceAsStream(caminho)) {
             if (stream == null) {
-                throw new IllegalStateException("Imagem não encontrada: " + path);
+                throw new IllegalStateException("Imagem não encontrada: " + caminho);
             }
             return new Image(stream);
         } catch (Exception e) {
-            throw new RuntimeException("Falha ao carregar fundo do menu: " + path, e);
+            throw new RuntimeException("Falha ao carregar fundo do menu: " + caminho, e);
         }
     }
 
@@ -271,95 +307,95 @@ public class Main extends GameApplication {
         salaAtualIndex = 0;
         DadosNivel sala = prepararSala(salaAtualIndex);
 
-        //Player com textura provisória (quadrado azul) só pra já dar
+        //Jogador com textura provisória (quadrado azul) só pra já dar
         //pra ver na tela e testar movimento e XP. Troca por sprite de
         //verdade depois, em src/main/resources/assets/textures/.
         //Posição/atributos vêm do bloco "player" do JSON da primeira
         //sala. Spawna acima do chão, cai e já pousa em cima dele
         //sozinho por causa da gravidade/física de verdade.
-        player = spawn("jogador", new SpawnData(sala.player.x, sala.player.y)
-                .put("name", sala.player.name)
-                .put("maxHealth", sala.player.maxHealth)
-                .put("moveSpeed", sala.player.moveSpeed));
+        jogador = spawn("jogador", new SpawnData(sala.jogador.x, sala.jogador.y)
+                .put("nome", sala.jogador.nome)
+                .put("vidaMaxima", sala.jogador.vidaMaxima)
+                .put("velocidade", sala.jogador.velocidade));
 
-        //Arma inicial do player. Trocar/adicionar armas depois (loot,
-        //upgrades) é só chamar equipWeapon() de novo em qualquer outro
+        //Arma inicial do jogador. Trocar/adicionar armas depois (loot,
+        //upgrades) é só chamar equiparArma() de novo em qualquer outro
         //ponto do código.
-        player.getComponent(WeaponComponent.class).equipWeapon(
-                new Weapon("Espada", 20, 0.5, 40, WeaponType.MELEE));
+        jogador.getComponent(ComponenteArma.class).equiparArma(
+                new Arma("Espada", 20, 0.5, 40, TipoArma.MELEE));
 
-        //Câmera: centraliza no player já de cara (sem suavização
+        //Câmera: centraliza no jogador já de cara (sem suavização
         //inicial), o acompanhamento suave de verdade é o
-        //updateCamera() chamado por onUpdate(). setBounds() sozinho
+        //atualizarCamera() chamado por onUpdate(). setBounds() sozinho
         //não trava a câmera aqui (só vale pra bindToEntity()), quem
-        //trava de verdade é o clampCameraX/Y lá embaixo.
-        getGameScene().getViewport().setBounds(0, 0, (int) levelWidth, (int) levelHeight);
+        //trava de verdade é o limitarCameraX/Y lá embaixo.
+        getGameScene().getViewport().setBounds(0, 0, (int) larguraNivel, (int) alturaNivel);
         var viewport = getGameScene().getViewport();
-        viewport.setX(clampCameraX(player.getX() + player.getWidth() / 2 - getAppWidth() / 2.0));
-        viewport.setY(clampCameraY(player.getY() + player.getHeight() / 2 - getAppHeight() / 2.0));
+        viewport.setX(limitarCameraX(jogador.getX() + jogador.getWidth() / 2 - getAppWidth() / 2.0));
+        viewport.setY(limitarCameraY(jogador.getY() + jogador.getHeight() / 2 - getAppHeight() / 2.0));
 
         spawnInimigosDaSala(sala);
 
         //Reseta o estado da tela de Game Over, importante pro
         //"Reiniciar" funcionar: initGame() roda de novo nesse botão
         //(via getGameController().startNewGame()), então sem isso o
-        //gameOverShown continuaria true e a tela nunca mais apareceria
+        //gameOverExibido continuaria true e a tela nunca mais apareceria
         //numa segunda morte.
-        gameOverShown = false;
+        gameOverExibido = false;
     }
 
     //Monta o "cenário" de uma sala (background do tema dela, mapa de
     //plataformas, e as bordas — parede sólida numa ponta sem vizinho,
-    //gatilho de passagem na ponta que tiver) e atualiza levelWidth/
-    //levelHeight (usados pela câmera, ver clampCameraX/Y). Não mexe
-    //no player nem nos inimigos: initGame() cria/posiciona o player
+    //gatilho de passagem na ponta que tiver) e atualiza larguraNivel/
+    //alturaNivel (usados pela câmera, ver limitarCameraX/Y). Não mexe
+    //no jogador nem nos inimigos: initGame() cria/posiciona o jogador
     //na primeira vez, trocarSala() só reposiciona o que já existe, e
-    //os dois chamam spawnInimigosDaSala() depois, já com o player
-    //pronto (EnemyComponent.setTarget() precisa dele).
+    //os dois chamam spawnInimigosDaSala() depois, já com o jogador
+    //pronto (ComponenteInimigo.definirAlvo() precisa dele).
     private DadosNivel prepararSala(int index) {
         DadosNivel sala = CarregadorDeNiveis.carregar(SALAS_DO_MAPA.get(index));
-        levelWidth = sala.levelWidth;
-        levelHeight = sala.levelHeight;
+        larguraNivel = sala.larguraNivel;
+        alturaNivel = sala.alturaNivel;
 
         //Background da sala: cor sólida se o JSON tiver
         //"backgroundColor" (um retângulo só, sem animação — mais leve
         //e serve pra diferenciar salas sem precisar de uma pasta de
-        //frames pra cada uma), senão o background animado de sempre
-        //(60 frames em loop a 15fps, tema definido pelo campo
+        //quadros pra cada uma), senão o background animado de sempre
+        //(60 quadros em loop a 15fps, tema definido pelo campo
         //"background" do JSON, ou "cryolab" se não tiver nenhum dos
-        //dois — hoje é o único tema com frames de verdade).
-        if (sala.backgroundColor != null) {
-            Rectangle backgroundSolido = new Rectangle(levelWidth, levelHeight, Color.web(sala.backgroundColor));
+        //dois — hoje é o único tema com quadros de verdade).
+        if (sala.corFundo != null) {
+            Rectangle backgroundSolido = new Rectangle(larguraNivel, alturaNivel, Color.web(sala.corFundo));
             entityBuilder()
                     .at(0, 0)
                     .view(backgroundSolido)
                     .zIndex(-1) // fundo atrás de tudo
                     .buildAndAttach();
         } else {
-            //Cada frame já vem em 4000x720 (upscale 4x de 1000x180),
+            //Cada quadro já vem em 4000x720 (upscale 4x de 1000x180),
             //mas carregar isso tudo em memória é muito pesado, então
-            //loadBackgroundFrame() decodifica direto em 1000x180 (a
+            //carregarQuadroFundo() decodifica direto em 1000x180 (a
             //resolução real do desenho) e a Texture reestica isso pra
             //4000x720 na exibição. Repete lado a lado (tiling) só pela
-            //largura DESSA sala. getBackgroundFrames() só decodifica o
+            //largura DESSA sala. getQuadrosFundo() só decodifica o
             //tema na primeira vez que ele aparece (ver cache lá em cima).
-            String tema = sala.background != null ? sala.background : "cryolab";
-            List<Image> frames = getBackgroundFrames(tema);
+            String tema = sala.fundo != null ? sala.fundo : "cryolab";
+            List<Image> quadros = getQuadrosFundo(tema);
 
-            int backgroundTileWidth = 4000;
-            int backgroundTiles = (int) Math.ceil(levelWidth / backgroundTileWidth);
+            int larguraTileBackground = 4000;
+            int tilesBackground = (int) Math.ceil(larguraNivel / larguraTileBackground);
 
-            for (int i = 0; i < backgroundTiles; i++) {
-                BackgroundAnimationComponent background = new BackgroundAnimationComponent(frames, 15);
+            for (int i = 0; i < tilesBackground; i++) {
+                ComponenteAnimacaoFundo background = new ComponenteAnimacaoFundo(quadros, 15);
 
-                Texture bgView = background.getView();
-                bgView.setFitWidth(backgroundTileWidth);
-                bgView.setFitHeight(levelHeight);
-                bgView.setSmooth(false); //nearest neighbor, pixel art sem borrão
+                Texture visaoBg = background.getVisao();
+                visaoBg.setFitWidth(larguraTileBackground);
+                visaoBg.setFitHeight(alturaNivel);
+                visaoBg.setSmooth(false); //nearest neighbor, pixel art sem borrão
 
                 entityBuilder()
-                        .at(i * backgroundTileWidth, 0)
-                        .view(bgView)
+                        .at(i * larguraTileBackground, 0)
+                        .view(visaoBg)
                         .zIndex(-1) // fundo atrás de tudo
                         .with(background)
                         .buildAndAttach();
@@ -370,10 +406,10 @@ public class Main extends GameApplication {
         //lista, larga, cobrindo a sala inteira — sem tratamento
         //especial). Plataforma é um corpo estático, não se move, ver
         //FabricaEntidades.spawnPlataforma.
-        for (DadosPlataforma plataforma : sala.platforms) {
+        for (DadosPlataforma plataforma : sala.plataformas) {
             spawn("plataforma", new SpawnData(plataforma.x, plataforma.y)
-                    .put("width", plataforma.width)
-                    .put("height", plataforma.height));
+                    .put("largura", plataforma.largura)
+                    .put("altura", plataforma.altura));
         }
 
         //Borda esquerda: parede sólida só na primeira sala do mapa
@@ -381,26 +417,26 @@ public class Main extends GameApplication {
         //gatilho de passagem pra sala anterior (index-1), reaparecendo
         //do lado direito de lá (ver iniciarTransicaoDeSala()).
         if (index == 0) {
-            spawn("parede", new SpawnData(-50, 0).put("width", 50.0).put("height", levelHeight));
+            spawn("parede", new SpawnData(-50, 0).put("largura", 50.0).put("altura", alturaNivel));
         } else {
             spawn("gatilho", new SpawnData(0, 0)
-                    .put("width", 40.0)
-                    .put("height", levelHeight)
-                    .put("targetIndex", index - 1)
-                    .put("entrySide", "right"));
+                    .put("largura", 40.0)
+                    .put("altura", alturaNivel)
+                    .put("indiceDestino", index - 1)
+                    .put("ladoEntrada", "right"));
         }
 
         //Borda direita: parede sólida só na última sala do mapa; nas
         //demais vira um gatilho pra próxima sala (index+1), reaparecendo
         //do lado esquerdo dela.
         if (index == SALAS_DO_MAPA.size() - 1) {
-            spawn("parede", new SpawnData(levelWidth, 0).put("width", 50.0).put("height", levelHeight));
+            spawn("parede", new SpawnData(larguraNivel, 0).put("largura", 50.0).put("altura", alturaNivel));
         } else {
-            spawn("gatilho", new SpawnData(levelWidth - 40, 0)
-                    .put("width", 40.0)
-                    .put("height", levelHeight)
-                    .put("targetIndex", index + 1)
-                    .put("entrySide", "left"));
+            spawn("gatilho", new SpawnData(larguraNivel - 40, 0)
+                    .put("largura", 40.0)
+                    .put("altura", alturaNivel)
+                    .put("indiceDestino", index + 1)
+                    .put("ladoEntrada", "left"));
         }
 
         return sala;
@@ -408,50 +444,50 @@ public class Main extends GameApplication {
 
     //Inimigos espalhados pela sala (lista "enemies" do JSON), cada um
     //com física de verdade (ver FabricaEntidades): o voador colide com
-    //plataforma em vez de atravessar, o ranged fica em cima da
+    //plataforma em vez de atravessar, o atirador fica em cima da
     //plataforma em vez de flutuando no vazio. "type" no JSON
     //("voador"/"ranged"/"melee") vira o spawn "inimigo_<type>" da
-    //FabricaEntidades. EnemyComponent.getFrom() acha o componente
+    //FabricaEntidades. ComponenteInimigo.obterDe() acha o componente
     //certo sem precisar saber o tipo concreto aqui, então um loop só
-    //cobre os três. Chamado só depois do player existir (initGame()/
-    //trocarSala()), porque setTarget() precisa dele.
+    //cobre os três. Chamado só depois do jogador existir (initGame()/
+    //trocarSala()), porque definirAlvo() precisa dele.
     private void spawnInimigosDaSala(DadosNivel sala) {
-        for (DadosInimigo dadosInimigo : sala.enemies) {
-            Entity inimigo = spawn("inimigo_" + dadosInimigo.type, new SpawnData(dadosInimigo.x, dadosInimigo.y)
-                    .put("name", dadosInimigo.name)
-                    .put("maxHealth", dadosInimigo.maxHealth)
-                    .put("moveSpeed", dadosInimigo.moveSpeed)
-                    .put("damage", dadosInimigo.damage)
-                    .put("attackRange", dadosInimigo.attackRange)
-                    .put("detectionRange", dadosInimigo.detectionRange));
+        for (DadosInimigo dadosInimigo : sala.inimigos) {
+            Entity inimigo = spawn("inimigo_" + dadosInimigo.tipo, new SpawnData(dadosInimigo.x, dadosInimigo.y)
+                    .put("nome", dadosInimigo.nome)
+                    .put("vidaMaxima", dadosInimigo.vidaMaxima)
+                    .put("velocidade", dadosInimigo.velocidade)
+                    .put("dano", dadosInimigo.dano)
+                    .put("alcanceAtaque", dadosInimigo.alcanceAtaque)
+                    .put("alcanceDeteccao", dadosInimigo.alcanceDeteccao));
 
-            EnemyComponent.getFrom(inimigo).setTarget(player);
+            ComponenteInimigo.obterDe(inimigo).definirAlvo(jogador);
         }
     }
 
     //Chamado pelo CollisionHandler do gatilho (ver initPhysics())
-    //quando o player encosta na zona de passagem. Cobre a troca com
-    //um fade curto pra preto (fadeOverlay, criado em initUI()): a
+    //quando o jogador encosta na zona de passagem. Cobre a troca com
+    //um fade curto pra preto (overlayFade, criado em initUI()): a
     //troca de conteúdo em si (trocarSala()) só acontece quando a tela
     //já está preta, escondendo o "corte". Importante: a troca real só
     //roda dentro do onFinished do fade (não aqui, direto no
-    //onCollisionBegin), porque mexer no corpo de física do player
+    //onCollisionBegin), porque mexer no corpo de física do jogador
     //durante o próprio passo de física (que é quando a colisão é
     //detectada) trava o Box2D — esperar o fade terminar já tira isso
     //de dentro do passo de física com folga. transicionando trava
     //novas trocas até o fade de volta terminar.
-    private void iniciarTransicaoDeSala(int targetIndex, String entrySide) {
+    private void iniciarTransicaoDeSala(int indiceDestino, String ladoEntrada) {
         if (transicionando) {
             return;
         }
         transicionando = true;
 
-        FadeTransition fadeOut = new FadeTransition(Duration.millis(220), fadeOverlay);
+        FadeTransition fadeOut = new FadeTransition(Duration.millis(220), overlayFade);
         fadeOut.setToValue(1.0);
         fadeOut.setOnFinished(e -> {
-            trocarSala(targetIndex, entrySide);
+            trocarSala(indiceDestino, ladoEntrada);
 
-            FadeTransition fadeIn = new FadeTransition(Duration.millis(220), fadeOverlay);
+            FadeTransition fadeIn = new FadeTransition(Duration.millis(220), overlayFade);
             fadeIn.setToValue(0.0);
             fadeIn.setOnFinished(e2 -> transicionando = false);
             fadeIn.play();
@@ -459,80 +495,83 @@ public class Main extends GameApplication {
         fadeOut.play();
     }
 
-    //Troca o conteúdo da sala sem recriar o player (diferente de
+    //Troca o conteúdo da sala sem recriar o jogador (diferente de
     //startNewGame(), que reconstrói tudo do zero) — assim vida e
-    //estado do player atravessam a troca de sala, igual um
-    //metroidvania de verdade. Remove tudo que não é o player
+    //estado do jogador atravessam a troca de sala, igual um
+    //metroidvania de verdade. Remove tudo que não é o jogador
     //(plataformas, bordas/gatilhos, inimigos, tiles de background da
     //sala antiga), monta a sala nova (prepararSala()) e reposiciona o
-    //player na borda por onde ele deveria "entrar" (esquerda se veio
+    //jogador na borda por onde ele deveria "entrar" (esquerda se veio
     //da sala anterior, direita se veio da seguinte). overwritePosition()
     //no corpo de física é o jeito da FXGL 17.3 de teleportar uma
     //entidade com PhysicsComponent sem esperar o próximo passo de
     //física brigar com a posição antiga.
-    private void trocarSala(int targetIndex, String entrySide) {
+    private void trocarSala(int indiceDestino, String ladoEntrada) {
         for (Entity entity : new ArrayList<>(getGameWorld().getEntities())) {
-            if (entity != player) {
+            if (entity != jogador) {
                 entity.removeFromWorld();
             }
         }
 
-        salaAtualIndex = targetIndex;
+        salaAtualIndex = indiceDestino;
         DadosNivel sala = prepararSala(salaAtualIndex);
 
         double margemEntrada = 80;
-        double x = "left".equals(entrySide) ? margemEntrada : levelWidth - margemEntrada;
-        double y = sala.player.y;
-        player.getComponent(PhysicsComponent.class).overwritePosition(new Point2D(x, y));
+        double x = "left".equals(ladoEntrada) ? margemEntrada : larguraNivel - margemEntrada;
+        double y = sala.jogador.y;
+        jogador.getComponent(PhysicsComponent.class).overwritePosition(new Point2D(x, y));
 
         var viewport = getGameScene().getViewport();
-        viewport.setBounds(0, 0, (int) levelWidth, (int) levelHeight);
-        viewport.setX(clampCameraX(x - getAppWidth() / 2.0));
-        viewport.setY(clampCameraY(y - getAppHeight() / 2.0));
+        viewport.setBounds(0, 0, (int) larguraNivel, (int) alturaNivel);
+        viewport.setX(limitarCameraX(x - getAppWidth() / 2.0));
+        viewport.setY(limitarCameraY(y - getAppHeight() / 2.0));
 
         spawnInimigosDaSala(sala);
     }
 
     @Override
     protected void initInput() {
-        //ESC abre o menu de pausa (nosso, ver buildPauseOverlay()),
+        //ESC abre o menu de pausa (nosso, ver construirOverlayPausa()),
         //no lugar do menu interno padrão do FXGL (desligado em
-        //initSettings()). Só abre se o player ainda tiver vivo/ativo
+        //initSettings()). Só abre se o jogador ainda tiver vivo/ativo
         //e o Game Over não estiver na tela, senão ESC durante a
         //morte ou o próprio Game Over abriria um menu por cima do
         //outro.
         getInput().addAction(new UserAction("Pausar") {
             @Override
             protected void onActionBegin() {
-                if (!player.isActive() || gameOverShown) {
+                //overlayMenuPrincipal.isVisible(): sem isso, ESC logo
+                //depois de "Menu"/"Menu Principal" abria a pausa em
+                //cima do menu (o jogador novo já nasce ativo).
+                if (!jogador.isActive() || gameOverExibido || overlayMenuPrincipal.isVisible()) {
                     return;
                 }
-                openPauseMenu();
+                abrirMenuPausa();
             }
         }, KeyCode.ESCAPE);
 
         //Side-view: vertical é só gravidade + pulo. onActionBegin
-        //dispara uma vez só (não todo frame), certo pra jump(). SPACE e
+        //dispara uma vez só (não todo frame), certo pra pular(). SPACE e
         //a seta pra CIMA fazem a mesma coisa — precisam ser dois
         //addAction separados (um UserAction só liga a UM trigger),
-        //então a lógica de jump() fica duplicada nos dois blocos.
+        //então a lógica de pular() fica duplicada nos dois blocos.
         getInput().addAction(new UserAction("Pular") {
             @Override
             protected void onActionBegin() {
-                if (!player.isActive()) {
+                if (!jogador.isActive()) {
                     return;
                 }
-                player.getComponent(PlayerComponent.class).jump();
+                jogador.getComponent(ComponenteJogador.class).pular();
             }
         }, KeyCode.SPACE);
 
         getInput().addAction(new UserAction("Pular (seta)") {
             @Override
             protected void onActionBegin() {
-                if (!player.isActive()) {
+                if (!jogador.isActive()) {
                     return;
                 }
-                player.getComponent(PlayerComponent.class).jump();
+                jogador.getComponent(ComponenteJogador.class).pular();
             }
         }, KeyCode.UP);
 
@@ -542,36 +581,36 @@ public class Main extends GameApplication {
         getInput().addAction(new UserAction("Mover Esquerda") {
             @Override
             protected void onAction() {
-                if (!player.isActive()) {
+                if (!jogador.isActive()) {
                     return;
                 }
-                player.getComponent(PlayerComponent.class).moveLeft();
+                jogador.getComponent(ComponenteJogador.class).moverEsquerda();
             }
 
             @Override
             protected void onActionEnd() {
-                if (!player.isActive()) {
+                if (!jogador.isActive()) {
                     return;
                 }
-                player.getComponent(PlayerComponent.class).stopHorizontal();
+                jogador.getComponent(ComponenteJogador.class).pararHorizontal();
             }
         }, KeyCode.LEFT);
 
         getInput().addAction(new UserAction("Mover Direita") {
             @Override
             protected void onAction() {
-                if (!player.isActive()) {
+                if (!jogador.isActive()) {
                     return;
                 }
-                player.getComponent(PlayerComponent.class).moveRight();
+                jogador.getComponent(ComponenteJogador.class).moverDireita();
             }
 
             @Override
             protected void onActionEnd() {
-                if (!player.isActive()) {
+                if (!jogador.isActive()) {
                     return;
                 }
-                player.getComponent(PlayerComponent.class).stopHorizontal();
+                jogador.getComponent(ComponenteJogador.class).pararHorizontal();
             }
         }, KeyCode.RIGHT);
 
@@ -584,14 +623,14 @@ public class Main extends GameApplication {
         //com KeyCode.SHIFT derruba o jogo com
         //"IllegalArgumentException: Cannot bind to illegal key: SHIFT"
         //assim que o loop principal inicia. Em vez disso, um
-        //TriggerListener registrado em PlayerComponent.onAdded() é
+        //TriggerListener registrado em ComponenteJogador.onAdded() é
         //avisado de toda tecla pressionada no jogo e só reage quando
         //for Shift, chamando dash() — ver comentário lá.
 
         getInput().addAction(new UserAction("Atacar") {
             @Override
             protected void onActionBegin() {
-                if (player.isActive()) player.getComponent(WeaponComponent.class).attack();
+                if (jogador.isActive()) jogador.getComponent(ComponenteArma.class).atacar();
             }
         }, KeyCode.Z);
     }
@@ -599,61 +638,72 @@ public class Main extends GameApplication {
 
    @Override
     protected void initUI() {
-        hpBarBackground = new Rectangle(HP_BAR_WIDTH, HP_BAR_HEIGHT, Color.DARKSLATEGRAY);
-        hpBarBackground.setTranslateX(20);
-        hpBarBackground.setTranslateY(20);
+        fundoBarraVida = new Rectangle(LARGURA_BARRA_VIDA, ALTURA_BARRA_VIDA, Color.DARKSLATEGRAY);
+        fundoBarraVida.setTranslateX(20);
+        fundoBarraVida.setTranslateY(20);
 
-        hpBarFill = new Rectangle(HP_BAR_WIDTH, HP_BAR_HEIGHT, Color.LIMEGREEN);
-        hpBarFill.setTranslateX(20);
-        hpBarFill.setTranslateY(20);
+        preenchimentoBarraVida = new Rectangle(LARGURA_BARRA_VIDA, ALTURA_BARRA_VIDA, Color.LIMEGREEN);
+        preenchimentoBarraVida.setTranslateX(20);
+        preenchimentoBarraVida.setTranslateY(20);
 
         // 1. Resgatamos o componente do jogador (que já foi instanciado no initGame)
-        PlayerComponent pComponent = player.getComponent(PlayerComponent.class);
+        ComponenteJogador componenteJogador = jogador.getComponent(ComponenteJogador.class);
 
         // mudança por evento:
         // Amarramos a propriedade 'width' do retângulo à equação da vida do jogador.
-        // O JavaFX recalcula a expressão matemática SOMENTE quando currentHealth sofrer um .set().
-        hpBarFill.widthProperty().bind(
-            pComponent.currentHealthProperty()
-                .multiply(HP_BAR_WIDTH)
-                .divide(pComponent.getMaxHealth())
+        // O JavaFX recalcula a expressão matemática SOMENTE quando vidaAtual sofrer um .set().
+        preenchimentoBarraVida.widthProperty().bind(
+            componenteJogador.vidaAtualProperty()
+                .multiply(LARGURA_BARRA_VIDA)
+                .divide(componenteJogador.getVidaMaxima())
         );
 
 
         // Adicionamos um "sensor que dispara uma ação toda vez que o valor muda.
         // Isso resolve a troca de cores (verde para vermelho).
-        pComponent.currentHealthProperty().addListener((observable, oldValue, newValue) -> {
-            double percent = newValue.doubleValue() / pComponent.getMaxHealth();
-            hpBarFill.setFill(percent <= 0.3 ? Color.CRIMSON : Color.LIMEGREEN);
+        componenteJogador.vidaAtualProperty().addListener((observable, oldValue, newValue) -> {
+            double percentual = newValue.doubleValue() / componenteJogador.getVidaMaxima();
+            preenchimentoBarraVida.setFill(percentual <= 0.3 ? Color.CRIMSON : Color.LIMEGREEN);
         });
 
-        getGameScene().addUINode(hpBarBackground);
-        getGameScene().addUINode(hpBarFill);
+        getGameScene().addUINode(fundoBarraVida);
+        getGameScene().addUINode(preenchimentoBarraVida);
         // Instancia a tela de Game Over e adiciona à cena
-        gameOverOverlay = buildGameOverOverlay();
-        getGameScene().addUINode(gameOverOverlay);
+        overlayGameOver = construirOverlayGameOver();
+        getGameScene().addUINode(overlayGameOver);
 
         //Menu de pausa (ESC durante o jogo, ver initInput()),
         //escondido por padrão igual o Game Over.
-        pauseOverlay = buildPauseOverlay();
-        getGameScene().addUINode(pauseOverlay);
+        overlayPausa = construirOverlayPausa();
+        getGameScene().addUINode(overlayPausa);
 
         //Menu principal, já visível por cima de tudo, e pausa o
         //motor aqui (initUI roda depois do initGame/initPhysics,
         //então o mundo já existe e pausar não quebra nada). Só
-        //despausa no startGame(), quando aperta "Jogar".
-        mainMenuOverlay = buildMainMenuOverlay();
-        getGameScene().addUINode(mainMenuOverlay);
-        getGameController().pauseEngine();
+        //despausa no iniciarJogo(), quando aperta "Jogar".
+        overlayMenuPrincipal = construirOverlayMenuPrincipal();
+        getGameScene().addUINode(overlayMenuPrincipal);
+
+        //Por padrão sempre mostra o menu e pausa. Só reiniciarNivel()
+        //liga pularMenuAoIniciar antes, pra pular isso.
+        if (pularMenuAoIniciar) {
+            overlayMenuPrincipal.setVisible(false);
+            overlayMenuPrincipal.setMouseTransparent(true);
+            pularMenuAoIniciar = false;
+        } else {
+            overlayMenuPrincipal.setVisible(true);
+            overlayMenuPrincipal.setMouseTransparent(false);
+            getGameController().pauseEngine();
+        }
 
         //Overlay preto da troca de sala (ver iniciarTransicaoDeSala()),
         //por cima de tudo (adicionado por último) e sempre transparente
         //a clique — a troca é rápida o bastante pra não precisar
         //bloquear input de verdade.
-        fadeOverlay = new Rectangle(getAppWidth(), getAppHeight(), Color.BLACK);
-        fadeOverlay.setOpacity(0);
-        fadeOverlay.setMouseTransparent(true);
-        getGameScene().addUINode(fadeOverlay);
+        overlayFade = new Rectangle(getAppWidth(), getAppHeight(), Color.BLACK);
+        overlayFade.setOpacity(0);
+        overlayFade.setMouseTransparent(true);
+        getGameScene().addUINode(overlayFade);
     }
 
     //Painel de Game Over: fundo escuro semi transparente cobrindo a
@@ -661,7 +711,7 @@ public class Main extends GameApplication {
     //setMouseTransparent(true) enquanto escondido é importante, senão
     //mesmo invisível ele ficaria por cima bloqueando clique no resto
     //do jogo.
-    private StackPane buildGameOverOverlay() {
+    private StackPane construirOverlayGameOver() {
         //Fundo bem escuro (quase preto) em vez de cinza preto puro,
         //dá uma sensação mais de vinheta que um cinza chapado.
         Rectangle background = new Rectangle(getAppWidth(), getAppHeight(), Color.rgb(8, 6, 10, 0.88));
@@ -677,11 +727,11 @@ public class Main extends GameApplication {
         subtitle.setFill(Color.web("#cfcfcf"));
         subtitle.setFont(Font.font("Arial", 18));
 
-        Button restartButton = buildMenuButton("Reiniciar", "#2e7d32", "#3fa043");
-        restartButton.setOnAction(e -> restartLevel());
+        Button restartButton = construirBotaoMenu("Reiniciar", "#2e7d32", "#3fa043");
+        restartButton.setOnAction(e -> reiniciarNivel());
 
-        Button quitButton = buildMenuButton("Menu Principal", "#7a1f1f", "#9c2b2b");
-        quitButton.setOnAction(e -> quitToMainMenu(gameOverOverlay));
+        Button quitButton = construirBotaoMenu("Menu Principal", "#7a1f1f", "#9c2b2b");
+        quitButton.setOnAction(e -> voltarAoMenuPrincipal(overlayGameOver));
 
         VBox buttons = new VBox(14, restartButton, quitButton);
         buttons.setAlignment(Pos.CENTER);
@@ -696,12 +746,12 @@ public class Main extends GameApplication {
         return overlay;
     }
 
-    //Painel de pausa: aberto via ESC (ver initInput()/openPauseMenu()),
+    //Painel de pausa: aberto via ESC (ver initInput()/abrirMenuPausa()),
     //escondido por padrão igual o Game Over. Visual mais simples que
     //o menu principal (sem a imagem de fundo/aberração cromática),
     //só pra dar uma pausa rápida com "Continuar" ou voltar pro menu
     //principal.
-    private StackPane buildPauseOverlay() {
+    private StackPane construirOverlayPausa() {
         Rectangle background = new Rectangle(getAppWidth(), getAppHeight(), Color.rgb(8, 6, 10, 0.88));
 
         //Nome do jogo, menorzinho e mais discreto que o "PAUSADO",
@@ -720,13 +770,13 @@ public class Main extends GameApplication {
         VBox titleBlock = new VBox(6, gameTitle, title);
         titleBlock.setAlignment(Pos.CENTER);
 
-        Button continueButton = buildMenuButton("Continuar", "#1f5c33", "#2e8b4f", "#4fd1c5");
-        continueButton.setOnAction(e -> resumeFromPause());
+        Button continueButton = construirBotaoMenu("Continuar", "#1f5c33", "#2e8b4f", "#4fd1c5");
+        continueButton.setOnAction(e -> retomarDaPausa());
 
         //Botão de menu: volta pro menu principal (mesmo comportamento
         //do botão de mesmo nome na tela de Game Over).
-        Button mainMenuButton = buildMenuButton("Menu", "#7a1f1f", "#9c2b2b");
-        mainMenuButton.setOnAction(e -> quitToMainMenu(pauseOverlay));
+        Button mainMenuButton = construirBotaoMenu("Menu", "#7a1f1f", "#9c2b2b");
+        mainMenuButton.setOnAction(e -> voltarAoMenuPrincipal(overlayPausa));
 
         VBox buttons = new VBox(14, continueButton, mainMenuButton);
         buttons.setAlignment(Pos.CENTER);
@@ -749,14 +799,14 @@ public class Main extends GameApplication {
     //itens de menu estilo HUD). A fonte "Press Start 2P" do mockup
     //não é uma fonte instalada por padrão, então usa Consolas em
     //negrito no lugar (mesma família usada no resto da UI).
-    private StackPane buildMainMenuOverlay() {
+    private StackPane construirOverlayMenuPrincipal() {
         double width = getAppWidth();
         double height = getAppHeight();
 
         //Camada 1: imagem de fundo (corredor de cryo-lab), esticada
         //pra cobrir a tela toda sem suavizar (mantém o pixel art
         //nítido, mesma técnica do background animado do nível).
-        ImageView background = new ImageView(loadMenuBackgroundImage());
+        ImageView background = new ImageView(carregarImagemFundoMenu());
         background.setFitWidth(width);
         background.setFitHeight(height);
         background.setSmooth(false);
@@ -773,7 +823,7 @@ public class Main extends GameApplication {
 
         //Camada 3: scanlines (listras horizontais bem sutis), efeito
         //de monitor CRT antigo/holograma.
-        Node scanlines = buildScanlineOverlay(width, height);
+        Node scanlines = construirOverlayScanlines(width, height);
 
         //Camada 4: uma faixa de brilho ciano que desce a tela em
         //loop, feito só pra dar uma sensação de "scanner" ativo.
@@ -796,7 +846,7 @@ public class Main extends GameApplication {
 
         //Linha "CRYOGENIC DIVISION" com tracinhos dos dois lados.
         Rectangle divisionLineLeft = new Rectangle(56, 1, Color.web("#4de8d4"));
-        Text divisionLabel = new Text(spaced("CRYOGENIC DIVISION"));
+        Text divisionLabel = new Text(espacado("CRYOGENIC DIVISION"));
         divisionLabel.setFont(Font.font("Consolas", FontWeight.NORMAL, 11));
         divisionLabel.setFill(Color.web("#4de8d4"));
         divisionLabel.setOpacity(0.7);
@@ -807,15 +857,15 @@ public class Main extends GameApplication {
         //Título "EIXO 0" com aberração cromática (cópias azul/magenta
         //levemente deslocadas atrás do texto ciano principal) +
         //brilho neon, igual o mockup.
-        Node eixoText = buildAberratedText("EIXO", 64, "#dffdf7", 22);
+        Node eixoText = construirTextoComAberracao("EIXO", 64, "#dffdf7", 22);
         Rectangle titleDivider = new Rectangle(34, 6, Color.web("#4de8d4"));
         titleDivider.setEffect(new DropShadow(16, Color.web("#4de8d4")));
-        Node zeroText = buildAberratedText("0", 64, "#4de8d4", 26);
+        Node zeroText = construirTextoComAberracao("0", 64, "#4de8d4", 26);
 
         HBox titleRow = new HBox(22, eixoText, titleDivider, zeroText);
         titleRow.setAlignment(Pos.CENTER);
 
-        Text protocolLabel = new Text(spaced("SUBJECT ZERO PROTOCOL"));
+        Text protocolLabel = new Text(espacado("SUBJECT ZERO PROTOCOL"));
         protocolLabel.setFont(Font.font("Consolas", FontWeight.NORMAL, 10));
         protocolLabel.setFill(Color.web("#6fb3c4"));
 
@@ -840,10 +890,10 @@ public class Main extends GameApplication {
         AnchorPane.setRightAnchor(titlePanel, 0.0);
         AnchorPane.setBottomAnchor(titlePanel, 0.0);
 
-        Node cornerTopLeft = buildCornerBracket("#4de8d4");
-        Node cornerTopRight = buildCornerBracket("#4de8d4");
-        Node cornerBottomLeft = buildCornerBracket("#1c5f74");
-        Node cornerBottomRight = buildCornerBracket("#1c5f74");
+        Node cornerTopLeft = construirCantoDecorativo("#4de8d4");
+        Node cornerTopRight = construirCantoDecorativo("#4de8d4");
+        Node cornerBottomLeft = construirCantoDecorativo("#1c5f74");
+        Node cornerBottomRight = construirCantoDecorativo("#1c5f74");
         AnchorPane.setTopAnchor(cornerTopLeft, -6.0);
         AnchorPane.setLeftAnchor(cornerTopLeft, -6.0);
         AnchorPane.setTopAnchor(cornerTopRight, -6.0);
@@ -859,20 +909,20 @@ public class Main extends GameApplication {
 
         //Itens do menu: linhas estilo HUD (indicador + label + tecla
         //de atalho), em vez de botões redondos comuns.
-        Region playRow = buildMenuRow("PLAY", "ENTER", true, this::startGame);
-        Region optionsRow = buildMenuRow("OPTIONS", "O", false, null);
-        Region quitRow = buildMenuRow("QUIT", "ESC", false, () -> getGameController().exit());
+        Region playRow = construirLinhaMenu("PLAY", "ENTER", true, this::iniciarJogo);
+        Region optionsRow = construirLinhaMenu("OPTIONS", "O", false, null);
+        Region quitRow = construirLinhaMenu("QUIT", "ESC", false, () -> getGameController().exit());
         VBox menuRows = new VBox(10, playRow, optionsRow, quitRow);
         menuRows.setAlignment(Pos.CENTER);
 
         VBox centerContent = new VBox(76, titleBlock, menuRows);
         centerContent.setAlignment(Pos.CENTER);
 
-        Text footerLeft = new Text(spaced("CRYOBAY 7 · SYS v0.4.1"));
+        Text footerLeft = new Text(espacado("CRYOBAY 7 · SYS v0.4.1"));
         footerLeft.setFont(Font.font("Consolas", 10));
         footerLeft.setFill(Color.web("#3f7a96"));
 
-        Text footerRight = new Text(spaced("SELECT ENTER CONFIRM"));
+        Text footerRight = new Text(espacado("SELECT ENTER CONFIRM"));
         footerRight.setFont(Font.font("Consolas", 10));
         footerRight.setFill(Color.web("#3f7a96"));
 
@@ -891,7 +941,7 @@ public class Main extends GameApplication {
     //Overlay de scanlines: um monte de linhas horizontais finas e bem
     //translúcidas, geradas uma vez só na construção do menu (não é
     //por frame, então não pesa nada).
-    private Node buildScanlineOverlay(double width, double height) {
+    private Node construirOverlayScanlines(double width, double height) {
         Pane pane = new Pane();
         pane.setPrefSize(width, height);
         pane.setMouseTransparent(true);
@@ -909,7 +959,7 @@ public class Main extends GameApplication {
     //deslocadas (azul e magenta) atrás do texto principal, técnica
     //visual do mockup pra dar aquele efeito de tela/holograma com
     //leve desalinhamento de cor.
-    private Node buildAberratedText(String text, double size, String mainColorHex, double glowRadius) {
+    private Node construirTextoComAberracao(String text, double size, String mainColorHex, double glowRadius) {
         Text ghostBlue = new Text(text);
         ghostBlue.setFont(Font.font("Consolas", FontWeight.BLACK, size));
         ghostBlue.setFill(Color.web("#1f4e8c"));
@@ -939,7 +989,7 @@ public class Main extends GameApplication {
     //Cantinho decorativo estilo "mira de HUD": um traço horizontal +
     //um vertical formando um "L", usado nos 4 cantos do painel de
     //título.
-    private Node buildCornerBracket(String colorHex) {
+    private Node construirCantoDecorativo(String colorHex) {
         Color color = Color.web(colorHex);
         Rectangle horizontal = new Rectangle(16, 2, color);
         Rectangle vertical = new Rectangle(2, 16, color);
@@ -951,17 +1001,17 @@ public class Main extends GameApplication {
     //item primário (PLAY) e hover que clareia o fundo. Passar
     //action=null deixa o item só visual (é o caso de "OPTIONS", que
     //ainda não tem tela própria).
-    private Region buildMenuRow(String label, String hotkey, boolean primary, Runnable action) {
+    private Region construirLinhaMenu(String label, String hotkey, boolean primary, Runnable action) {
         Rectangle indicator = new Rectangle(8, 8, Color.web(primary ? "#4de8d4" : "#1c5f74"));
         if (primary) {
             indicator.setEffect(new DropShadow(10, Color.web("#4de8d4")));
         }
 
-        Text labelText = new Text(spaced(label));
+        Text labelText = new Text(espacado(label));
         labelText.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
         labelText.setFill(Color.web(primary ? "#dffdf7" : "#8fc3d1"));
 
-        Text hotkeyText = new Text(spaced(hotkey));
+        Text hotkeyText = new Text(espacado(hotkey));
         hotkeyText.setFont(Font.font("Consolas", FontWeight.NORMAL, 10));
         hotkeyText.setFill(Color.web(primary ? "#4de8d4" : "#3f7a96"));
 
@@ -999,7 +1049,7 @@ public class Main extends GameApplication {
     //Insere espaço entre cada caractere, pra simular o "letter
     //spacing" bem aberto do mockup (JavaFX não tem uma propriedade
     //nativa de espaçamento de letra em Text).
-    private String spaced(String text) {
+    private String espacado(String text) {
         StringBuilder result = new StringBuilder();
         for (int i = 0; i < text.length(); i++) {
             result.append(text.charAt(i));
@@ -1016,14 +1066,14 @@ public class Main extends GameApplication {
     //setStyle(). Overload de 2 cores (usado pelo Game Over) mantém o
     //comportamento de antes, só usando a própria cor de hover como
     //brilho.
-    private Button buildMenuButton(String label, String baseColorHex, String hoverColorHex) {
-        return buildMenuButton(label, baseColorHex, hoverColorHex, hoverColorHex);
+    private Button construirBotaoMenu(String label, String baseColorHex, String hoverColorHex) {
+        return construirBotaoMenu(label, baseColorHex, hoverColorHex, hoverColorHex);
     }
 
     //Versão "estilizada" do botão, usada no menu principal: borda fina
     //na cor de destaque (glowColorHex), leve brilho e um crescimento
     //suave (scale) ao passar o mouse, em vez de só trocar a cor.
-    private Button buildMenuButton(String label, String baseColorHex, String hoverColorHex, String glowColorHex) {
+    private Button construirBotaoMenu(String label, String baseColorHex, String hoverColorHex, String glowColorHex) {
         Button button = new Button(label);
         //minWidth em vez de prefWidth fixo: garante o mesmo tamanho
         //mínimo de antes pros rótulos curtos ("Reiniciar", "Jogar"),
@@ -1069,115 +1119,134 @@ public class Main extends GameApplication {
     //Botão "Reiniciar": esconde a tela de Game Over, despausa o motor
     //(fica pausado desde a morte, ver onUpdate()) e manda o FXGL
     //recomeçar o jogo. startNewGame() limpa o mundo e chama initGame()
-    //de novo, então tudo (player, inimigos, plataformas) nasce do
+    //de novo, então tudo (jogador, inimigos, plataformas) nasce do
     //zero.
-    private void restartLevel() {
-        gameOverOverlay.setVisible(false);
-        gameOverOverlay.setMouseTransparent(true);
-        getGameController().resumeEngine();
+    private void reiniciarNivel() {
+        overlayGameOver.setVisible(false);
+        overlayGameOver.setMouseTransparent(true);
+
+        //Garantia extra: força os outros overlays (menu principal e
+        //pausa) escondidos aqui também, mesmo eles não devendo estar
+        //visíveis nesse ponto. É só uma segurança a mais pra
+        //"Reiniciar" nunca acabar mostrando o menu por engano.
+        overlayMenuPrincipal.setVisible(false);
+        overlayMenuPrincipal.setMouseTransparent(true);
+        overlayPausa.setVisible(false);
+        overlayPausa.setMouseTransparent(true);
+
+        //Avisa a próxima initUI() pra não mostrar o menu dessa vez.
+        pularMenuAoIniciar = true;
+
+        despausarMotor();
         getGameController().startNewGame();
     }
 
-    //Botão "Menu Principal" (usado tanto na tela de Game Over quanto
-    //no menu de pausa): em vez de fechar o jogo inteiro, reinicia o
-    //nível por baixo dos panos (startNewGame(), pra descartar o
-    //estado da run atual) e mostra o menu principal de novo por
-    //cima, pausado, igual no começo do app. Recebe qual overlay
-    //esconder (gameOverOverlay ou pauseOverlay) pra servir os dois
-    //casos sem duplicar a lógica.
-    private void quitToMainMenu(StackPane overlayToHide) {
-        overlayToHide.setVisible(false);
-        overlayToHide.setMouseTransparent(true);
+    //Botão "Menu Principal"/"Menu" (Game Over e pausa): reinicia o
+    //nível (startNewGame()) e volta pro menu principal, pausado.
+    //Recebe qual overlay esconder pra servir os dois casos.
+    //
+    //Não despausa nem mexe no overlayMenuPrincipal/pauseEngine() depois
+    //do startNewGame(): o motor já está pausado e quer continuar
+    //assim, e "mostrar o menu e pausar" já é o padrão de initUI() (ver
+    //flag pularMenuAoIniciar acima).
+    private void voltarAoMenuPrincipal(StackPane overlayParaEsconder) {
+        overlayParaEsconder.setVisible(false);
+        overlayParaEsconder.setMouseTransparent(true);
 
-        getGameController().resumeEngine();
         getGameController().startNewGame();
-
-        mainMenuOverlay.setVisible(true);
-        mainMenuOverlay.setMouseTransparent(false);
-        getGameController().pauseEngine();
     }
 
     //Botão "Jogar" do menu principal: some com o menu e despausa o
     //motor, que nasceu pausado em initUI(). Só roda uma vez, no
     //começo do app.
-    private void startGame() {
-        mainMenuOverlay.setVisible(false);
-        mainMenuOverlay.setMouseTransparent(true);
-        getGameController().resumeEngine();
+    private void iniciarJogo() {
+        overlayMenuPrincipal.setVisible(false);
+        overlayMenuPrincipal.setMouseTransparent(true);
+        despausarMotor();
     }
 
     //Abre o menu de pausa (ESC durante o jogo, ver initInput()):
     //mostra o overlay e pausa o motor. O "if" evita reabrir/pausar de
     //novo se o menu já estiver na tela (seguraram ESC, por exemplo).
-    private void openPauseMenu() {
-        if (pauseOverlay.isVisible()) {
+    private void abrirMenuPausa() {
+        if (overlayPausa.isVisible()) {
             return;
         }
-        pauseOverlay.setVisible(true);
-        pauseOverlay.setMouseTransparent(false);
+        overlayPausa.setVisible(true);
+        overlayPausa.setMouseTransparent(false);
         getGameController().pauseEngine();
     }
 
     //Botão "Continuar" do menu de pausa: esconde o overlay e
     //despausa, sem mexer no estado do nível (diferente do "Menu
     //Principal", que reinicia tudo).
-    private void resumeFromPause() {
-        pauseOverlay.setVisible(false);
-        pauseOverlay.setMouseTransparent(true);
-        getGameController().resumeEngine();
+    private void retomarDaPausa() {
+        overlayPausa.setVisible(false);
+        overlayPausa.setMouseTransparent(true);
+        despausarMotor();
     }
 
     //Câmera suave: anda uma fração do caminho até o alvo por frame,
     //em vez de teleportar (bindToEntity()).
-    private void updateCamera(double tpf) {
-        if (!player.isActive()) {
+    private void atualizarCamera(double tpf) {
+        if (!jogador.isActive()) {
             return;
         }
 
         var viewport = getGameScene().getViewport();
 
-        double targetX = clampCameraX(player.getX() + player.getWidth() / 2 - getAppWidth() / 2.0);
-        double targetY = clampCameraY(player.getY() + player.getHeight() / 2 - getAppHeight() / 2.0);
+        double alvoX = limitarCameraX(jogador.getX() + jogador.getWidth() / 2 - getAppWidth() / 2.0);
+        double alvoY = limitarCameraY(jogador.getY() + jogador.getHeight() / 2 - getAppHeight() / 2.0);
 
-        double t = Math.min(1.0, CAMERA_SMOOTHING * tpf);
-        viewport.setX(viewport.getX() + (targetX - viewport.getX()) * t);
-        viewport.setY(viewport.getY() + (targetY - viewport.getY()) * t);
+        double t = Math.min(1.0, SUAVIZACAO_CAMERA * tpf);
+        viewport.setX(viewport.getX() + (alvoX - viewport.getX()) * t);
+        viewport.setY(viewport.getY() + (alvoY - viewport.getY()) * t);
     }
 
     //Trava a câmera nas bordas do nível, sem isso dava pra ver o
     //vazio além do cenário.
-    private double clampCameraX(double x) {
-        double max = Math.max(0, levelWidth - getAppWidth());
+    private double limitarCameraX(double x) {
+        double max = Math.max(0, larguraNivel - getAppWidth());
         return Math.max(0, Math.min(max, x));
     }
 
-    private double clampCameraY(double y) {
-        double max = Math.max(0, levelHeight - getAppHeight());
+    private double limitarCameraY(double y) {
+        double max = Math.max(0, alturaNivel - getAppHeight());
         return Math.max(0, Math.min(max, y));
     }
 
     @Override
     protected void onUpdate(double tpf) {
-        updateCamera(tpf);
+        //Ignora os primeiros instantes reais depois de despausar (ver
+        //comentário de graceAteNanos lá em cima), pra não deixar a
+        //câmera "pular" pegando os ticks em rajada do FXGL tentando
+        //recuperar o tempo que passou com o jogo pausado.
+        if (emPeriodoDeGraca()) {
+            return;
+        }
 
-        if (!player.isActive()) {
-            // REMOVIDO: hpBarFill.setWidth(0);
-            // Motivo: hpBarFill está "bound" (vinculada) à vida. Como takeDamage()
-            // zera a vida ao morrer, a barra diminui automaticamente. Tentar
-            // alterar a largura manualmente aqui causaria uma RuntimeException.
+        atualizarCamera(tpf);
 
-            if (!gameOverShown) {
-                gameOverShown = true;
-                gameOverOverlay.setVisible(true);
-                gameOverOverlay.setMouseTransparent(false);
+        if (!jogador.isActive()) {
+            // REMOVIDO: preenchimentoBarraVida.setWidth(0);
+            // Motivo: preenchimentoBarraVida está "bound" (vinculada) à vida. Como
+            // tomarDano() zera a vida ao morrer, a barra diminui automaticamente.
+            // Tentar alterar a largura manualmente aqui causaria uma RuntimeException.
+
+            if (!gameOverExibido) {
+                gameOverExibido = true;
+                overlayGameOver.setVisible(true);
+                overlayGameOver.setMouseTransparent(false);
                 getGameController().pauseEngine();
             }
             return;
         }
 
-        // REMOVIDO: Todo o bloco final que calculava healthPercent e atualizava hpBarFill
-        // Motivo: As ações hpBarFill.widthProperty().bind(...) e .addListener(...)
-        // no initUI() já fazem isso de forma puramente orientada a eventos.
+        // REMOVIDO: Todo o bloco final que calculava healthPercent e atualizava
+        // preenchimentoBarraVida
+        // Motivo: As ações preenchimentoBarraVida.widthProperty().bind(...) e
+        // .addListener(...) no initUI() já fazem isso de forma puramente
+        // orientada a eventos.
     }
 
     public static void main(String[] args) {

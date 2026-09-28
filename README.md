@@ -40,15 +40,21 @@ A base de todo personagem vivo é `CharacterComponent`. Ele guarda nome, vida m�
 
 `PlayerComponent` estende `CharacterComponent` e adiciona tudo que é específico do jogador: movimento horizontal, pulo, dash, invencibilidade temporária depois de tomar dano, e a lógica de reação ao toque de um inimigo.
 
-`EnemyComponent` também estende `CharacterComponent` e adiciona o que é comum a todo inimigo: dano de ataque, alcance de ataque, alcance de detecção do jogador, se é um inimigo voador, se ataca à distância, e a lógica de perseguir e atacar o alvo quando ele está dentro do alcance de detecção. A partir dele existem três subclasses, cada uma ajustando esses parâmetros e, em alguns casos, sobrescrevendo o comportamento:
+`EnemyComponent` também estende `CharacterComponent` e adiciona o que é comum a todo inimigo: dano de ataque, alcance de ataque, alcance de detecção do jogador, se é um inimigo voador, se ataca à distância, e a lógica de perseguir o alvo quando ele está dentro do alcance de detecção. Essa classe é abstrata: ela nunca é instanciada sozinha, só existe pra dar base às subclasses reais, e o método `attack(Entity target)` nela é abstrato de propósito, sem corpo, obrigando cada subclasse a dizer explicitamente como o próprio ataque funciona. A lógica de causar dano direto (achar o `CharacterComponent` do alvo e aplicar dano nele, com tratamento especial se o alvo for o jogador) fica disponível num método auxiliar, `applyDirectDamage`, que qualquer subclasse pode chamar de dentro do seu próprio `attack()`. A partir dela existem três subclasses, cada uma ajustando os parâmetros do construtor e implementando `attack()` do seu jeito:
 
-`MeleeEnemyComponent` é o inimigo terrestre mais simples, sem alcance à distância, praticamente usa o comportamento padrão de `EnemyComponent` sem alterações.
+`MeleeEnemyComponent` é o inimigo terrestre mais simples, sem alcance à distância. O `attack()` dele só chama `applyDirectDamage`, aplicando o dano assim que o alvo está perto o suficiente.
 
-`FlyingEnemyComponent` se move livremente em duas dimensões (não só no eixo X) e, quando não está perseguindo o jogador, fica flutuando num movimento senoidal em vez de ficar parado.
+`FlyingEnemyComponent` se move livremente em duas dimensões (não só no eixo X) e, quando não está perseguindo o jogador, fica flutuando num movimento senoidal em vez de ficar parado. O `attack()` dele também usa `applyDirectDamage`, igual ao inimigo melee, só muda a forma como ele se movimenta até chegar perto.
 
-`RangedEnemyComponent` mantém distância do jogador em vez de se aproximar até o alcance de ataque corpo a corpo, e ataca cuspindo um projétil na direção do alvo em vez de causar dano diretamente. O tempo entre ataques desse inimigo é maior que o padrão, de propósito, pra dar tempo do jogador reagir.
+`RangedEnemyComponent` mantém distância do jogador em vez de se aproximar até o alcance de ataque corpo a corpo, e o `attack()` dele não usa `applyDirectDamage`: em vez de causar dano direto, ele cria um projétil na direção do alvo, e o dano só é aplicado de verdade se o projétil realmente acertar. O tempo entre ataques desse inimigo é maior que o padrão, de propósito, pra dar tempo do jogador reagir.
 
 Por que existe um `getFrom(Entity)` estático tanto em `CharacterComponent` quanto em `EnemyComponent`: o FXGL indexa os componentes de uma entidade pela classe exata deles em tempo de execução, então pedir `entity.getComponent(CharacterComponent.class)` nunca encontra nada se a entidade na verdade tem um `PlayerComponent` anexado, porque `PlayerComponent` é uma classe diferente de `CharacterComponent`, mesmo sendo subclasse dela. O `getFrom` contorna isso percorrendo todos os componentes da entidade e testando com `instanceof`.
+
+## A interface Danificavel
+
+Existe uma interface chamada `Danificavel`, em `componentes`, com dois métodos: `takeDamage(int quant)` e `isDead()`. `CharacterComponent` implementa essa interface, e como ele já tinha esses dois métodos escritos, não precisou mudar nada na lógica, só declarar que cumpre o contrato.
+
+A ideia por trás dela é separar "saber tomar dano" de "ser um personagem vivo". Hoje só quem estende `CharacterComponent` consegue receber dano, e isso significa carregar junto nome, vida máxima e velocidade de movimento, coisas que fazem sentido pra um personagem mas não pra, por exemplo, um baú ou uma caixa destrutível do cenário. Se esse tipo de objeto entrar no jogo no futuro, ele pode implementar `Danificavel` diretamente, sem herdar de `CharacterComponent` e sem carregar nada que não precisa.
 
 ## Dados de nível em JSON
 
@@ -92,8 +98,22 @@ O contato de dano entre jogador e inimigos usa uma combinação de duas fixtures
 
 A UI é construída em `Main.initUI()`. A barra de vida do jogador fica amarrada diretamente à propriedade de vida do `PlayerComponent`, atualizando sozinha sempre que a vida muda. Existem overlays separados para o menu principal, a tela de pausa e a tela de game over, cada um com seus próprios botões e, no caso do menu principal, alguma animação decorativa no título.
 
+## Pausa, Game Over e o "período de graça" ao despausar
+
+O jogo tem três telas que pausam o motor do FXGL (`getGameController().pauseEngine()`): o menu principal (no início), o menu de pausa (ESC) e a tela de Game Over. Os botões "Reiniciar" (Game Over) e "Menu Principal" (Game Over e pausa) usam `startNewGame()` por baixo dos panos pra reconstruir o nível do zero, sempre voltando pro início do mapa (não existe sistema de checkpoint ainda). A diferença entre os dois é só se o menu principal aparece de novo depois ou não: "Reiniciar" volta direto pra dentro do jogo, "Menu Principal" mostra o menu de novo antes.
+
+Sempre que o motor é despausado, em vez de chamar `getGameController().resumeEngine()` direto, o código passa por um método próprio, `despausarMotor()`. O motivo: quando o jogador fica parado numa tela pausada por um tempo (alguns segundos ou mais), o FXGL tenta recuperar esse tempo processando vários ticks em sequência bem rápida assim que o motor despausa, e isso fazia tudo que depende do tempo entre frames (câmera, o "flutuar" dos inimigos voadores, os timers do dash) avançar rápido demais por um instante, dando a impressão de que o jogo acelerou por alguns segundos antes de se estabilizar. `despausarMotor()` marca um "período de graça" bem curto (0.4 segundo de tempo real) logo depois de despausar, e o `onUpdate` do `Main`, do `PlayerComponent` e do `EnemyComponent` (e subclasses) ignoram esse instante inicial, deixando o FXGL recuperar esse atraso sem que nada visível reaja a isso.
+
+Existia um bug maior, relacionado mas separado: "Reiniciar" e "Menu Principal" acabavam sempre voltando pro menu principal, mesmo o "Reiniciar" nunca devendo mostrar o menu. A causa era uma suposição errada de que `initUI()` só roda uma vez, no começo do app. Na prática, o FXGL chama `initGame()` + `initPhysics()` + `initUI()` de novo toda vez que `getGameController().startNewGame()` é chamado, ou seja, em todo "Reiniciar" e todo "Menu Principal" também. Como `initUI()` reconstruía o `mainMenuOverlay` do zero e ele fica visível por padrão (diferente do overlay de Game Over e do de pausa, que são escondidos explicitamente na hora de criar), esse menu recém-criado reaparecia por cima de qualquer coisa, e o motor era pausado de novo, independente de qual botão o jogador tivesse apertado.
+
+A primeira correção guardava só "já passamos do primeiro launch" numa flag, e deixava `restartLevel()`/`quitToMainMenu()` mexerem no `mainMenuOverlay` e chamarem `pauseEngine()` depois de chamar `startNewGame()`. Isso resolveu o "Reiniciar", mas o "Menu"/"Menu Principal" continuou com um bug parecido: o nível reiniciava (dava pra ver o jogo voltando pro início), mas o menu principal nunca aparecia, e o jogo travava sem responder mais a input. A causa provável: não tem confirmação, na fonte do FXGL, de que `startNewGame()` termina o reset do mundo de forma síncrona antes de devolver o controle pro código que chamou. Se não for síncrono, o `pauseEngine()` chamado logo em seguida em `quitToMainMenu()` podia pausar o motor antes do reset de verdade acontecer, ou mexer num `mainMenuOverlay` que já tinha virado obsoleto.
+
+A correção definitiva move essa decisão pra dentro do próprio `initUI()`: por padrão, toda vez que `initUI()` roda, ele mostra o menu principal e pausa o motor sozinho (certo tanto pro launch do app quanto pro "Menu"/"Menu Principal", que só chamam `startNewGame()` sem mexer em mais nada). Existe uma flag, `pularMenuAoIniciar`, que só o `restartLevel()` liga (antes de chamar `startNewGame()`), avisando "dessa vez não, quero cair direto no jogo"; o próprio `initUI()` desliga a flag de novo depois de consumir. Assim o "mostra o menu e pausa" sempre roda exatamente no momento em que o mundo novo é de fato montado, não importa quando isso aconteça.
+
+De quebra, o ESC (`initInput()`) ganhou um terceiro guard: além de não abrir a pausa se o player estiver morto/inativo ou o Game Over estiver na tela, agora também não abre se `mainMenuOverlay` estiver visível — sem isso, como o player novo já nasce ativo assim que o "Menu"/"Menu Principal" termina, apertar ESC bem nesse instante abria a tela de pausa por cima do próprio menu principal.
+
 ## Observações sobre o estado atual do projeto
 
 Existe um componente `AnimatedComponent`, em `componentes/visual`, pensado pra trocar a textura do personagem conforme o estado dele (parado, andando, pulando, tomando dano), mas a troca de textura em si ainda não foi implementada, é um ponto em aberto pra quando existirem os spritesheets necessários.
 
-Este README é atualizado conforme o projeto muda.  
+Este README é atualizado conforme o projeto muda. Qualquer alteração de código que mude comportamento, adicione sistema novo ou torne alguma explicação aqui desatualizada deve vir acompanhada da atualização correspondente neste arquivo.

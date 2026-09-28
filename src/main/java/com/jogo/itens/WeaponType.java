@@ -1,6 +1,4 @@
 package com.jogo.itens;
-public enum WeaponType {
-    MELEE,
-    RANGED,
-    MAGIC
-}
+
+//Renomeado pra TipoArma.java (tradução pra ptbr). Este arquivo antigo
+//pode ser excluído manualmente.
