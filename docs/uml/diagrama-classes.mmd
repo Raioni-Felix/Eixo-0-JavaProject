@@ -26,7 +26,7 @@ namespace componentes {
     +onUpdate(double)
     +equiparArma(String)
     +trocarArma()
-    +atacar()
+    +atacar() boolean
   }
   class ComponenteDisparoJogador {
     -dano : int
@@ -51,6 +51,9 @@ namespace componentes {
     #cooldownAtaqueSegundos : double
     #tempoDesdeUltimoAtaque : double
     #fisica : PhysicsComponent
+    -instanteUltimoAtaque : long
+    -instanteUltimoDano : long
+    #olhandoDireita : boolean
     +onAdded()
     +definirAlvo(Entity)
     +iniciarAtaque()
@@ -59,6 +62,10 @@ namespace componentes {
     +obterDe(Entity)$ ComponenteInimigo
     +onUpdate(double)
     #perseguirAlvo(double, double)
+    +estaAtacando() boolean
+    +estaMachucado() boolean
+    +estaOlhandoDireita() boolean
+    +estaNoChao() boolean
   }
   class ComponenteInimigoDistancia {
     +onUpdate(double)
@@ -98,6 +105,7 @@ namespace componentes {
     -timerCooldownDash : double
     -timerDash : double
     -boostDashAtivo : boolean
+    -instanteUltimoAtaque : long
     +onAdded()
     +onUpdate(double)
     +estaAtordoado() boolean
@@ -117,6 +125,8 @@ namespace componentes {
     +consumirEnergia(int)
     +energiaAtualProperty() ReadOnlyIntegerProperty
     +iniciarAtaque()
+    +estaAtacando() boolean
+    +estaNoChao() boolean
     +usarGolpeDeEnergia() boolean
     +usarApara() boolean
     +iniciarApara(double)
@@ -159,6 +169,13 @@ namespace componentes_visual {
     +onUpdate(double)
   }
   class ComponenteAnimado {
+    -larguraQuadro : double
+    -escala : double
+    -centroX : double
+    -peY : double
+    -olhandoDireita : BooleanSupplier
+    -textura : AnimatedTexture
+    +onAdded()
     +onUpdate(double)
   }
   class ComponenteProjetil {
@@ -170,6 +187,11 @@ namespace componentes_visual {
     -tempoDeVida : double
     +onAdded()
     +onUpdate(double)
+  }
+  class Sprites {
+    +animacao(String, String, int, double, double)$ AnimationChannel
+    +quadros(String, String, int, double)$ List~Image~
+    ~ampliar(Image, double)$ Image
   }
 }
 namespace controle {
@@ -239,6 +261,7 @@ namespace factories {
     +spawnInimigoVoador(SpawnData) Entity
     +spawnInimigoDistancia(SpawnData) Entity
     +spawnInimigoMelee(SpawnData) Entity
+    +spawnExplosao(SpawnData) Entity
     +spawnProjetil(SpawnData) Entity
     +spawnDisparoJogador(SpawnData) Entity
     +spawnItem(SpawnData) Entity
@@ -366,6 +389,9 @@ namespace itens {
   }
 }
 namespace jogo {
+  class Lancador {
+    +main(String[])$
+  }
   class Main {
     -controle : ControleJogo
     -entrada : ControleEntrada

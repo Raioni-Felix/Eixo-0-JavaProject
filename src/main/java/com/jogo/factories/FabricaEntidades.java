@@ -20,7 +20,12 @@ import com.jogo.componentes.ComponenteInimigoDistancia;
 import com.jogo.componentes.ComponenteInimigoMelee;
 import com.jogo.componentes.ComponenteArma;
 import com.jogo.componentes.ComponenteDisparoJogador;
+import com.jogo.componentes.visual.ComponenteAnimado;
+import com.jogo.componentes.visual.ComponenteAnimado.EstadoAnimacao;
 import com.jogo.componentes.visual.ComponenteProjetil;
+import com.jogo.componentes.visual.Sprites;
+import com.almasb.fxgl.texture.AnimatedTexture;
+import java.util.Map;
 import com.jogo.entidades.TipoEntidade;
 import javafx.geometry.Point2D;
 import javafx.scene.paint.Color;
@@ -82,6 +87,11 @@ public class FabricaEntidades implements EntityFactory {
     //colidir com o jogador fisicamente.
     private static final int CATEGORY_PLAYER = 0x0002;
 
+    //Os sprites são pixel art pequeno (a personagem tem ~50 px de altura
+    //no arquivo); são carregados 1,5x maiores (ver Sprites). As caixas
+    //de colisão abaixo já estão nesse tamanho.
+    private static final double ESCALA_SPRITES = 1.5;
+
     @Spawns("jogador")
     public Entity spawnJogador(SpawnData data) {
         String nome = data.get("nome");
@@ -106,8 +116,10 @@ public class FabricaEntidades implements EntityFactory {
         //Sensor fino colado nos pés, não é colisão de verdade, só
         //sente quando tem algo embaixo. É o que isOnGround() usa em
         //ComponenteJogador.pular() pra saber se pode pular.
-        double w = 32; // tamanho do sprite provisório player.png
-        double h = 32;
+        //Caixa de colisão do corpo da personagem (o quadro do sprite é
+        //71x67, com sobra transparente; ver ComponenteAnimado)
+        double w = 36;
+        double h = 72;
         fisica.addGroundSensor(new HitBox("GROUND_SENSOR", new Point2D(2, h - 1), BoundingShape.box(w - 4, 4)));
 
         //Marca todos os fixtures do jogador com CATEGORY_PLAYER. É essa
@@ -121,12 +133,30 @@ public class FabricaEntidades implements EntityFactory {
             }
         });
 
+        var jogador = new ComponenteJogador(nome, vidaMaxima, velocidade, energiaMaxima);
+
+        //Sprites do Warped City (ver assets/textures/sprites/CREDITOS.txt)
+        var animacao = new ComponenteAnimado(Map.of(
+                EstadoAnimacao.PARADO, Sprites.animacao("jogador", "parado", 4, 0.6, ESCALA_SPRITES),
+                EstadoAnimacao.ANDANDO, Sprites.animacao("jogador", "correr", 8, 0.7, ESCALA_SPRITES),
+                EstadoAnimacao.PULANDO, Sprites.animacao("jogador", "pular", 4, 0.4, ESCALA_SPRITES),
+                EstadoAnimacao.CAINDO, Sprites.animacao("jogador", "cair", 1, 0.2, ESCALA_SPRITES),
+                EstadoAnimacao.ATACANDO, Sprites.animacao("jogador", "atirar", 1, 0.25, ESCALA_SPRITES),
+                EstadoAnimacao.ATACANDO_ANDANDO, Sprites.animacao("jogador", "correr-atirando", 8, 0.7, ESCALA_SPRITES),
+                EstadoAnimacao.MACHUCADO, Sprites.animacao("jogador", "dano", 1, 0.2, ESCALA_SPRITES)),
+                71, 38, 67, ESCALA_SPRITES,
+                () -> ComponenteAnimado.escolherEstado(jogador.estaAtordoado(), jogador.estaAtacando(),
+                        jogador.estaNoChao(), jogador.getVelocidadeX(), jogador.getVelocidadeY()),
+                jogador::estaOlhandoDireita);
+
+        //A animação entra antes da arma, pra arma ficar desenhada por cima
         return entityBuilder(data)
                 .type(TipoEntidade.JOGADOR)
-                .viewWithBBox("player.png")
+                .bbox(new HitBox(BoundingShape.box(w, h)))
                 .collidable()
                 .with(fisica)
-                .with(new ComponenteJogador(nome, vidaMaxima, velocidade, energiaMaxima))
+                .with(jogador)
+                .with(animacao)
                 .with(new ComponenteArma())
                 .build();
     }
@@ -193,19 +223,25 @@ public class FabricaEntidades implements EntityFactory {
         fisica.setBodyDef(bodyDef);
         fisica.setFixtureDef(new FixtureDef().friction(0f).density(1f));
 
-        //Cor própria pra cada tipo de inimigo, pra dar pra distinguir
-        //de longe. Roxo pro voador.
-        double tamanhoInimigo = 32;
+        //Drone do Warped City. Só tem a animação de voo (vale pra parado
+        //e andando) e a piscada branca de dano.
+        double largura = 48, altura = 48;
+        var voador = new ComponenteInimigoVoador(nome, vidaMaxima, velocidade, dano, alcanceAtaque, alcanceDeteccao);
+        var voo = Sprites.animacao("drone", "voar", 4, 0.4, ESCALA_SPRITES);
         Entity inimigo = entityBuilder(data)
                 .type(TipoEntidade.INIMIGO_VOADOR)
-                .bbox(new HitBox(BoundingShape.box(tamanhoInimigo, tamanhoInimigo)))
-                .view(new Rectangle(tamanhoInimigo, tamanhoInimigo, Color.MEDIUMPURPLE))
+                .bbox(new HitBox(BoundingShape.box(largura, altura)))
                 .collidable()
                 .with(fisica)
-                .with(new ComponenteInimigoVoador(nome, vidaMaxima, velocidade, dano, alcanceAtaque, alcanceDeteccao))
+                .with(voador)
+                .with(animacaoInimigo(voador, Map.of(
+                        EstadoAnimacao.PARADO, voo,
+                        EstadoAnimacao.ANDANDO, voo,
+                        EstadoAnimacao.MACHUCADO, Sprites.animacao("drone", "dano", 1, 0.2, ESCALA_SPRITES)),
+                        55, 29, 43)) //sem pé: 43 deixa o corpo no meio da caixa
                 .build();
 
-        configurarContatoComJogador(fisica, inimigo, tamanhoInimigo);
+        configurarContatoComJogador(fisica, inimigo, largura, altura);
         return inimigo;
     }
 
@@ -228,18 +264,24 @@ public class FabricaEntidades implements EntityFactory {
         fisica.setBodyDef(bodyDef);
         fisica.setFixtureDef(new FixtureDef().friction(0.2f).density(1f));
 
-        //Laranja pro atirador.
-        double tamanhoInimigo = 32;
+        //Robô atirador sobre esteira (desenhado pro projeto)
+        double largura = 45, altura = 54;
+        var atirador = new ComponenteInimigoDistancia(nome, vidaMaxima, velocidade, dano, alcanceAtaque, alcanceDeteccao);
         Entity inimigo = entityBuilder(data)
                 .type(TipoEntidade.INIMIGO_DISTANCIA)
-                .bbox(new HitBox(BoundingShape.box(tamanhoInimigo, tamanhoInimigo)))
-                .view(new Rectangle(tamanhoInimigo, tamanhoInimigo, Color.DARKORANGE))
+                .bbox(new HitBox(BoundingShape.box(largura, altura)))
                 .collidable()
                 .with(fisica)
-                .with(new ComponenteInimigoDistancia(nome, vidaMaxima, velocidade, dano, alcanceAtaque, alcanceDeteccao))
+                .with(atirador)
+                .with(animacaoInimigo(atirador, Map.of(
+                        EstadoAnimacao.PARADO, Sprites.animacao("robo-atirador", "parado", 4, 0.8, ESCALA_SPRITES),
+                        EstadoAnimacao.ANDANDO, Sprites.animacao("robo-atirador", "andar", 4, 0.4, ESCALA_SPRITES),
+                        EstadoAnimacao.ATACANDO, Sprites.animacao("robo-atirador", "tiro", 3, 0.35, ESCALA_SPRITES),
+                        EstadoAnimacao.MACHUCADO, Sprites.animacao("robo-atirador", "dano", 1, 0.2, ESCALA_SPRITES)),
+                        48, 23, 47))
                 .build();
 
-        configurarContatoComJogador(fisica, inimigo, tamanhoInimigo);
+        configurarContatoComJogador(fisica, inimigo, largura, altura);
         return inimigo;
     }
 
@@ -262,19 +304,24 @@ public class FabricaEntidades implements EntityFactory {
         fisica.setBodyDef(bodyDef);
         fisica.setFixtureDef(new FixtureDef().friction(0.2f).density(1f));
 
-        //Vermelho (mais escuro que o CRIMSON da barra de HP baixa, pra
-        //não confundir) pro melee.
-        double tamanhoInimigo = 32;
+        //Robô bípede com garra (desenhado pro projeto)
+        double largura = 42, altura = 60;
+        var melee = new ComponenteInimigoMelee(nome, vidaMaxima, velocidade, dano, alcanceAtaque, alcanceDeteccao);
         Entity inimigo = entityBuilder(data)
                 .type(TipoEntidade.INIMIGO_MELEE)
-                .bbox(new HitBox(BoundingShape.box(tamanhoInimigo, tamanhoInimigo)))
-                .view(new Rectangle(tamanhoInimigo, tamanhoInimigo, Color.FIREBRICK))
+                .bbox(new HitBox(BoundingShape.box(largura, altura)))
                 .collidable()
                 .with(fisica)
-                .with(new ComponenteInimigoMelee(nome, vidaMaxima, velocidade, dano, alcanceAtaque, alcanceDeteccao))
+                .with(melee)
+                .with(animacaoInimigo(melee, Map.of(
+                        EstadoAnimacao.PARADO, Sprites.animacao("robo-melee", "parado", 4, 0.8, ESCALA_SPRITES),
+                        EstadoAnimacao.ANDANDO, Sprites.animacao("robo-melee", "andar", 6, 0.6, ESCALA_SPRITES),
+                        EstadoAnimacao.ATACANDO, Sprites.animacao("robo-melee", "ataque", 4, 0.35, ESCALA_SPRITES),
+                        EstadoAnimacao.MACHUCADO, Sprites.animacao("robo-melee", "dano", 1, 0.2, ESCALA_SPRITES)),
+                        48, 24, 47))
                 .build();
 
-        configurarContatoComJogador(fisica, inimigo, tamanhoInimigo);
+        configurarContatoComJogador(fisica, inimigo, largura, altura);
         return inimigo;
     }
 
@@ -282,7 +329,31 @@ public class FabricaEntidades implements EntityFactory {
     //comentário lá em cima da classe: tira o jogador do maskBits do
     //fixture sólido e adiciona um sensor extra (mesmo tamanho) que
     //chama serAtingido() no ComponenteJogador a cada frame de contato.
-    private void configurarContatoComJogador(PhysicsComponent fisica, Entity entidadeInimigo, double tamanhoInimigo) {
+    //Animação de qualquer inimigo: mesma regra de estado do jogador,
+    //lendo o ComponenteInimigo
+    private ComponenteAnimado animacaoInimigo(ComponenteInimigo inimigo, Map<EstadoAnimacao, com.almasb.fxgl.texture.AnimationChannel> animacoes,
+            double larguraQuadro, double centroX, double peY) {
+        return new ComponenteAnimado(animacoes, larguraQuadro, centroX, peY, ESCALA_SPRITES,
+                () -> ComponenteAnimado.escolherEstado(inimigo.estaMachucado(), inimigo.estaAtacando(),
+                        inimigo.estaNoChao(), inimigo.getVelocidadeX(), inimigo.getVelocidadeY()),
+                inimigo::estaOlhandoDireita);
+    }
+
+    //Explosão quando um inimigo morre (ver ComponenteInimigo.tomarDano).
+    //Só visual: toca a animação uma vez e some. x/y = centro do inimigo.
+    @Spawns("explosao")
+    public Entity spawnExplosao(SpawnData data) {
+        AnimatedTexture explosao = new AnimatedTexture(Sprites.animacao("explosao", "explosao", 6, 0.5, ESCALA_SPRITES));
+        explosao.setTranslateX(-27 * ESCALA_SPRITES); //quadro 55x52: centraliza no ponto
+        explosao.setTranslateY(-26 * ESCALA_SPRITES);
+        explosao.play();
+        return entityBuilder(data)
+                .view(explosao)
+                .with(new ExpireCleanComponent(Duration.seconds(0.5)))
+                .build();
+    }
+
+    private void configurarContatoComJogador(PhysicsComponent fisica, Entity entidadeInimigo, double largura, double altura) {
         fisica.setOnPhysicsInitialized(() -> {
             //Pula fixture.isSensor(), só mexe no fixture sólido. Sem
             //isso o sensor "PLAYER_CONTACT" logo abaixo também ficava
@@ -298,7 +369,7 @@ public class FabricaEntidades implements EntityFactory {
             }
         });
 
-        fisica.addSensor(new HitBox("PLAYER_CONTACT", BoundingShape.box(tamanhoInimigo, tamanhoInimigo)), new SensorCollisionHandler() {
+        fisica.addSensor(new HitBox("PLAYER_CONTACT", BoundingShape.box(largura, altura)), new SensorCollisionHandler() {
             //onCollisionBegin e onCollision chamam a mesma coisa, o
             //dano/piscada depende só de estaInvencivel() lá no
             //serAtingido(), não de qual evento disparou.

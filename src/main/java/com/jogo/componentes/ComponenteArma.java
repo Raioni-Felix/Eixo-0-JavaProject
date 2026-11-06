@@ -106,11 +106,13 @@ public class ComponenteArma extends Component {
     //chamada serve pra qualquer arma: quem decide se é corte, tiro,
     //leque de balins, tiro duplo ou tiro que atravessa é a classe real
     //do objeto guardado em armaEquipada.
-    public void atacar() {
+    //Devolve se atacou de verdade (fora do cooldown), pra animação de
+    //ataque só tocar quando sai o golpe
+    public boolean atacar() {
         if (jogador.estaAtordoado() || armaEquipada == null) {
-            return; // atordoado ou sem arma
+            return false; // atordoado ou sem arma
         }
-        armaEquipada.atacar(entity, jogador.estaOlhandoDireita() ? 1 : -1);
+        return armaEquipada.atacar(entity, jogador.estaOlhandoDireita() ? 1 : -1);
     }
 
     private void trocarVisual() {

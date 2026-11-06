@@ -259,17 +259,36 @@ São "checked" (herdam de `Exception`): quem chama é obrigado a tratar ou repas
 
 ## Testes
 
-52 testes JUnit 5 em `src/test/java`, todos passando. Rodam com `mvn test`.
+59 testes JUnit 5 em `src/test/java`, todos passando. Rodam com `mvn test`.
 
-- Unitários: `ComponenteJogadorTest` (energia, cura, invencibilidade, subir de nível, usar módulos), `ComponenteInimigoTest` (XP de cada tipo, interfaces), `ArmaTest` (cooldown do `atacar()` com uma arma de teste, `multiplicarDano`, ids únicos), `ArmasDeFogoTest` (ganchos de cada arma, `Perfurante`, coleção polimórfica), `HabilidadeTest`, `InventarioTest` (pilha, duplicata, `listarDoTipo` genérico, sobrecargas), `ComponenteAuxiliaresTest`.
+- Unitários: `ComponenteAnimadoTest` (qual animação mostrar em cada situação, ampliação dos sprites), `ComponenteJogadorTest` (energia, cura, invencibilidade, subir de nível, usar módulos), `ComponenteInimigoTest` (XP de cada tipo, interfaces), `ArmaTest` (cooldown do `atacar()` com uma arma de teste, `multiplicarDano`, ids únicos), `ArmasDeFogoTest` (ganchos de cada arma, `Perfurante`, coleção polimórfica), `HabilidadeTest`, `InventarioTest` (pilha, duplicata, `listarDoTipo` genérico, sobrecargas), `ComponenteAuxiliaresTest`.
 - Casos de sucesso e de falha: cada classe testa o caminho certo e os errados (sem energia, em cooldown, item que não existe, valores inválidos no construtor).
 - Exceções: `assertThrows` para cada exceção própria e para as `IllegalArgumentException` dos construtores.
 - Integração: `CarregadorDeNiveisTest` lê os JSON de verdade das 4 salas com o Gson (e JSON de teste quebrado/incompleto em `src/test/resources`); `JogadorSalaIntegracaoTest` carrega a sala 4, cria o jogador com os dados dela, coleta os módulos, soma o XP dos inimigos, sobe de nível e usa os módulos até dar a exceção.
 
 Cobertura (JaCoCo): `inventario` 96% das linhas, `niveis` 95%, `excecoes` 100%. O total do projeto fica baixo (cerca de 20%) porque `visao`, `controle` e boa parte de `componentes` só funcionam com a janela e o motor do FXGL rodando; essas partes foram testadas jogando.
 
-## Observações sobre o estado atual do projeto
+## Sprites e animações
 
-Existe um componente `ComponenteAnimado`, em `componentes/visual`, pensado pra trocar a textura do personagem conforme o estado dele (parado, andando, pulando, tomando dano), mas a troca de textura em si ainda não foi implementada, é um ponto em aberto pra quando existirem os spritesheets necessários.
+Os sprites ficam em `src/main/resources/assets/textures/sprites`, uma pasta por personagem, com os quadros numerados (`correr-1.png`, `correr-2.png`...). A origem e a licença de cada um estão em `CREDITOS.txt` nessa pasta:
+
+- `jogador`, `drone` (o inimigo voador) e `explosao`: do pacote Warped City, de ansimuz, CC0 (domínio público).
+- `robo-melee` e `robo-atirador`: desenhados para este projeto, na paleta do Warped City.
+
+| Personagem | Animações |
+|---|---|
+| Jogadora | parado, correr, pular (mortal), cair, atirar, correr atirando, dano |
+| Robô melee | parado, andar, ataque com a garra, dano |
+| Robô atirador | parado, andar na esteira, tiro com recuo, dano |
+| Drone | voar (vale pra parado e andando), dano |
+| Todo inimigo | explode ao morrer |
+
+Quem escolhe a animação é o `ComponenteAnimado` (`componentes/visual`), que só lê o estado do personagem: está machucado? atacando? no chão? subindo ou caindo? andando? A regra de prioridade está em `escolherEstado()` (dano vence ataque, ataque vence pulo, pulo vence andar) e é testada sozinha. Se um personagem não tem a animação pedida, `animacaoDisponivel()` usa a mais parecida (o drone não tem "pular", então usa "voar"). Olhar pra esquerda é o mesmo desenho espelhado.
+
+Os quadros são pixel art pequeno e são carregados 1,5x maiores pelo `Sprites`, pixel a pixel, porque ampliar na tela deixaria o desenho borrado. Por isso as caixas de colisão mudaram: jogadora 36x72, robô melee 42x60, robô atirador 45x54, drone 48x48 (antes tudo 32x32).
+
+Pra trocar um sprite, basta substituir os arquivos mantendo os nomes; pra mudar quantos quadros ou a velocidade, é a chamada `Sprites.animacao(pasta, nome, quadros, segundos, escala)` em `FabricaEntidades`.
+
+## Observações sobre o estado atual do projeto
 
 Este README é atualizado conforme o projeto muda. Qualquer alteração de código que mude comportamento, adicione sistema novo ou torne alguma explicação aqui desatualizada deve vir acompanhada da atualização correspondente neste arquivo.

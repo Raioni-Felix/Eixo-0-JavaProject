@@ -1,0 +1,12 @@
+Sprites do jogo
+===============
+
+jogador/, drone/, explosao/
+  Do pacote "Warped City", de Luis Zuno (ansimuz).
+  Licença CC0 (domínio público): uso livre, inclusive comercial; crédito não é obrigatório.
+  https://opengameart.org/content/warped-city
+  https://ansimuz.itch.io/warped-city
+  Os arquivos foram só renomeados (jogador/cair-1.png é cópia do último quadro do pulo). drone/dano-1.png é o voar-1.png pintado de branco (piscada de dano).
+
+robo-melee/, robo-atirador/
+  Desenhados para este projeto (Eixo 0), na paleta do Warped City.

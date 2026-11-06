@@ -547,7 +547,36 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
     //é a própria arma (ver ComponenteArma e pacote itens).
     @Override
     public void iniciarAtaque() {
-        entity.getComponent(ComponenteArma.class).atacar();
+        if (entity.getComponent(ComponenteArma.class).atacar()) {
+            marcarAtaque();
+        }
+    }
+
+    //ANIMAÇÃO: o componente de animação (componentes.visual) só lê estes
+
+    //Quanto tempo a pose de ataque fica na tela depois de cada golpe
+    private static final double DURACAO_POSE_ATAQUE = 0.25;
+    private long instanteUltimoAtaque = 0;
+
+    private void marcarAtaque() {
+        instanteUltimoAtaque = System.nanoTime();
+    }
+
+    public boolean estaAtacando() {
+        return instanteUltimoAtaque != 0
+                && (System.nanoTime() - instanteUltimoAtaque) / 1e9 < DURACAO_POSE_ATAQUE;
+    }
+
+    public boolean estaNoChao() {
+        return fisica == null || fisica.isOnGround();
+    }
+
+    public double getVelocidadeX() {
+        return fisica == null ? 0 : fisica.getVelocityX();
+    }
+
+    public double getVelocidadeY() {
+        return fisica == null ? 0 : fisica.getVelocityY();
     }
 
     //HABILIDADES
@@ -558,7 +587,11 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
         if (estaAtordoado()) {
             return false;
         }
-        return golpe.usar(this);
+        boolean usou = golpe.usar(this);
+        if (usou) {
+            marcarAtaque();
+        }
+        return usou;
     }
 
     //Tecla C (ver controle.ControleEntrada).

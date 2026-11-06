@@ -3,6 +3,9 @@ package com.jogo.componentes;
 import com.almasb.fxgl.entity.Entity;
 import com.almasb.fxgl.entity.component.Component;
 import com.almasb.fxgl.physics.PhysicsComponent;
+import javafx.geometry.Point2D;
+
+import static com.almasb.fxgl.dsl.FXGL.spawn;
 
 
 /**
@@ -43,6 +46,13 @@ public abstract class ComponenteInimigo extends ComponentePersonagem implements 
     //PhysicsComponent do FXGL, movimento (perseguição, hover) passa
     //por aqui agora, via setLinearVelocity/setVelocityX.
     protected PhysicsComponent fisica;
+
+    //ANIMAÇÃO: o componente de animação (componentes.visual) só lê estes
+    private static final double DURACAO_POSE_ATAQUE = 0.35;
+    private static final double DURACAO_PISCADA_DANO = 0.2;
+    private long instanteUltimoAtaque = 0;
+    private long instanteUltimoDano = 0;
+    protected boolean olhandoDireita = false;
 
     //CONSTRUTOR
     //Super chama o construtor da superclasse ComponentePersonagem
@@ -94,9 +104,16 @@ public abstract class ComponenteInimigo extends ComponentePersonagem implements 
         if (estaMorto()) {
             return; //já morreu (ex: dois tiros no mesmo frame): não dá XP duas vezes
         }
+        //Guarda onde estava antes: ao morrer a entidade sai do mundo
+        Point2D centro = entity != null ? entity.getCenter() : null;
         super.tomarDano(quant);
+        instanteUltimoDano = System.nanoTime();
         if (estaMorto()) {
             concederExperienciaAoAlvo();
+            if (centro != null) {
+                //Explosão no lugar do inimigo (só visual, ver FabricaEntidades)
+                spawn("explosao", centro.getX(), centro.getY());
+            }
         }
     }
 
@@ -169,6 +186,7 @@ public abstract class ComponenteInimigo extends ComponentePersonagem implements 
     //gravidade); terrestre só no X (Y é a gravidade do corpo DYNAMIC).
     protected void perseguirAlvo(double tpf, double distanciaParada) {
         double distancia = entity.distance(alvo);
+        olhandoDireita = alvo.getX() > entity.getX();
 
         if (distancia > distanciaParada) {
             double dx = alvo.getX() - entity.getX();
@@ -199,7 +217,36 @@ public abstract class ComponenteInimigo extends ComponentePersonagem implements 
 
         if (noAlcance && fimCooldown) {
             iniciarAtaque();
+            instanteUltimoAtaque = System.nanoTime();
             tempoDesdeUltimoAtaque = 0;
         }
+    }
+
+    public boolean estaAtacando() {
+        return passouMenosDe(instanteUltimoAtaque, DURACAO_POSE_ATAQUE);
+    }
+
+    public boolean estaMachucado() {
+        return passouMenosDe(instanteUltimoDano, DURACAO_PISCADA_DANO);
+    }
+
+    public boolean estaOlhandoDireita() {
+        return olhandoDireita;
+    }
+
+    public boolean estaNoChao() {
+        return voador || fisica == null || Math.abs(fisica.getVelocityY()) < 1;
+    }
+
+    public double getVelocidadeX() {
+        return fisica == null ? 0 : fisica.getVelocityX();
+    }
+
+    public double getVelocidadeY() {
+        return fisica == null ? 0 : fisica.getVelocityY();
+    }
+
+    private static boolean passouMenosDe(long instante, double segundos) {
+        return instante != 0 && (System.nanoTime() - instante) / 1e9 < segundos;
     }
 }
