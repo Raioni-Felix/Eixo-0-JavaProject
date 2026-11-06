@@ -33,7 +33,7 @@ import static com.almasb.fxgl.dsl.FXGL.entityBuilder;
 /**
  * Fábrica central de entidades do jogo.
  *
- * Registrada uma vez em Main.initGame():
+ * Registrada uma vez em controle.ControleJogo.iniciarMundo():
  *   getGameWorld().addEntityFactory(new FabricaEntidades());
  *
  * Cada @Spawns("nome") é chamado via FXGL.spawn("nome", spawnData),
@@ -43,7 +43,7 @@ import static com.almasb.fxgl.dsl.FXGL.entityBuilder;
  * necessários (não tem valor "default" escondido aqui).
  *
  * As chaves usadas em .put()/.get() (ex.: "nome", "dano") são um
- * contrato interno nosso (Main/ComponenteArma/ComponenteInimigoDistancia
+ * contrato interno nosso (controle/ComponenteArma/ComponenteInimigoDistancia
  * escrevem, FabricaEntidades lê) — não têm relação com as chaves do
  * JSON dos níveis (essas continuam em inglês, ver os "Dados*" em
  * com.jogo.niveis com @SerializedName), por isso podem ficar em
@@ -373,9 +373,9 @@ public class FabricaEntidades implements EntityFactory {
     }
 
     //Módulo de cura ou de energia parado no mapa (lista "items" do JSON
-    //da sala, ver Main.spawnItensDaSala()). Igual ao gatilho: sem
+    //da sala, ver controle.GerenciadorSalas.spawnItens()). Igual ao gatilho: sem
     //física, só bounding box + collidable(), e quem trata o toque é o
-    //CollisionHandler(JOGADOR, ITEM) em Main.initPhysics(). Verde =
+    //CollisionHandler(JOGADOR, ITEM) em controle.ControleJogo.registrarColisoes(). Verde =
     //cura, azul = energia.
     @Spawns("item")
     public Entity spawnItem(SpawnData data) {
@@ -449,9 +449,9 @@ public class FabricaEntidades implements EntityFactory {
     //Gatilho de passagem entre salas: zona sem PhysicsComponent (só
     //bounding box + collidable(), igual o jogador/inimigos), detectada
     //pelo CollisionHandler(JOGADOR, GATILHO) registrado uma vez em
-    //Main.initPhysics(). indiceDestino/ladoEntrada guardam pra qual
-    //sala (índice em Main.SALAS_DO_MAPA) e por qual lado o jogador
-    //deve reaparecer (ver Main.iniciarTransicaoDeSala()/trocarSala()).
+    //controle.ControleJogo.registrarColisoes(). indiceDestino/ladoEntrada guardam pra qual
+    //sala (índice em GerenciadorSalas.SALAS_DO_MAPA) e por qual lado o jogador
+    //deve reaparecer (ver GerenciadorSalas.iniciarTransicao()/trocarSala()).
     //Sem view nenhuma (igual a parede) — é só uma zona invisível, sem
     //indicador visual chamando atenção pro "fim da sala".
     @Spawns("gatilho")
@@ -469,7 +469,7 @@ public class FabricaEntidades implements EntityFactory {
 
         //Guarda os dois dados extras no próprio Entity (não só no
         //SpawnData, que não é acessível depois de construído), pra o
-        //CollisionHandler em Main.initPhysics() conseguir ler de volta
+        //CollisionHandler em controle.ControleJogo.registrarColisoes() conseguir ler de volta
         //no momento da colisão.
         gatilho.setProperty("indiceDestino", indiceDestino);
         gatilho.setProperty("ladoEntrada", ladoEntrada);

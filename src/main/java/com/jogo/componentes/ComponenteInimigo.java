@@ -3,7 +3,6 @@ package com.jogo.componentes;
 import com.almasb.fxgl.entity.Entity;
 import com.almasb.fxgl.entity.component.Component;
 import com.almasb.fxgl.physics.PhysicsComponent;
-import com.jogo.Main;
 
 
 /**
@@ -102,7 +101,7 @@ public abstract class ComponenteInimigo extends ComponentePersonagem implements 
     }
 
     //O XP vai pro alvo, que é sempre o jogador (ver
-    //Main.spawnInimigosDaSala()). getExperienciaConcedida() é
+    //controle.GerenciadorSalas.spawnInimigos()). getExperienciaConcedida() é
     //polimórfico: cada tipo de inimigo devolve o próprio valor.
     private void concederExperienciaAoAlvo() {
         if (alvo == null || !alvo.isActive()) {
@@ -150,8 +149,8 @@ public abstract class ComponenteInimigo extends ComponentePersonagem implements 
     //onUpdate roda cada frame do jogo
     @Override
     public void onUpdate(double tpf) {
-        //Ignora a rajada de ticks logo após despausar (ver Main.java).
-        if (Main.emPeriodoDeGraca()) {
+        //Ignora a rajada de ticks logo após despausar (ver RelogioJogo).
+        if (RelogioJogo.emPeriodoDeGraca()) {
             return;
         }
 

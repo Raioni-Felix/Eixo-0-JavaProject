@@ -33,6 +33,10 @@ public abstract class Arma implements Inventariavel {
     private double ultimoUso;
 
     public Arma(String idBase, String nome, String descricao, int dano, double cooldown, double alcance){
+        if (dano < 0 || cooldown < 0 || alcance <= 0) {
+            throw new IllegalArgumentException("Arma com valores inválidos: dano=" + dano
+                    + ", cooldown=" + cooldown + ", alcance=" + alcance);
+        }
         this.id = idBase + "-" + (++contadorInstancias);
         this.nome = nome;
         this.descricao = descricao;

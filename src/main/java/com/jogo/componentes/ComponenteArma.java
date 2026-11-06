@@ -1,6 +1,8 @@
 package com.jogo.componentes;
 
 import com.almasb.fxgl.entity.component.Component;
+import com.jogo.excecoes.ItemIncompativelException;
+import com.jogo.excecoes.ItemNaoEncontradoException;
 import com.jogo.inventario.Inventariavel;
 import com.jogo.itens.Arma;
 import javafx.scene.Node;
@@ -57,16 +59,22 @@ public class ComponenteArma extends Component {
     }
 
     //Igual ao equiparArma(idArma) do Jogador do barebones: só equipa
-    //arma que já está no inventário do jogador. Devolve false se o id
-    //não existir ou não for uma Arma (ex: id de um módulo).
-    public boolean equiparArma(String idArma) {
+    //arma que já está no inventário do jogador. Uma exceção pra cada
+    //problema: o id não existe, ou existe mas não é Arma (ex: um módulo).
+    public void equiparArma(String idArma) throws ItemNaoEncontradoException, ItemIncompativelException {
         Inventariavel objeto = jogador.getInventario().buscar(idArma);
-        if (objeto instanceof Arma armaEncontrada) {
-            this.armaEquipada = armaEncontrada;
-            trocarVisual();
-            return true;
+        if (objeto == null) {
+            throw new ItemNaoEncontradoException(idArma);
         }
-        return false;
+        if (!(objeto instanceof Arma armaEncontrada)) {
+            throw new ItemIncompativelException(idArma, "equipar como arma");
+        }
+        equipar(armaEncontrada);
+    }
+
+    private void equipar(Arma arma) {
+        this.armaEquipada = arma;
+        trocarVisual();
     }
 
     //Todas as armas do inventário, na ordem em que foram pegas. A lista
@@ -77,7 +85,7 @@ public class ComponenteArma extends Component {
         return jogador.getInventario().listarDoTipo(Arma.class);
     }
 
-    //Tecla Q (ver Main.initInput()): equipa a próxima arma do arsenal,
+    //Tecla Q (ver controle.ControleEntrada): equipa a próxima arma do arsenal,
     //voltando pra primeira depois da última.
     public void trocarArma() {
         List<Arma> arsenal = getArsenal();
@@ -85,8 +93,9 @@ public class ComponenteArma extends Component {
             return;
         }
         int atual = arsenal.indexOf(armaEquipada);
-        Arma proxima = arsenal.get((atual + 1) % arsenal.size());
-        equiparArma(proxima.getId());
+        //A próxima veio do próprio inventário, então não tem como dar
+        //erro: equipa direto, sem passar pela busca por id
+        equipar(arsenal.get((atual + 1) % arsenal.size()));
     }
 
     public Arma getArmaEquipada() {

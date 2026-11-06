@@ -16,11 +16,30 @@ mvn clean compile exec:java
 
 compila o projeto e executa a classe principal, `com.jogo.Main`, que é a que o `exec-maven-plugin` está configurado pra rodar no `pom.xml`. O goal é `exec:java`; escrever com prefixo `java:` dá o erro "No plugin found for prefix 'java'". Também dá pra rodar `Main.java` direto pela IDE, contanto que as dependências do Maven já tenham sido baixadas.
 
+Os testes rodam com
+
+```
+mvn test
+```
+
+que executa os testes JUnit 5 de `src/test/java` e gera o relatório de cobertura (JaCoCo) em `target/site/jacoco/index.html`. Ver "Testes".
+
+## Documentação
+
+- [`docs/REQUISITOS.md`](docs/REQUISITOS.md): requisitos funcionais e não funcionais, com onde cada um está no código e qual teste cobre.
+- [`docs/uml/diagrama-classes.svg`](docs/uml/diagrama-classes.svg): diagrama de classes UML completo, gerado a partir do código (fonte Mermaid em `docs/uml/diagrama-classes.mmd`).
+
 ## Estrutura geral
 
 O código fica em `src/main/java/com/jogo`, dividido em pacotes por responsabilidade:
 
-`Main.java` é o ponto de entrada e a classe que estende `GameApplication` do FXGL. É onde ficam as configurações da janela, o carregamento inicial do jogo, os binds de teclado, a montagem da UI (barra de vida, menus, tela de game over) e a lógica de troca de salas.
+`Main.java` é o ponto de entrada e a classe que estende `GameApplication` do FXGL. Ela só tem as configurações da janela e repassa cada etapa do FXGL (`initGame`, `initPhysics`, `initInput`, `initUI`, `onUpdate`) pro pacote `controle`. Ver "Separação MVC".
+
+`controle` guarda os controladores: `ControleJogo` (fluxo do jogo: menu, pausa, Game Over, reiniciar, colisões de gatilho/item, arsenal inicial e tratamento das exceções do modelo), `ControleEntrada` (teclas) e `GerenciadorSalas` (monta a sala, inimigos e itens, troca de sala e câmera).
+
+`visao` guarda o que aparece na tela: `HudJogo` (barras de vida e energia, inventário, status e avisos), as telas sobrepostas (`TelaSobreposta`, abstrata, e as filhas `TelaMenuPrincipal`, `TelaPausa` e `TelaGameOver`), a `CortinaTransicao` da troca de sala e os auxiliares `EstiloUI` e `RecursosVisuais`.
+
+`excecoes` guarda as exceções próprias do jogo. Ver "Exceções".
 
 `componentes` guarda as classes que definem o comportamento de cada entidade, seguindo o padrão de componentes do FXGL: em vez de uma entidade ser uma classe própria, ela é um objeto genérico do FXGL que recebe componentes anexados, e cada componente cuida de um pedaço do comportamento dela (movimento, vida, ataque, IA, e assim por diante).
 
@@ -72,7 +91,7 @@ São as mesmas três interfaces da versão barebones, todas em `componentes`:
 
 ## Dados de nível em JSON
 
-Os valores de balanceamento do jogo, como vida máxima, energia máxima, velocidade, dano e os módulos espalhados pela sala, não ficam escritos direto no código Java. Eles ficam nos arquivos JSON de cada nível, e são carregados em classes espelho como `DadosJogador` e `DadosInimigo`, que o Gson preenche automaticamente a partir do JSON. Esses dados então são repassados para os construtores dos componentes na hora em que `Main` e `FabricaEntidades` montam a sala.
+Os valores de balanceamento do jogo, como vida máxima, energia máxima, velocidade, dano e os módulos espalhados pela sala, não ficam escritos direto no código Java. Eles ficam nos arquivos JSON de cada nível, e são carregados em classes espelho como `DadosJogador` e `DadosInimigo`, que o Gson preenche automaticamente a partir do JSON. Esses dados então são repassados para os construtores dos componentes na hora em que `GerenciadorSalas` e `FabricaEntidades` montam a sala.
 
 A razão principal é que as mesmas classes de componente (por exemplo `ComponenteInimigoMelee`) são reaproveitadas em várias salas diferentes, com valores diferentes em cada uma. Um inimigo melee da sala 1 pode ter vida bem menor que um da sala 4, sem precisar de uma classe Java separada pra cada variação. Isso também significa que ajustar o balanceamento do jogo (deixar um inimigo mais forte, mudar a vida do jogador) não exige recompilar nada, só editar o JSON.
 
@@ -80,7 +99,7 @@ Cada nível também pode definir seu próprio tema visual de fundo: a sala 1 usa
 
 ## Sistema de salas
 
-O jogo é dividido em salas, e só o conteúdo da sala atual fica carregado e visível por vez, no estilo metroidvania tradicional. A câmera fica travada nos limites da sala atual em vez de seguir livremente por um mapa contínuo. A ordem das salas é definida em `Main` e determina implicitamente qual é a vizinha da esquerda e da direita de cada uma.
+O jogo é dividido em salas, e só o conteúdo da sala atual fica carregado e visível por vez, no estilo metroidvania tradicional. A câmera fica travada nos limites da sala atual em vez de seguir livremente por um mapa contínuo. A ordem das salas é definida em `GerenciadorSalas.SALAS_DO_MAPA` e determina implicitamente qual é a vizinha da esquerda e da direita de cada uma.
 
 Nas bordas de cada sala existem entidades gatilho, que ao serem tocadas pelo jogador disparam uma transição pra sala vizinha: a tela escurece com um fade, a sala nova é montada por trás do fade, e o jogador é reposicionado na entrada correspondente do lado oposto. O jogador em si não é recriado nessa troca, só reposicionado, então o estado dele (vida atual, por exemplo) é preservado entre salas. Nas extremidades do mapa, onde não existe mais sala vizinha, o que existe no lugar do gatilho é uma parede sólida invisível, barrando a passagem.
 
@@ -123,7 +142,7 @@ Cada `Habilidade` controla o próprio tempo de espera: o `ComponenteJogador` cha
 
 O `Inventario` é o mesmo do barebones e guarda tanto os módulos quanto as armas. Ele usa duas tabelas hash (`LinkedHashMap`): uma com os objetos e outra com as quantidades. Itens de categoria empilhável (como `CONSUMIVEL`) com o mesmo id são somados numa entrada só, com contador. Itens não empilháveis (como `ARMA`) ganham um id único na criação (`espada-1`, `espada-2`...), então cada um ocupa sua própria entrada.
 
-A `Arma` implementa `Inventariavel` com categoria `ARMA`, igual no barebones. As quatro armas iniciais são criadas em `Main.initGame()`, entram no inventário com `coletarItem()` e a espada é equipada com `ComponenteArma.equiparArma(idArma)`, que busca a arma pelo id no inventário e recusa qualquer coisa que não seja `Arma`. Uma arma nova (loot, upgrade) segue o mesmo caminho. Os módulos ficam espalhados pelas salas, na lista `"items"` do JSON de cada uma (`"type"` vale `"cura"` ou `"energia"`, e `"amount"` é quanto ele devolve). No mapa, o quadradinho verde é cura e o azul é energia. Ao encostar, o `CollisionHandler(JOGADOR, ITEM)` em `Main.initPhysics()` cria o `ModuloCura` ou `ModuloEnergia` e coloca no inventário. As teclas 1 e 2 chamam `usarItem(id)`, que só funciona com `Consumivel`: chama `efeito()` e tira um do inventário. O texto embaixo das barras mostra quantos de cada tem. `Main` guarda quais itens já foram pegos (`itensColetados`), pra eles não reaparecerem quando o jogador volta pra uma sala; essa lista zera em "Reiniciar" e "Menu Principal".
+A `Arma` implementa `Inventariavel` com categoria `ARMA`, igual no barebones. As quatro armas iniciais são criadas em `ControleJogo.prepararArsenal()`, entram no inventário de uma vez com `coletarItem(lista)` (sobrecarga do `coletarItem(item)`) e a espada é equipada com `ComponenteArma.equiparArma(idArma)`, que busca a arma pelo id no inventário e recusa qualquer coisa que não seja `Arma`. Uma arma nova (loot, upgrade) segue o mesmo caminho. Os módulos ficam espalhados pelas salas, na lista `"items"` do JSON de cada uma (`"type"` vale `"cura"` ou `"energia"`, e `"amount"` é quanto ele devolve). No mapa, o quadradinho verde é cura e o azul é energia. Ao encostar, o `CollisionHandler(JOGADOR, ITEM)` em `ControleJogo.registrarColisoes()` cria o `ModuloCura` ou `ModuloEnergia` (com o construtor curto, que só recebe a quantidade) e coloca no inventário. As teclas 1 e 2 chamam `usarItem(id)`, que só funciona com `Consumivel`: chama `efeito()` e tira um do inventário. Se não tiver o módulo, `usarItem` lança `ItemNaoEncontradoException`, e o controle mostra a mensagem em vermelho no HUD (ver "Exceções"). O texto embaixo das barras mostra quantos de cada tem. `GerenciadorSalas` guarda quais itens já foram pegos (`itensColetados`), pra eles não reaparecerem quando o jogador volta pra uma sala; essa lista zera em "Reiniciar" e "Menu Principal".
 
 ## Armas, interfaces de combate e polimorfismo
 
@@ -148,7 +167,7 @@ Antes existia uma classe `Arma` só, com um enum `TipoArma` (`MELEE`, `DISTANCIA
 
 Cada arma também diz como é desenhada na mão do jogador (`criarVisual()`) e descreve o próprio ataque (`getDescricaoCombate()`), mostrado no HUD.
 
-**Coleção polimórfica:** as quatro armas ficam no inventário, e o `ComponenteArma.getArsenal()` devolve todas numa `List<Arma>`, apesar de cada uma ser de uma classe diferente. A tecla Q passa pra próxima arma da lista, e a tecla Z faz sempre a mesma chamada (`atacar`), que dá um resultado diferente pra cada arma. Ao começar o jogo, o `Main` percorre essa lista e imprime no console a `getDescricaoCombate()` de cada arma: mesma chamada, resposta diferente pra cada classe, o equivalente ao `foreach` de `atacar()` da atividade de RPG. A lista vem de `Inventario.listarDoTipo(Arma.class)`, um método genérico (`<T> List<T> listarDoTipo(Class<T> tipo)`) que já devolve a lista no tipo pedido, sem cast.
+**Coleção polimórfica:** as quatro armas ficam no inventário, e o `ComponenteArma.getArsenal()` devolve todas numa `List<Arma>`, apesar de cada uma ser de uma classe diferente. A tecla Q passa pra próxima arma da lista, e a tecla Z faz sempre a mesma chamada (`atacar`), que dá um resultado diferente pra cada arma. Ao começar o jogo, o `ControleJogo` percorre essa lista e imprime no console a `getDescricaoCombate()` de cada arma: mesma chamada, resposta diferente pra cada classe, o equivalente ao `foreach` de `atacar()` da atividade de RPG. A lista vem de `Inventario.listarDoTipo(Arma.class)`, um método genérico (`<T> List<T> listarDoTipo(Class<T> tipo)`) que já devolve a lista no tipo pedido, sem cast.
 
 **Uso de `super`:** além do `super(...)` nos construtores, o projeto chama a versão da classe mãe dentro de métodos sobrescritos em quatro lugares: `ComponenteInimigoVoador.iniciarAtaque()`, `ComponenteInimigo.tomarDano()`, `Shotgun.executarAtaque()` e `PistolaDuplaDePlasma.executarAtaque()` (este último também dentro de uma lambda). Nos quatro casos a subclasse reaproveita o comportamento da mãe e acrescenta o dela, como o `parent::atacar()` do Paladino na atividade de RPG.
 
@@ -170,21 +189,64 @@ O contato de dano entre jogador e inimigos usa uma combinação de duas fixtures
 
 ## Interface e menus
 
-A UI é construída em `Main.initUI()`. A barra de vida do jogador fica amarrada diretamente à propriedade de vida do `ComponenteJogador`, atualizando sozinha sempre que a vida muda. Existem overlays separados para o menu principal, a tela de pausa e a tela de game over, cada um com seus próprios botões e, no caso do menu principal, alguma animação decorativa no título.
+A UI é montada em `ControleJogo.montarInterface()` (chamado pelo `initUI()`), com as classes do pacote `visao`. A barra de vida do `HudJogo` fica amarrada à propriedade de vida do `ComponenteJogador` e à vida máxima: a largura é `vidaAtual * 200 / vidaMaxima`, recalculada sempre que a vida muda. Antes a conta usava a vida máxima do começo do jogo, então depois de subir de nível (vida máxima +20) a barra passava do tamanho. As três telas (menu principal, pausa e Game Over) estendem `TelaSobreposta`, que já traz `mostrar()`, `esconder()` e `estaVisivel()`; cada uma recebe no construtor o que fazer em cada botão (`Runnable`), então a visão não conhece o controle.
 
 ## Pausa, Game Over e o "período de graça" ao despausar
 
 O jogo tem três telas que pausam o motor do FXGL (`getGameController().pauseEngine()`): o menu principal (no início), o menu de pausa (ESC) e a tela de Game Over. Os botões "Reiniciar" (Game Over) e "Menu Principal" (Game Over e pausa) usam `startNewGame()` por baixo dos panos pra reconstruir o nível do zero, sempre voltando pro início do mapa (não existe sistema de checkpoint ainda). A diferença entre os dois é só se o menu principal aparece de novo depois ou não: "Reiniciar" volta direto pra dentro do jogo, "Menu Principal" mostra o menu de novo antes.
 
-Sempre que o motor é despausado, em vez de chamar `getGameController().resumeEngine()` direto, o código passa por um método próprio, `despausarMotor()`. O motivo: quando o jogador fica parado numa tela pausada por um tempo (alguns segundos ou mais), o FXGL tenta recuperar esse tempo processando vários ticks em sequência bem rápida assim que o motor despausa, e isso fazia tudo que depende do tempo entre frames (câmera, o "flutuar" dos inimigos voadores, os timers do dash) avançar rápido demais por um instante, dando a impressão de que o jogo acelerou por alguns segundos antes de se estabilizar. `despausarMotor()` marca um "período de graça" bem curto (0.4 segundo de tempo real) logo depois de despausar, e o `onUpdate` do `Main`, do `ComponenteJogador` e do `ComponenteInimigo` (e subclasses) ignoram esse instante inicial, deixando o FXGL recuperar esse atraso sem que nada visível reaja a isso.
+Sempre que o motor é despausado, em vez de chamar `getGameController().resumeEngine()` direto, o código passa por um método próprio, `ControleJogo.despausarMotor()`. O motivo: quando o jogador fica parado numa tela pausada por um tempo (alguns segundos ou mais), o FXGL tenta recuperar esse tempo processando vários ticks em sequência bem rápida assim que o motor despausa, e isso fazia tudo que depende do tempo entre frames (câmera, o "flutuar" dos inimigos voadores, os timers do dash) avançar rápido demais por um instante, dando a impressão de que o jogo acelerou por alguns segundos antes de se estabilizar. `despausarMotor()` marca um "período de graça" bem curto (0.4 segundo de tempo real) em `RelogioJogo.marcarRetomada()`, e o `ControleJogo.atualizar()`, o `ComponenteJogador` e o `ComponenteInimigo` (e subclasses) perguntam `RelogioJogo.emPeriodoDeGraca()` e ignoram esse instante inicial, deixando o FXGL recuperar esse atraso sem que nada visível reaja a isso.
 
 Existia um bug maior, relacionado mas separado: "Reiniciar" e "Menu Principal" acabavam sempre voltando pro menu principal, mesmo o "Reiniciar" nunca devendo mostrar o menu. A causa era uma suposição errada de que `initUI()` só roda uma vez, no começo do app. Na prática, o FXGL chama `initGame()` + `initPhysics()` + `initUI()` de novo toda vez que `getGameController().startNewGame()` é chamado, ou seja, em todo "Reiniciar" e todo "Menu Principal" também. Como `initUI()` reconstruía o `overlayMenuPrincipal` do zero e ele fica visível por padrão (diferente do overlay de Game Over e do de pausa, que são escondidos explicitamente na hora de criar), esse menu recém-criado reaparecia por cima de qualquer coisa, e o motor era pausado de novo, independente de qual botão o jogador tivesse apertado.
 
 A primeira correção guardava só "já passamos do primeiro launch" numa flag, e deixava `reiniciarNivel()`/`voltarAoMenuPrincipal()` mexerem no `overlayMenuPrincipal` e chamarem `pauseEngine()` depois de chamar `startNewGame()`. Isso resolveu o "Reiniciar", mas o "Menu"/"Menu Principal" continuou com um bug parecido: o nível reiniciava (dava pra ver o jogo voltando pro início), mas o menu principal nunca aparecia, e o jogo travava sem responder mais a input. A causa provável: não tem confirmação, na fonte do FXGL, de que `startNewGame()` termina o reset do mundo de forma síncrona antes de devolver o controle pro código que chamou. Se não for síncrono, o `pauseEngine()` chamado logo em seguida em `voltarAoMenuPrincipal()` podia pausar o motor antes do reset de verdade acontecer, ou mexer num `overlayMenuPrincipal` que já tinha virado obsoleto.
 
-A correção definitiva move essa decisão pra dentro do próprio `initUI()`: por padrão, toda vez que `initUI()` roda, ele mostra o menu principal e pausa o motor sozinho (certo tanto pro launch do app quanto pro "Menu"/"Menu Principal", que só chamam `startNewGame()` sem mexer em mais nada). Existe uma flag, `pularMenuAoIniciar`, que só o `reiniciarNivel()` liga (antes de chamar `startNewGame()`), avisando "dessa vez não, quero cair direto no jogo"; o próprio `initUI()` desliga a flag de novo depois de consumir. Assim o "mostra o menu e pausa" sempre roda exatamente no momento em que o mundo novo é de fato montado, não importa quando isso aconteça.
+A correção definitiva move essa decisão pra dentro do próprio `initUI()` (hoje `ControleJogo.montarInterface()`): por padrão, toda vez que ele roda, ele mostra o menu principal e pausa o motor sozinho (certo tanto pro launch do app quanto pro "Menu"/"Menu Principal", que só chamam `startNewGame()` sem mexer em mais nada). Existe uma flag, `pularMenuAoIniciar`, que só o `reiniciarNivel()` liga (antes de chamar `startNewGame()`), avisando "dessa vez não, quero cair direto no jogo"; o próprio `initUI()` desliga a flag de novo depois de consumir. Assim o "mostra o menu e pausa" sempre roda exatamente no momento em que o mundo novo é de fato montado, não importa quando isso aconteça.
 
-De quebra, o ESC (`initInput()`) ganhou um terceiro guard: além de não abrir a pausa se o player estiver morto/inativo ou o Game Over estiver na tela, agora também não abre se `overlayMenuPrincipal` estiver visível — sem isso, como o player novo já nasce ativo assim que o "Menu"/"Menu Principal" termina, apertar ESC bem nesse instante abria a tela de pausa por cima do próprio menu principal.
+De quebra, o ESC ganhou um terceiro guard (hoje em `ControleJogo.podePausar()`): além de não abrir a pausa se o player estiver morto/inativo ou o Game Over estiver na tela, agora também não abre se o menu principal estiver visível — sem isso, como o player novo já nasce ativo assim que o "Menu"/"Menu Principal" termina, apertar ESC bem nesse instante abria a tela de pausa por cima do próprio menu principal.
+
+## Separação MVC
+
+Antes o `Main` tinha cerca de 1.400 linhas e misturava telas, HUD, teclas, troca de sala e regras. Agora cada parte tem seu pacote:
+
+| Camada | Pacotes | O que faz |
+|---|---|---|
+| Modelo | `componentes`, `itens`, `habilidades`, `inventario`, `niveis`, `entidades`, `factories`, `excecoes` | dados e regras do jogo: vida, energia, XP, armas, inventário, salas |
+| Visão | `visao`, `componentes.visual` | o que aparece na tela: HUD, telas, cortina, animações |
+| Controle | `controle` (+ `Main`) | liga as duas: teclas, fluxo menu/pausa/Game Over, troca de sala, trata exceções |
+
+O `Main` só repassa cada etapa do FXGL pro controle. O modelo não depende do controle (por isso o `RelogioJogo` fica em `componentes`: quem lê são os componentes, o controle só avisa quando despausou). A visão também não conhece o controle: as telas recebem `Runnable` pros botões e o HUD só lê o modelo.
+
+O FXGL não deixa uma separação 100% pura: os componentes de gameplay herdam de `Component` do FXGL e criam entidades (tiro, hitbox) com `spawn()`. Por isso os testes cobrem melhor as partes do modelo que não dependem do motor.
+
+## Exceções
+
+As exceções próprias ficam em `excecoes`:
+
+```
+Exception
+└── JogoException (checked, mãe de todas)
+    ├── ItemNaoEncontradoException   (id que não está no inventário)
+    ├── ItemIncompativelException    (ex.: tentar consumir uma arma)
+    └── NivelInvalidoException       (JSON de sala faltando, vazio ou quebrado)
+```
+
+São "checked" (herdam de `Exception`): quem chama é obrigado a tratar ou repassar. Onde são lançadas e onde são tratadas:
+
+- `ComponenteJogador.usarItem(id)` e `ComponenteArma.equiparArma(id)` lançam `ItemNaoEncontradoException`/`ItemIncompativelException`. O `ControleJogo.usarModulo()` captura `JogoException` e mostra a mensagem no HUD (`HudJogo.mostrarAviso()`), em vez de derrubar o jogo.
+- `CarregadorDeNiveis.carregar()` lança `NivelInvalidoException` se o arquivo não existe, está vazio, não tem `player`/`platforms` ou o JSON está quebrado (a exceção do Gson vai junto como causa). Sala sem `enemies` é válida e vira lista vazia.
+- Erros de programação (vida máxima zero, dano negativo, nome vazio) usam `IllegalArgumentException` nos construtores, porque não são situações que o jogo deveria tratar, e sim bugs.
+
+## Testes
+
+52 testes JUnit 5 em `src/test/java`, todos passando. Rodam com `mvn test`.
+
+- Unitários: `ComponenteJogadorTest` (energia, cura, invencibilidade, subir de nível, usar módulos), `ComponenteInimigoTest` (XP de cada tipo, interfaces), `ArmaTest` (cooldown do `atacar()` com uma arma de teste, `multiplicarDano`, ids únicos), `ArmasDeFogoTest` (ganchos de cada arma, `Perfurante`, coleção polimórfica), `HabilidadeTest`, `InventarioTest` (pilha, duplicata, `listarDoTipo` genérico, sobrecargas), `ComponenteAuxiliaresTest`.
+- Casos de sucesso e de falha: cada classe testa o caminho certo e os errados (sem energia, em cooldown, item que não existe, valores inválidos no construtor).
+- Exceções: `assertThrows` para cada exceção própria e para as `IllegalArgumentException` dos construtores.
+- Integração: `CarregadorDeNiveisTest` lê os JSON de verdade das 4 salas com o Gson (e JSON de teste quebrado/incompleto em `src/test/resources`); `JogadorSalaIntegracaoTest` carrega a sala 4, cria o jogador com os dados dela, coleta os módulos, soma o XP dos inimigos, sobe de nível e usa os módulos até dar a exceção.
+
+Cobertura (JaCoCo): `inventario` 96% das linhas, `niveis` 95%, `excecoes` 100%. O total do projeto fica baixo (cerca de 20%) porque `visao`, `controle` e boa parte de `componentes` só funcionam com a janela e o motor do FXGL rodando; essas partes foram testadas jogando.
 
 ## Observações sobre o estado atual do projeto
 

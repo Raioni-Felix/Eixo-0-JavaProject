@@ -5,7 +5,7 @@ import com.google.gson.annotations.SerializedName;
 //Espelha cada item da lista "enemies" do JSON do nível. "tipo" tem que
 //valer "voador", "ranged" ou "melee" (exatamente como está no JSON,
 //que não foi traduzido) — é o que decide qual spawn da
-//FabricaEntidades usar (ver Main: spawn("inimigo_" + tipo, ...)),
+//FabricaEntidades usar (ver GerenciadorSalas.spawnInimigos(): spawn("inimigo_" + tipo, ...)),
 //então um valor diferente desses três quebra o carregamento (FXGL não
 //acha o @Spawns correspondente).
 public class DadosInimigo {

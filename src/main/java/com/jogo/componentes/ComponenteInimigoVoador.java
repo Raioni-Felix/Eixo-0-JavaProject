@@ -1,6 +1,5 @@
 package com.jogo.componentes;
 
-import com.jogo.Main;
 
 //Bixinho voador, herda de ComponenteInimigo,
 // mas não precisa de nada específico, pq
@@ -36,9 +35,9 @@ public class ComponenteInimigoVoador extends ComponenteInimigo {
 
     @Override
     public void onUpdate(double tpf) {
-        //Ignora a rajada de ticks logo após despausar (ver Main.java),
+        //Ignora a rajada de ticks logo após despausar (ver RelogioJogo),
         //senão tempoFlutuando dá um "pulo" no voo.
-        if (Main.emPeriodoDeGraca()) {
+        if (RelogioJogo.emPeriodoDeGraca()) {
             return;
         }
 

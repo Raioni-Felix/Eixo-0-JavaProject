@@ -29,7 +29,7 @@ public class ComponenteAnimacaoFundo extends Component {
     }
 
     //Essa é a Texture que vai pro .view() do entityBuilder(), pega
-    //aqui antes de criar a entidade (ver Main.initGame()).
+    //aqui antes de criar a entidade (ver controle.GerenciadorSalas.prepararSala()).
     public Texture getVisao() {
         return visao;
     }

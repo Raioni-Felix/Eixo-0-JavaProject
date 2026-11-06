@@ -1,0 +1,556 @@
+classDiagram
+direction TB
+namespace componentes {
+  class Atacante {
+    <<interface>>
+    +iniciarAtaque()*
+  }
+  class Atacavel {
+    <<interface>>
+    +tomarDano(int)*
+    +estaMorto()* boolean
+  }
+  class AtaqueJogadorComponent {
+    -jogador : Entity
+    -deslocamentoX : double
+    -deslocamentoY : double
+    -fisica : PhysicsComponent
+    +onAdded()
+    +onUpdate(double)
+  }
+  class ComponenteArma {
+    -armaEquipada : Arma
+    -jogador : ComponenteJogador
+    -visualArma : Node
+    +onAdded()
+    +onUpdate(double)
+    +equiparArma(String)
+    +trocarArma()
+    +atacar()
+  }
+  class ComponenteDisparoJogador {
+    -dano : int
+    -direcaoX : double
+    -direcaoY : double
+    -velocidade : double
+    -tempoVidaMaximo : double
+    -alvosMaximos : int
+    -tempoDeVida : double
+    -atingidos : Set~Entity~
+    +onUpdate(double)
+  }
+  class ComponenteInimigo {
+    <<abstract>>
+    #dano : int
+    #alcanceAtaque : double
+    #alcanceDeteccao : double
+    #voador : boolean
+    #distancia : boolean
+    #agressivo : boolean
+    #alvo : Entity
+    #cooldownAtaqueSegundos : double
+    #tempoDesdeUltimoAtaque : double
+    #fisica : PhysicsComponent
+    +onAdded()
+    +definirAlvo(Entity)
+    +iniciarAtaque()
+    +tomarDano(int)
+    #aplicarDanoDireto(Entity)
+    +obterDe(Entity)$ ComponenteInimigo
+    +onUpdate(double)
+    #perseguirAlvo(double, double)
+  }
+  class ComponenteInimigoDistancia {
+    +onUpdate(double)
+    +iniciarAtaque()
+  }
+  class ComponenteInimigoMelee {
+  }
+  class ComponenteInimigoVoador {
+    -tempoFlutuando : double
+    -amplitudeFlutuacao : double
+    -velocidadeFlutuacao : double
+    -tempoRecuo : double
+    +onUpdate(double)
+    +iniciarAtaque()
+  }
+  class ComponenteJogador {
+    #duracaoInvencibilidade : double
+    -timerInvencibilidade : double
+    #nivel : int
+    #xp : int
+    #xpProximoNivel : int
+    -timerRecuperacaoEmpurrao : double
+    -timerPiscada : double
+    -fisica : PhysicsComponent
+    -visao : ViewComponent
+    #energiaMaxima : int
+    #energiaAtual : IntegerProperty
+    -acumuladorRecarga : double
+    -inventario : Inventario
+    -golpe : GolpeDeEnergia
+    -apara : Apara
+    -timerApara : double
+    -escudo : Rectangle
+    -olhandoDireita : boolean
+    -podePularDuas : boolean
+    -jaDeuDash : boolean
+    -timerCooldownDash : double
+    -timerDash : double
+    -boostDashAtivo : boolean
+    +onAdded()
+    +onUpdate(double)
+    +estaAtordoado() boolean
+    +tomarDano(int)
+    +estaInvencivel() boolean
+    +serAtingido(Entity, int)
+    +pular()
+    +dash()
+    +estaNoDash() boolean
+    +estaOlhandoDireita() boolean
+    +moverEsquerda()
+    +moverDireita()
+    +pararHorizontal()
+    +adicionarXp(int)
+    +recuperarEnergia(int)
+    +energiaSuficiente(int) boolean
+    +consumirEnergia(int)
+    +energiaAtualProperty() ReadOnlyIntegerProperty
+    +iniciarAtaque()
+    +usarGolpeDeEnergia() boolean
+    +usarApara() boolean
+    +iniciarApara(double)
+    +estaAparando() boolean
+    +coletarItem(Inventariavel) boolean
+    +coletarItem(List~Inventariavel~) int
+    +usarItem(String)
+    +toString() String
+  }
+  class ComponentePersonagem {
+    #nome : String
+    #vidaMaxima : int
+    #velocidade : double
+    #vidaAtual : IntegerProperty
+    +tomarDano(int)
+    +curar(int)
+    +vidaAtualProperty() ReadOnlyIntegerProperty
+    +estaMorto() boolean
+    +mover()
+    +toString() String
+    +obterDe(Entity)$ ComponentePersonagem
+  }
+  class ConcedeExperiencia {
+    <<interface>>
+    +getExperienciaConcedida()* int
+  }
+  class RelogioJogo {
+    -gracaAteNanos : long$
+    +emPeriodoDeGraca()$ boolean
+    +marcarRetomada()$
+  }
+}
+namespace componentes_visual {
+  class ComponenteAnimacaoFundo {
+    -quadros : List~Image~
+    -duracaoQuadro : double
+    -visao : Texture
+    -tempoDecorrido : double
+    -quadroAtual : int
+    +onUpdate(double)
+  }
+  class ComponenteAnimado {
+    +onUpdate(double)
+  }
+  class ComponenteProjetil {
+    -origem : Entity
+    -alvo : Entity
+    -dano : int
+    -velocidade : double
+    -direcao : Point2D
+    -tempoDeVida : double
+    +onAdded()
+    +onUpdate(double)
+  }
+}
+namespace controle {
+  class ControleEntrada {
+    -jogo : ControleJogo
+    +registrar()
+  }
+  class ControleJogo {
+    -salas : GerenciadorSalas
+    -jogador : Entity
+    -hud : HudJogo
+    -menuPrincipal : TelaMenuPrincipal
+    -pausa : TelaPausa
+    -gameOver : TelaGameOver
+    -cortina : CortinaTransicao
+    -gameOverExibido : boolean
+    -pularMenuAoIniciar : boolean
+    +iniciarMundo()
+    +registrarColisoes()
+    +montarInterface()
+    +atualizar(double)
+    +podePausar() boolean
+    +abrirMenuPausa()
+    +retomarDaPausa()
+    +iniciarJogo()
+    +reiniciarNivel()
+    +voltarAoMenuPrincipal(TelaSobreposta)
+    +usarModulo(String)
+  }
+  class GerenciadorSalas {
+    -salaAtualIndex : int
+    -larguraNivel : double
+    -alturaNivel : double
+    -transicionando : boolean
+    -itensColetados : Set~String~
+    +comecarDoInicio() DadosNivel
+    +spawnInimigos(DadosNivel, Entity)
+    +spawnItens(DadosNivel)
+    +registrarColeta(String)
+    +iniciarTransicao(int, String, Entity, CortinaTransicao)
+    +centralizarCamera(Entity)
+    +atualizarCamera(Entity, double)
+  }
+}
+namespace entidades {
+  class TipoEntidade {
+    +values()$ TipoEntidade[]
+    +valueOf(String)$ TipoEntidade
+  }
+}
+namespace excecoes {
+  class ItemIncompativelException {
+  }
+  class ItemNaoEncontradoException {
+    -idItem : String
+  }
+  class JogoException {
+  }
+  class NivelInvalidoException {
+    -caminho : String
+  }
+}
+namespace factories {
+  class FabricaEntidades {
+    +spawnJogador(SpawnData) Entity
+    +spawnAtaqueJogador(SpawnData) Entity
+    +spawnInimigoVoador(SpawnData) Entity
+    +spawnInimigoDistancia(SpawnData) Entity
+    +spawnInimigoMelee(SpawnData) Entity
+    +spawnProjetil(SpawnData) Entity
+    +spawnDisparoJogador(SpawnData) Entity
+    +spawnItem(SpawnData) Entity
+    +spawnPlataforma(SpawnData) Entity
+    +spawnParede(SpawnData) Entity
+    +spawnGatilho(SpawnData) Entity
+  }
+}
+namespace habilidades {
+  class Apara {
+    #executar(ComponenteJogador)
+  }
+  class BolaDeFogo {
+  }
+  class GolpeDeEnergia {
+    <<abstract>>
+    -dano : int
+    #executar(ComponenteJogador)
+  }
+  class Habilidade {
+    <<abstract>>
+    -aprendida : boolean
+    -tempoEspera : double
+    -tempoRestante : double
+    -duracao : double
+    -custoEnergia : int
+    +atualizar(double)
+    +estaDisponivel() boolean
+    +podeUsar(ComponenteJogador) boolean
+    +usar(ComponenteJogador) boolean
+    #executar(ComponenteJogador)*
+  }
+}
+namespace inventario {
+  class Categoria {
+    -empilhavel : boolean
+    +values()$ Categoria[]
+    +valueOf(String)$ Categoria
+  }
+  class Consumivel {
+    <<interface>>
+    +efeito(ComponenteJogador)*
+  }
+  class Inventariavel {
+    <<interface>>
+    +getId()* String
+    +getNome()* String
+    +getDescricao()* String
+    +getCategoria()* Categoria
+  }
+  class Inventario {
+    -itens : Map~String, Inventariavel~
+    -quantidades : Map~String, Integer~
+    +adicionar(Inventariavel) boolean
+    +adicionar(List~Inventariavel~) int
+    +remover(String) boolean
+    +buscar(String) Inventariavel
+    +quantidadeDe(String) int
+    +temItem(String) boolean
+    +quantidadeItem() int
+    +inventarioVazio() boolean
+    +listarDoTipo(Class~T~) List~T~
+  }
+  class Item {
+    <<abstract>>
+    -contadorInstancias : int$
+    -id : String
+    -nome : String
+    -descricao : String
+    -categoria : Categoria
+  }
+  class ModuloCura {
+    -quantidadeDeCura : int
+    +efeito(ComponenteJogador)
+  }
+  class ModuloEnergia {
+    -quantidadeEnergia : int
+    +efeito(ComponenteJogador)
+  }
+}
+namespace itens {
+  class Arma {
+    <<abstract>>
+    -contadorInstancias : int$
+    -id : String
+    -nome : String
+    -descricao : String
+    -dano : int
+    -cooldown : double
+    -alcance : double
+    -multiplicadorDano : double
+    -ultimoUso : double
+    +podeAtacar() boolean
+    +atacar(Entity, double) boolean
+    #executarAtaque(Entity, double)*
+    +criarVisual()* Node
+    +getDescricaoCombate()* String
+    +multiplicarDano(double)
+  }
+  class ArmaDeFogo {
+    #executarAtaque(Entity, double)
+    #dispararProjetil(Entity, double, double)
+    +criarVisual() Node
+  }
+  class Espada {
+    #executarAtaque(Entity, double)
+    +criarVisual() Node
+  }
+  class Perfurante {
+    <<interface>>
+    +getAlvosAtravessados()* int
+  }
+  class PistolaDuplaDePlasma {
+    #executarAtaque(Entity, double)
+    +criarVisual() Node
+  }
+  class RifleSniper {
+    -alvosAtravessados : int
+    +criarVisual() Node
+  }
+  class Shotgun {
+    -quantidadeBalins : int
+    #executarAtaque(Entity, double)
+    +criarVisual() Node
+  }
+}
+namespace jogo {
+  class Main {
+    -controle : ControleJogo
+    -entrada : ControleEntrada
+    #initSettings(GameSettings)
+    #initGame()
+    #initPhysics()
+    #initInput()
+    #initUI()
+    #onUpdate(double)
+    +main(String[])$
+  }
+}
+namespace niveis {
+  class CarregadorDeNiveis {
+    +carregar(String)$ DadosNivel
+  }
+  class DadosInimigo {
+    +tipo : String
+    +x : double
+    +y : double
+    +nome : String
+    +vidaMaxima : int
+    +velocidade : double
+    +dano : int
+    +alcanceAtaque : double
+    +alcanceDeteccao : double
+  }
+  class DadosItem {
+    +tipo : String
+    +x : double
+    +y : double
+    +quantidade : int
+  }
+  class DadosJogador {
+    +x : double
+    +y : double
+    +nome : String
+    +vidaMaxima : int
+    +velocidade : double
+    +energiaMaxima : int
+  }
+  class DadosNivel {
+    +larguraNivel : double
+    +alturaNivel : double
+    +jogador : DadosJogador
+    +plataformas : List~DadosPlataforma~
+    +inimigos : List~DadosInimigo~
+    +itens : List~DadosItem~
+    +fundo : String
+    +corFundo : String
+  }
+  class DadosPlataforma {
+    +x : double
+    +y : double
+    +largura : double
+    +altura : double
+  }
+}
+namespace visao {
+  class CortinaTransicao {
+    +fecharEAbrir(Runnable, Runnable)
+  }
+  class EstiloUI {
+    +botaoMenu(String, String, String)$ Button
+    +botaoMenu(String, String, String, String)$ Button
+    +linhaMenu(String, String, boolean, Runnable)$ Region
+    +espacado(String)$ String
+    +textoComAberracao(String, double, String, double)$ Node
+    +cantoDecorativo(String)$ Node
+    +scanlines(double, double)$ Node
+  }
+  class HudJogo {
+    -jogador : ComponenteJogador
+    -arma : ComponenteArma
+    -idModuloCura : String
+    -idModuloEnergia : String
+    -preenchimentoVida : Rectangle
+    -textoInventario : Text
+    -textoStatus : Text
+    -textoAviso : Text
+    +atualizarInventario()
+    +atualizarStatus()
+    +mostrarAviso(String)
+  }
+  class RecursosVisuais {
+    +quadrosFundo(String)$ List~Image~
+    +imagemFundoMenu()$ Image
+  }
+  class TelaGameOver {
+  }
+  class TelaMenuPrincipal {
+  }
+  class TelaPausa {
+  }
+  class TelaSobreposta {
+    <<abstract>>
+    +mostrar()
+    +esconder()
+    +estaVisivel() boolean
+  }
+}
+class Component {
+  <<FXGL>>
+}
+class EntityFactory {
+  <<FXGL>>
+}
+class Exception {
+  <<Java>>
+}
+class GameApplication {
+  <<FXGL>>
+}
+class Rectangle {
+  <<JavaFX>>
+}
+class StackPane {
+  <<JavaFX>>
+}
+ComponenteArma --> "1" Arma : armaEquipada
+ComponenteArma --> "1" ComponenteJogador : jogador
+ComponenteArma ..> ItemNaoEncontradoException : lança
+ComponenteArma ..> ItemIncompativelException : lança
+ComponenteJogador --> "1" Inventario : inventario
+ComponenteJogador --> "1" GolpeDeEnergia : golpe
+ComponenteJogador --> "1" Apara : apara
+ComponenteJogador ..> ItemNaoEncontradoException : lança
+ComponenteJogador ..> ItemIncompativelException : lança
+ControleEntrada --> "1" ControleJogo : jogo
+ControleJogo --> "1" GerenciadorSalas : salas
+ControleJogo --> "1" HudJogo : hud
+ControleJogo --> "1" TelaMenuPrincipal : menuPrincipal
+ControleJogo --> "1" TelaPausa : pausa
+ControleJogo --> "1" TelaGameOver : gameOver
+ControleJogo --> "1" CortinaTransicao : cortina
+Inventario --> "*" Inventariavel : itens
+Item --> "1" Categoria : categoria
+Main --> "1" ControleJogo : controle
+Main --> "1" ControleEntrada : entrada
+CarregadorDeNiveis ..> NivelInvalidoException : lança
+DadosNivel --> "1" DadosJogador : jogador
+DadosNivel --> "*" DadosPlataforma : plataformas
+DadosNivel --> "*" DadosInimigo : inimigos
+DadosNivel --> "*" DadosItem : itens
+HudJogo --> "1" ComponenteJogador : jogador
+HudJogo --> "1" ComponenteArma : arma
+GameApplication <|-- Main
+JogoException <|-- ItemIncompativelException
+JogoException <|-- NivelInvalidoException
+JogoException <|-- ItemNaoEncontradoException
+Exception <|-- JogoException
+TelaSobreposta <|-- TelaMenuPrincipal
+TelaSobreposta <|-- TelaGameOver
+StackPane <|-- TelaSobreposta
+Rectangle <|-- CortinaTransicao
+TelaSobreposta <|-- TelaPausa
+ArmaDeFogo <|-- RifleSniper
+Perfurante <|.. RifleSniper
+ArmaDeFogo <|-- PistolaDuplaDePlasma
+Arma <|-- Espada
+Arma <|-- ArmaDeFogo
+Inventariavel <|.. Arma
+ArmaDeFogo <|-- Shotgun
+Habilidade <|-- GolpeDeEnergia
+GolpeDeEnergia <|-- BolaDeFogo
+Habilidade <|-- Apara
+Item <|-- ModuloEnergia
+Consumivel <|.. ModuloEnergia
+Inventariavel <|.. Item
+Item <|-- ModuloCura
+Consumivel <|.. ModuloCura
+Component <|-- AtaqueJogadorComponent
+Component <|-- ComponentePersonagem
+Atacavel <|.. ComponentePersonagem
+Component <|-- ComponenteArma
+ComponenteInimigo <|-- ComponenteInimigoVoador
+ComponenteInimigo <|-- ComponenteInimigoDistancia
+Component <|-- ComponenteDisparoJogador
+ComponentePersonagem <|-- ComponenteJogador
+Atacante <|.. ComponenteJogador
+ComponenteInimigo <|-- ComponenteInimigoMelee
+ComponentePersonagem <|-- ComponenteInimigo
+Atacante <|.. ComponenteInimigo
+ConcedeExperiencia <|.. ComponenteInimigo
+Component <|-- ComponenteProjetil
+Component <|-- ComponenteAnimacaoFundo
+Component <|-- ComponenteAnimado
+EntityFactory <|.. FabricaEntidades

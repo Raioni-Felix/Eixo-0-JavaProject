@@ -41,6 +41,19 @@ public class Inventario {
         return true;
     }
 
+    //Sobrecarga: adiciona vários de uma vez e diz quantos entraram.
+    //"? extends Inventariavel" aceita List<Arma>, List<ModuloCura>...
+    //(uma List<Arma> não é uma List<Inventariavel> em Java)
+    public int adicionar(List<? extends Inventariavel> objetos) {
+        int adicionados = 0;
+        for (Inventariavel objeto : objetos) {
+            if (adicionar(objeto)) {
+                adicionados++;
+            }
+        }
+        return adicionados;
+    }
+
     public boolean remover(String id) { //Remover usando a mesma logica de add só que ao contrario -lincoln
         if (id == null || !itens.containsKey(id)) {
             return false;

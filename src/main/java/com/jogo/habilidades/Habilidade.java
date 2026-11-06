@@ -15,6 +15,9 @@ public abstract class Habilidade {
     private int custoEnergia;
 
     public Habilidade(boolean aprendida, double tempoEspera, int custoEnergia, double duracao) {
+        if (tempoEspera < 0 || custoEnergia < 0 || duracao < 0) {
+            throw new IllegalArgumentException("Habilidade com valores negativos");
+        }
         this.aprendida = aprendida;
         this.tempoEspera = tempoEspera;
         this.custoEnergia = custoEnergia;

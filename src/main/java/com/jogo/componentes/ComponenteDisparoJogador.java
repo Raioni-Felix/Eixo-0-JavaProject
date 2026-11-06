@@ -2,7 +2,6 @@ package com.jogo.componentes;
 
 import com.almasb.fxgl.entity.Entity;
 import com.almasb.fxgl.entity.component.Component;
-import com.jogo.Main;
 import com.jogo.entidades.TipoEntidade;
 
 import java.util.HashSet;
@@ -49,7 +48,7 @@ public class ComponenteDisparoJogador extends Component {
 
     @Override
     public void onUpdate(double tpf) {
-        if (Main.emPeriodoDeGraca()) {
+        if (RelogioJogo.emPeriodoDeGraca()) {
             return;
         }
 

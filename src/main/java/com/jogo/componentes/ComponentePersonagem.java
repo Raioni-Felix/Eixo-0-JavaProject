@@ -28,6 +28,17 @@ public class ComponentePersonagem extends Component implements Atacavel {
 
     //CONSTRUTOR
     public ComponentePersonagem (String nome, int vidaMaxima, double velocidade) {
+        //Validação: erro de quem escreveu o código (ou o JSON), não algo
+        //que acontece jogando. Por isso IllegalArgumentException
+        if (nome == null || nome.isBlank()) {
+            throw new IllegalArgumentException("Personagem precisa de um nome");
+        }
+        if (vidaMaxima <= 0) {
+            throw new IllegalArgumentException("Vida máxima deve ser maior que zero: " + vidaMaxima);
+        }
+        if (velocidade < 0) {
+            throw new IllegalArgumentException("Velocidade não pode ser negativa: " + velocidade);
+        }
         this.nome = nome; //Usa o this pra diff a var da classe da do construtor
         this.vidaMaxima = vidaMaxima;
         this.velocidade = velocidade;

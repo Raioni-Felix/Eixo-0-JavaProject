@@ -5,7 +5,8 @@ import com.almasb.fxgl.entity.components.ViewComponent;
 import com.almasb.fxgl.input.KeyTrigger;
 import com.almasb.fxgl.input.TriggerListener;
 import com.almasb.fxgl.physics.PhysicsComponent;
-import com.jogo.Main;
+import com.jogo.excecoes.ItemIncompativelException;
+import com.jogo.excecoes.ItemNaoEncontradoException;
 import com.jogo.habilidades.Apara;
 import com.jogo.habilidades.BolaDeFogo;
 import com.jogo.habilidades.GolpeDeEnergia;
@@ -18,6 +19,7 @@ import javafx.beans.property.SimpleIntegerProperty;
 import javafx.scene.input.KeyCode;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
+import java.util.List;
 
 import static com.almasb.fxgl.dsl.FXGL.getInput;
 
@@ -53,7 +55,7 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
 
     //Velocidade vertical do pulo (negativo é pra cima, no FXGL/Box2D o
     //eixo Y cresce pra baixo, igual tela). A gravidade quem cuida é o
-    //motor de física agora (Main.initPhysics()).
+    //motor de física agora (controle.ControleJogo.registrarColisoes()).
     private static final double VELOCIDADE_PULO = -500;
 
 
@@ -104,7 +106,7 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
 
     //ENERGIA (trazida do barebones). Propriedade observável igual a
     //vida, pra barra de energia do HUD se atualizar sozinha (ver
-    //Main.initUI()).
+    //visao.HudJogo).
     protected int energiaMaxima;
     protected IntegerProperty energiaAtual = new SimpleIntegerProperty();
 
@@ -164,9 +166,9 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
     private boolean boostDashAtivo = false;
     private static final double MULTIPLICADOR_BOOST_DASH = 1.12; // bem pequeno, só pra fazer diferença
 
-    //O dash não é um UserAction registrado em Main.initInput() (o FXGL
+    //O dash não é um UserAction registrado em controle.ControleEntrada (o FXGL
     //proíbe addAction em teclas modificadoras como SHIFT/CONTROL/ALT —
-    //ver comentário em Main.initInput() — e, nessa versão do FXGL,
+    //ver comentário em controle.ControleEntrada — e, nessa versão do FXGL,
     //nem existe um Input.isHeld(KeyCode) pra consulta crua; só
     //descobri isso depois de tentar e o Maven acusar "cannot find
     //symbol"). O jeito certo, confirmado na fonte do próprio FXGL
@@ -215,8 +217,8 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
 
     @Override
     public void onUpdate(double tpf) {
-        //Ignora a rajada de ticks logo após despausar (ver Main.java).
-        if (Main.emPeriodoDeGraca()) {
+        //Ignora a rajada de ticks logo após despausar (ver RelogioJogo).
+        if (RelogioJogo.emPeriodoDeGraca()) {
             return;
         }
 
@@ -403,7 +405,7 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
     //Enquanto o dash está "rolando" (ver dash()/onUpdate()), o
     //controle normal de horizontal não deve sobrescrever a velocidade
     //dele — segurar A/D (que chamam moverEsquerda/moverDireita todo frame,
-    //ver Main.initInput()) sobrescrevia a velocidade do dash no frame
+    //ver controle.ControleEntrada) sobrescrevia a velocidade do dash no frame
     //seguinte e cancelava a investida quase inteira. Exposto também
     //pro ComponenteArma, se um dia quiser bloquear ataque durante o
     //dash.
@@ -445,7 +447,7 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
     }
 
     //Chamado quando a seta de movimento é solta (onActionEnd em
-    //Main.initInput()), zera a velocidade horizontal. Também respeita
+    //controle.ControleEntrada), zera a velocidade horizontal. Também respeita
     //o hit-stun curto,
     //mesmo motivo de moverEsquerda/moverDireita: soltar a tecla no meio do
     //recoil não pode zerar o empurrão.
@@ -540,7 +542,7 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
 
     //ATAQUE (interface Atacante, igual ao Jogador do barebones)
 
-    //Tecla Z (ver Main.initInput()). O jogador não escolhe alvo: ataca
+    //Tecla Z (ver controle.ControleEntrada). O jogador não escolhe alvo: ataca
     //pra onde está olhando com a arma equipada, e quem sabe COMO atacar
     //é a própria arma (ver ComponenteArma e pacote itens).
     @Override
@@ -550,7 +552,7 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
 
     //HABILIDADES
 
-    //Tecla X (ver Main.initInput()). Quem confere cooldown e energia é
+    //Tecla X (ver controle.ControleEntrada). Quem confere cooldown e energia é
     //o usar() da Habilidade; aqui só barra o hit-stun.
     public boolean usarGolpeDeEnergia() {
         if (estaAtordoado()) {
@@ -559,7 +561,7 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
         return golpe.usar(this);
     }
 
-    //Tecla C (ver Main.initInput()).
+    //Tecla C (ver controle.ControleEntrada).
     public boolean usarApara() {
         if (estaAtordoado()) {
             return false;
@@ -588,21 +590,30 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
     //INVENTÁRIO
 
     //Chamado quando o jogador encosta num item do mapa (ver
-    //Main.initPhysics()).
+    //controle.ControleJogo.registrarColisoes()).
     public boolean coletarItem(Inventariavel item) {
         return inventario.adicionar(item);
     }
 
-    //Usa um item pelo id (teclas 1 e 2, ver Main.initInput()). Só
-    //consumível tem efeito; depois de usar, sai do inventário.
-    public boolean usarItem(String id) {
+    //Sobrecarga: vários itens de uma vez (o arsenal inicial, por exemplo)
+    public int coletarItem(List<? extends Inventariavel> itens) {
+        return inventario.adicionar(itens);
+    }
+
+    //Usa um item pelo id (teclas 1 e 2, ver controle.ControleEntrada).
+    //Só consumível tem efeito; depois de usar, sai do inventário.
+    //Antes devolvia false nos dois casos de erro; agora cada um tem a
+    //sua exceção, e o controle mostra o motivo no HUD.
+    public void usarItem(String id) throws ItemNaoEncontradoException, ItemIncompativelException {
         Inventariavel item = inventario.buscar(id);
+        if (item == null) {
+            throw new ItemNaoEncontradoException(id);
+        }
         if (!(item instanceof Consumivel consumivel)) {
-            return false;
+            throw new ItemIncompativelException(id, "consumir");
         }
         consumivel.efeito(this);
         inventario.remover(id);
-        return true;
     }
 
     public Inventario getInventario() {

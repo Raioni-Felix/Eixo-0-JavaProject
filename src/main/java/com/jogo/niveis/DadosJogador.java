@@ -16,7 +16,7 @@ public class DadosJogador {
     public int vidaMaxima;
     @SerializedName("moveSpeed")
     public double velocidade;
-    //Opcional no JSON. Se não vier, o Gson deixa 0 e o Main usa o
+    //Opcional no JSON. Se não vier, o Gson deixa 0 e o ControleJogo usa o
     //padrão (ENERGIA_MAXIMA_PADRAO).
     @SerializedName("maxEnergy")
     public int energiaMaxima;

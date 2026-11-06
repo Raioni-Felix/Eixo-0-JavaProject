@@ -2,7 +2,6 @@ package com.jogo.componentes;
 
 import com.almasb.fxgl.entity.Entity;
 import com.almasb.fxgl.entity.SpawnData;
-import com.jogo.Main;
 
 import static com.almasb.fxgl.dsl.FXGL.spawn;
 
@@ -30,8 +29,8 @@ public class ComponenteInimigoDistancia extends ComponenteInimigo {
 
     @Override
     public void onUpdate(double tpf) {
-        //Ignora a rajada de ticks logo após despausar (ver Main.java).
-        if (Main.emPeriodoDeGraca()) {
+        //Ignora a rajada de ticks logo após despausar (ver RelogioJogo).
+        if (RelogioJogo.emPeriodoDeGraca()) {
             return;
         }
 
