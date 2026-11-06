@@ -21,7 +21,8 @@ import static com.almasb.fxgl.dsl.FXGL.spawn;
 public class ComponenteDisparoJogador extends Component {
 
     private static final TipoEntidade[] TIPOS_INIMIGO = {
-            TipoEntidade.INIMIGO_VOADOR, TipoEntidade.INIMIGO_DISTANCIA, TipoEntidade.INIMIGO_MELEE
+            TipoEntidade.INIMIGO_VOADOR, TipoEntidade.INIMIGO_DISTANCIA, TipoEntidade.INIMIGO_MELEE,
+            TipoEntidade.CHEFE
     };
 
     private final int dano;

@@ -44,7 +44,8 @@ public class GerenciadorSalas {
             "/assets/levels/nivel1.json",
             "/assets/levels/nivel2.json",
             "/assets/levels/nivel3.json",
-            "/assets/levels/nivel4.json"
+            "/assets/levels/nivel4.json",
+            "/assets/levels/nivel5.json" //arena do chefe
     );
 
     //Quão rápido a câmera alcança o jogador a cada frame. Atrasada de
@@ -66,6 +67,9 @@ public class GerenciadorSalas {
     //uma sala recriava os módulos e dava pra pegar de novo infinitamente.
     private final Set<String> itensColetados = new HashSet<>();
 
+    //Chefe já derrotado nesta partida: não volta, e a porta da arena abre
+    private boolean chefeDerrotado = false;
+
     //Jogo novo (Reiniciar/Menu Principal): volta pra primeira sala e
     //esquece os itens pegos. Monta o cenário e devolve os dados da sala
     //pra quem chamou criar o jogador.
@@ -73,6 +77,7 @@ public class GerenciadorSalas {
         salaAtualIndex = 0;
         transicionando = false;
         itensColetados.clear();
+        chefeDerrotado = false;
         return prepararSala(salaAtualIndex);
     }
 
@@ -137,8 +142,10 @@ public class GerenciadorSalas {
                     .put("altura", plataforma.altura));
         }
 
-        //Borda esquerda: parede na primeira sala, gatilho pra anterior nas outras
-        if (index == 0) {
+        //Borda esquerda: parede na primeira sala, gatilho pra anterior nas
+        //outras. Na arena do chefe, a porta tranca até ele cair (Metroid)
+        boolean arenaTrancada = temChefe(sala) && !chefeDerrotado;
+        if (index == 0 || arenaTrancada) {
             spawn("parede", new SpawnData(-50, 0).put("largura", 50.0).put("altura", alturaNivel));
         } else {
             spawn("gatilho", new SpawnData(0, 0)
@@ -167,13 +174,17 @@ public class GerenciadorSalas {
     //porque cada inimigo recebe ele como alvo.
     public void spawnInimigos(DadosNivel sala, Entity jogador) {
         for (DadosInimigo dadosInimigo : sala.inimigos) {
+            if ("chefe".equals(dadosInimigo.tipo) && chefeDerrotado) {
+                continue;
+            }
             Entity inimigo = spawn("inimigo_" + dadosInimigo.tipo, new SpawnData(dadosInimigo.x, dadosInimigo.y)
                     .put("nome", dadosInimigo.nome)
                     .put("vidaMaxima", dadosInimigo.vidaMaxima)
                     .put("velocidade", dadosInimigo.velocidade)
                     .put("dano", dadosInimigo.dano)
                     .put("alcanceAtaque", dadosInimigo.alcanceAtaque)
-                    .put("alcanceDeteccao", dadosInimigo.alcanceDeteccao));
+                    .put("alcanceDeteccao", dadosInimigo.alcanceDeteccao)
+                    .put("larguraSala", sala.larguraNivel)); //o chefe usa pra não sair da arena
 
             ComponenteInimigo.obterDe(inimigo).definirAlvo(jogador);
         }
@@ -196,6 +207,14 @@ public class GerenciadorSalas {
                     .put("arma", dadosItem.arma == null ? "" : dadosItem.arma)
                     .put("idColeta", idColeta));
         }
+    }
+
+    private static boolean temChefe(DadosNivel sala) {
+        return sala.inimigos.stream().anyMatch(i -> "chefe".equals(i.tipo));
+    }
+
+    public void marcarChefeDerrotado() {
+        chefeDerrotado = true;
     }
 
     public void registrarColeta(String idColeta) {

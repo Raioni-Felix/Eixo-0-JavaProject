@@ -10,6 +10,14 @@ namespace componentes {
     +tomarDano(int)*
     +estaMorto()* boolean
   }
+  class AtaqueChefe {
+    -nome : String
+    +values()$ AtaqueChefe[]
+    +valueOf(String)$ AtaqueChefe
+    -AtaqueChefe(String)
+    +getNome() String
+    +proximo() AtaqueChefe
+  }
   class AtaqueJogadorComponent {
     -jogador : Entity
     -deslocamentoX : double
@@ -38,6 +46,41 @@ namespace componentes {
     +onUpdate(double)
     -inimigosDaSala()$ List~ComponenteInimigo~
     +getDuracao() double
+  }
+  class ComponenteChefe {
+    -larguraArena : double
+    -proximoAtaque : AtaqueChefe
+    -ataqueAtual : AtaqueChefe
+    -tempoNoEstado : double
+    -tempoTotal : double
+    -destinoInvestida : Point2D
+    -colunasChuva : List~Double~
+    +ComponenteChefe(String, int, double, int, double)
+    +getFase() int
+    +getTempoPairando() double
+    +getTempoAviso() double
+    +getQuantidadeTiros() int
+    +getQuantidadeBlocos() int
+    +onUpdate(double)
+    -pairar()
+    -comecarAviso()
+    -avisar()
+    -atacar()
+    -voltar()
+    -dispararRajada()
+    -iniciarInvestida()
+    -soltarChuva()
+    -spawnTiro(Point2D, Point2D, double, String)
+    -irPara(Point2D, double)
+    +limitarX(double) double
+    +getDano() int
+    +estaAtacando() boolean
+    +congelar(double)
+    +puxarPara(Point2D, double)
+    +danoDeBuracoNegro() int
+    +tomarDano(int)
+    +getExperienciaConcedida() int
+    +getProximoAtaque() AtaqueChefe
   }
   class ComponenteDisparoJogador {
     -dano : int
@@ -81,6 +124,7 @@ namespace componentes {
     +congelar(double)
     +estaCongelado() boolean
     #atualizarCongelamento(double) boolean
+    +danoDeBuracoNegro() int
     +puxarPara(Point2D, double)
     +onUpdate(double)
     #perseguirAlvo(double, double)
@@ -273,7 +317,10 @@ namespace componentes_visual {
     -velocidade : double
     -direcao : Point2D
     -tempoDeVida : double
+    -distanciaAcerto : double
+    -paraEmPlataforma : boolean
     +ComponenteProjetil(Entity, Entity, int, double)
+    +ComponenteProjetil(Entity, Entity, int, double, Point2D, double)
     +onAdded()
     +onUpdate(double)
   }
@@ -302,6 +349,11 @@ namespace controle {
     -menuPrincipal : TelaMenuPrincipal
     -pausa : TelaPausa
     -gameOver : TelaGameOver
+    -vitoria : TelaVitoria
+    -chefeAtual : ComponenteChefe
+    -faseAvisada : int
+    -tempoAteVitoria : double
+    -tempoDeJogo : double
     -inventario : TelaInventario
     -opcoes : TelaOpcoes
     -cortina : CortinaTransicao
@@ -317,6 +369,7 @@ namespace controle {
     +registrarColisoes()
     +montarInterface()
     +atualizar(double)
+    -acompanharChefe(double)
     -avisarMagiasNovas()
     +podePausar() boolean
     +alternarInventario()
@@ -347,11 +400,14 @@ namespace controle {
     -alturaNivel : double
     -transicionando : boolean
     -itensColetados : Set~String~
+    -chefeDerrotado : boolean
     +GerenciadorSalas()
     +comecarDoInicio() DadosNivel
     -prepararSala(int) DadosNivel
     +spawnInimigos(DadosNivel, Entity)
     +spawnItens(DadosNivel)
+    -temChefe(DadosNivel)$ boolean
+    +marcarChefeDerrotado()
     +registrarColeta(String)
     +iniciarTransicao(int, String, Entity, CortinaTransicao)
     -trocarSala(int, String, Entity)
@@ -393,6 +449,9 @@ namespace factories {
     +spawnJogador(SpawnData) Entity
     +spawnAtaqueJogador(SpawnData) Entity
     +spawnInimigoVoador(SpawnData) Entity
+    +spawnChefe(SpawnData) Entity
+    +spawnProjetilChefe(SpawnData) Entity
+    +spawnAlertaChefe(SpawnData) Entity
     +spawnInimigoDistancia(SpawnData) Entity
     +spawnInimigoMelee(SpawnData) Entity
     +spawnExplosao(SpawnData) Entity
@@ -705,11 +764,16 @@ namespace visao {
     -qtdCura : Text
     -qtdEnergia : Text
     -iconeArma : ImageView
+    -fundoChefe : Rectangle
+    -vidaChefe : Rectangle
+    -nomeChefe : Text
     -animacaoAviso : SequentialTransition
     -animacaoMensagem : SequentialTransition
     +HudJogo(ComponenteJogador, ComponenteArma, String, String)
     +atualizarInventario()
     +atualizarStatus()
+    +mostrarChefe(ComponenteChefe)
+    +esconderChefe()
     +mostrarAviso(String)
     +mostrarMensagem(String)
     -piscar(Text, String, SequentialTransition)$ SequentialTransition
@@ -770,6 +834,11 @@ namespace visao {
     +esconder()
     +estaVisivel() boolean
   }
+  class TelaVitoria {
+    -resumo : Text
+    +TelaVitoria(Runnable, Runnable)
+    +atualizar(int, double)
+  }
 }
 class Component {
   <<FXGL>>
@@ -793,6 +862,8 @@ ComponenteArma --> "1" Arma : armaEquipada
 ComponenteArma --> "1" ComponenteJogador : jogador
 ComponenteArma ..> ItemNaoEncontradoException : lança
 ComponenteArma ..> ItemIncompativelException : lança
+ComponenteChefe --> "1" AtaqueChefe : proximoAtaque
+ComponenteChefe --> "1" AtaqueChefe : ataqueAtual
 ComponenteJogador --> "1" Inventario : inventario
 ComponenteJogador --> "1" GolpeDeEnergia : golpe
 ComponenteJogador --> "1" Apara : apara
@@ -807,6 +878,8 @@ ControleJogo --> "1" HudJogo : hud
 ControleJogo --> "1" TelaMenuPrincipal : menuPrincipal
 ControleJogo --> "1" TelaPausa : pausa
 ControleJogo --> "1" TelaGameOver : gameOver
+ControleJogo --> "1" TelaVitoria : vitoria
+ControleJogo --> "1" ComponenteChefe : chefeAtual
 ControleJogo --> "1" TelaInventario : inventario
 ControleJogo --> "1" TelaOpcoes : opcoes
 ControleJogo --> "1" CortinaTransicao : cortina
@@ -830,6 +903,7 @@ JogoException <|-- ItemNaoEncontradoException
 Exception <|-- JogoException
 TelaSobreposta <|-- TelaMenuPrincipal
 TelaSobreposta <|-- TelaGameOver
+TelaSobreposta <|-- TelaVitoria
 StackPane <|-- TelaSobreposta
 TelaSobreposta <|-- TelaInventario
 TelaSobreposta <|-- TelaOpcoes
@@ -853,6 +927,7 @@ Consumivel <|.. ModuloEnergia
 Inventariavel <|.. Item
 Item <|-- ModuloCura
 Consumivel <|.. ModuloCura
+ComponenteInimigo <|-- ComponenteChefe
 Component <|-- AtaqueJogadorComponent
 Component <|-- ComponentePersonagem
 Atacavel <|.. ComponentePersonagem

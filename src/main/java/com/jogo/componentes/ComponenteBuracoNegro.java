@@ -12,12 +12,13 @@ import static com.almasb.fxgl.dsl.FXGL.getGameWorld;
 
 //Comportamento do buraco negro (habilidades.BuracoNegro): enquanto dura,
 //mantém todos os inimigos da sala congelados e puxa cada um pro centro;
-//quando o tempo acaba, todos tomam dano igual à vida que têm (morrem,
-//explodem e dão o XP normal) e o buraco some.
+//quando o tempo acaba, cada um toma danoDeBuracoNegro() (a vida inteira:
+//morrem, explodem e dão o XP normal; o chefe só perde 25%) e o buraco some.
 public class ComponenteBuracoNegro extends Component {
 
     private static final TipoEntidade[] TIPOS_INIMIGO = {
-            TipoEntidade.INIMIGO_VOADOR, TipoEntidade.INIMIGO_DISTANCIA, TipoEntidade.INIMIGO_MELEE
+            TipoEntidade.INIMIGO_VOADOR, TipoEntidade.INIMIGO_DISTANCIA, TipoEntidade.INIMIGO_MELEE,
+            TipoEntidade.CHEFE
     };
     private static final double FORCA_PUXAO = 260;
 
@@ -42,7 +43,7 @@ public class ComponenteBuracoNegro extends Component {
         List<ComponenteInimigo> inimigos = inimigosDaSala();
         if (tempo >= duracao) {
             for (ComponenteInimigo inimigo : inimigos) {
-                inimigo.tomarDano(inimigo.getVidaAtual());
+                inimigo.tomarDano(inimigo.danoDeBuracoNegro());
             }
             entity.removeFromWorld();
             return;

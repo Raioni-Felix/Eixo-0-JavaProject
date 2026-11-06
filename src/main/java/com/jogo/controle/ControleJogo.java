@@ -23,6 +23,9 @@ import com.jogo.visao.TelaGameOver;
 import com.jogo.visao.TelaMenuPrincipal;
 import com.jogo.visao.TelaPausa;
 import com.jogo.visao.TelaSobreposta;
+import com.jogo.visao.TelaVitoria;
+import com.jogo.componentes.ComponenteChefe;
+import java.util.List;
 import javafx.scene.input.KeyCombination;
 
 
@@ -57,6 +60,14 @@ public class ControleJogo {
     private TelaMenuPrincipal menuPrincipal;
     private TelaPausa pausa;
     private TelaGameOver gameOver;
+    private TelaVitoria vitoria;
+
+    //Chefe da sala atual (null fora da arena), a fase já anunciada e a
+    //contagem até a tela de vitória depois que ele explode
+    private ComponenteChefe chefeAtual;
+    private int faseAvisada = 1;
+    private double tempoAteVitoria = 0;
+    private double tempoDeJogo = 0;
     private TelaInventario inventario;
     private TelaOpcoes opcoes;
     private CortinaTransicao cortina;
@@ -102,6 +113,10 @@ public class ControleJogo {
                         : ENERGIA_MAXIMA_PADRAO));
 
         nivelAvisado = 1;
+        chefeAtual = null;
+        faseAvisada = 1;
+        tempoAteVitoria = 0;
+        tempoDeJogo = 0;
         getComponenteJogador().setDificuldade(dificuldade);
         prepararArsenal();
 
@@ -161,13 +176,14 @@ public class ControleJogo {
         hud = new HudJogo(getComponenteJogador(), getComponenteArma(), ID_MODULO_CURA, ID_MODULO_ENERGIA);
 
         gameOver = new TelaGameOver(this::reiniciarNivel, () -> voltarAoMenuPrincipal(gameOver));
+        vitoria = new TelaVitoria(this::reiniciarNivel, () -> voltarAoMenuPrincipal(vitoria));
         pausa = new TelaPausa(this::retomarDaPausa, () -> abrirOpcoes(pausa), () -> voltarAoMenuPrincipal(pausa));
         menuPrincipal = new TelaMenuPrincipal(this::iniciarJogo, () -> abrirOpcoes(menuPrincipal),
                 () -> getGameController().exit());
         inventario = new TelaInventario(this::fecharInventario, this::equiparPeloInventario, this::usarModulo);
         opcoes = new TelaOpcoes(this::fecharOpcoes, this::trocarTelaCheia, this::trocarDificuldade, Controles.LISTA);
         //Opções por cima do menu (abre dele), inventário por baixo da pausa
-        getGameScene().addUINodes(gameOver, inventario, pausa, menuPrincipal, opcoes);
+        getGameScene().addUINodes(gameOver, vitoria, inventario, pausa, menuPrincipal, opcoes);
 
         if (pularMenuAoIniciar) {
             menuPrincipal.esconder();
@@ -191,8 +207,10 @@ public class ControleJogo {
         salas.atualizarCamera(jogador, tpf);
 
         if (jogador.isActive()) {
+            tempoDeJogo += tpf;
             hud.atualizarStatus(); //o XP muda quando um inimigo morre, sem avisar o controle
             avisarMagiasNovas();
+            acompanharChefe(tpf);
             return;
         }
 
@@ -201,6 +219,37 @@ public class ControleJogo {
             gameOverExibido = true;
             gameOver.mostrar();
             getGameController().pauseEngine();
+        }
+    }
+
+    //Arena do chefe: barra no topo, aviso da fase 2 e, quando ele cai,
+    //a tela de vitória (depois de 2 s, pra ver as explosões)
+    private void acompanharChefe(double tpf) {
+        if (chefeAtual == null) {
+            List<Entity> chefes = getGameWorld().getEntitiesByType(TipoEntidade.CHEFE);
+            if (!chefes.isEmpty()) {
+                chefeAtual = chefes.get(0).getComponent(ComponenteChefe.class);
+                faseAvisada = 1;
+                hud.mostrarChefe(chefeAtual);
+                hud.mostrarMensagem(chefeAtual.getNome() + " despertou! A porta se trancou.");
+            }
+        } else if (chefeAtual.estaMorto()) {
+            salas.marcarChefeDerrotado();
+            hud.esconderChefe();
+            chefeAtual = null;
+            tempoAteVitoria = 2.0;
+        } else if (chefeAtual.getFase() == 2 && faseAvisada == 1) {
+            faseAvisada = 2;
+            hud.mostrarAviso("NEXUS: núcleo instável! Ataques mais rápidos");
+        }
+
+        if (tempoAteVitoria > 0) {
+            tempoAteVitoria -= tpf;
+            if (tempoAteVitoria <= 0) {
+                vitoria.atualizar(getComponenteJogador().getNivel(), tempoDeJogo);
+                vitoria.mostrar();
+                getGameController().pauseEngine();
+            }
         }
     }
 
@@ -224,7 +273,7 @@ public class ControleJogo {
 
     //Só abre a pausa com o jogador vivo e nenhuma outra tela por cima
     public boolean podePausar() {
-        return jogador.isActive() && !gameOverExibido && !menuPrincipal.estaVisivel()
+        return jogador.isActive() && !gameOverExibido && !menuPrincipal.estaVisivel() && !vitoria.estaVisivel()
                 && !inventario.estaVisivel() && !opcoes.estaVisivel()
                 //ESC que fechou o inventário não abre a pausa no mesmo toque
                 && System.nanoTime() - fechouInventarioEm > 200_000_000L;
@@ -323,6 +372,7 @@ public class ControleJogo {
     //"Reiniciar" do Game Over: recomeça direto no jogo, sem passar pelo menu
     public void reiniciarNivel() {
         gameOver.esconder();
+        vitoria.esconder();
         //Garantia extra: os outros overlays também escondidos
         menuPrincipal.esconder();
         pausa.esconder();

@@ -1,6 +1,6 @@
 # Requisitos — Eixo 0 (FXGL)
 
-Metroidvania 2D em Java com FXGL. O jogador explora 4 salas ligadas, enfrenta três tipos de inimigo, usa armas, habilidades e módulos, e sobe de nível.
+Metroidvania 2D em Java com FXGL. O jogador explora 5 salas ligadas, enfrenta três tipos de inimigo e um chefe, usa armas, habilidades e módulos, e sobe de nível.
 
 Status: ✅ feito · 🧪 com teste automático · 🎮 testado jogando (depende da janela do FXGL).
 
@@ -21,7 +21,7 @@ Status: ✅ feito · 🧪 com teste automático · 🎮 testado jogando (depende
 | RF11 | Matar inimigo dá XP (20, 25, 35); com XP suficiente o jogador sobe de nível (+20 vida máx., +5 velocidade, vida cheia) | `ComponenteInimigo.tomarDano`, `ComponenteJogador.adicionarXp` | 🧪 `ComponenteJogadorTest`, `JogadorSalaIntegracaoTest` |
 | RF12 | Itens no chão (módulos de cura e energia e armas) vão pro inventário ao encostar, com aviso no HUD; teclas 1 e 2 usam os módulos | `ControleJogo`, `inventario`, `itens.CatalogoArmas` | 🧪 `ComponenteJogadorTest`, `InventarioTest`, `CatalogoArmasTest`, `JogadorSalaIntegracaoTest` · 🎮 |
 | RF13 | Item já pego não reaparece ao voltar pra sala | `GerenciadorSalas.itensColetados` | 🎮 |
-| RF14 | 4 salas lidas de JSON; passar pela borda troca de sala com transição, mantendo vida e inventário | `GerenciadorSalas`, `CarregadorDeNiveis`, `CortinaTransicao` | 🧪 `CarregadorDeNiveisTest` · 🎮 |
+| RF14 | 5 salas lidas de JSON; passar pela borda troca de sala com transição, mantendo vida e inventário | `GerenciadorSalas`, `CarregadorDeNiveis`, `CortinaTransicao` | 🧪 `CarregadorDeNiveisTest` · 🎮 |
 | RF15 | Câmera segue o jogador dentro dos limites da sala | `GerenciadorSalas.atualizarCamera` | 🎮 |
 | RF16 | Pausa (ESC) com Continuar, Opções e Menu | `visao.TelaPausa`, `ControleJogo` | 🎮 |
 | RF17 | Game Over com Reiniciar (volta direto pro jogo) e Menu Principal | `visao.TelaGameOver`, `ControleJogo` | 🎮 |
@@ -30,6 +30,7 @@ Status: ✅ feito · 🧪 com teste automático · 🎮 testado jogando (depende
 | RF20 | Inventário (I/TAB): pausa e mostra status, as 5 armas (não pegas apagadas, equipada destacada) e os módulos; clicar equipa a arma ou usa o módulo | `visao.TelaInventario`, `ControleJogo.alternarInventario` | 🎮 |
 | RF21 | Opções (menu principal e pausa): tela cheia (também F11), dificuldade Fácil/Normal/Difícil (multiplica o dano recebido) e lista de controles | `visao.TelaOpcoes`, `componentes.Dificuldade`, `controle.Controles` | 🧪 `DificuldadeTest` · 🎮 |
 | RF22 | Magias por nível: Raio de Gelo (V, nível 2) congela o inimigo atingido por 3 s; Buraco Negro (B, nível 3) gasta toda a energia, puxa e destrói todos os inimigos da sala | `RaioDeGelo`, `BuracoNegro`, `ComponenteBuracoNegro`, `ComponenteInimigo.congelar` | 🧪 `HabilidadeTest`, `ComponenteInimigoTest` · 🎮 |
+| RF23 | Sala 5: chefe NEXUS com 3 ataques avisados (Rajada, Investida, Chuva de dados) em rotação, fase 2 com metade da vida, porta trancada até ele cair, barra de vida no topo e tela de Vitória | `ComponenteChefe`, `AtaqueChefe`, `visao.TelaVitoria`, `HudJogo.mostrarChefe` | 🧪 `ComponenteChefeTest`, `CarregadorDeNiveisTest` · 🎮 |
 
 ## Tratamento de erros
 
@@ -47,7 +48,7 @@ Status: ✅ feito · 🧪 com teste automático · 🎮 testado jogando (depende
 | RNF01 | Java 17, FXGL 17.3, Gson, Maven | `pom.xml` |
 | RNF02 | Separação MVC | modelo (`componentes`, `itens`, `habilidades`, `inventario`, `niveis`, `entidades`, `factories`, `excecoes`), visão (`visao`, `componentes.visual`), controle (`controle`); `Main` só repassa as etapas do FXGL |
 | RNF03 | Balanceamento fora do código | vida, dano, velocidade, inimigos e itens de cada sala nos JSON de `assets/levels` |
-| RNF04 | Testes automatizados | 74 testes JUnit 5 (`mvn test`), unidade e integração |
+| RNF04 | Testes automatizados | 79 testes JUnit 5 (`mvn test`), unidade e integração |
 | RNF05 | Cobertura | JaCoCo: `inventario` 96%, `niveis` 95%, `excecoes` 100%; total ≈ 20%, porque visão/controle precisam do motor rodando |
 | RNF06 | 60 FPS, janela 1280×720 com tela cheia opcional (F11) | `Main.initSettings` |
 | RNF07 | Não acelerar depois de despausar | `componentes.RelogioJogo` |

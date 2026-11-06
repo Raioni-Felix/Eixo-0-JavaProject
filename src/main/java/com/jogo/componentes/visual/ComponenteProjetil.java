@@ -4,6 +4,10 @@ import com.almasb.fxgl.entity.Entity;
 import com.almasb.fxgl.entity.component.Component;
 import com.jogo.componentes.ComponentePersonagem;
 import com.jogo.componentes.ComponenteJogador;
+import com.jogo.componentes.RelogioJogo;
+import com.jogo.entidades.TipoEntidade;
+
+import static com.almasb.fxgl.dsl.FXGL.getGameWorld;
 import javafx.geometry.Point2D;
 
 /**
@@ -32,7 +36,23 @@ public class ComponenteProjetil extends Component {
 
     private double tempoDeVida = 0;
 
+    //Raio do acerto: o tiro dos robôs mira no centro (10); os do chefe
+    //vêm em leque/de cima e usam um raio maior
+    private final double distanciaAcerto;
+    //Tiros do chefe batem nas plataformas (dá pra se esconder embaixo)
+    private final boolean paraEmPlataforma;
+
     public ComponenteProjetil(Entity origem, Entity alvo, int dano, double velocidade) {
+        this(origem, alvo, dano, velocidade, null, DISTANCIA_ACERTO);
+    }
+
+    //Direção já decidida por quem atira (chefe: leque, chuva). null =
+    //mirar no alvo, como os robôs
+    public ComponenteProjetil(Entity origem, Entity alvo, int dano, double velocidade,
+            Point2D direcaoFixa, double distanciaAcerto) {
+        this.direcao = direcaoFixa;
+        this.distanciaAcerto = distanciaAcerto;
+        this.paraEmPlataforma = direcaoFixa != null;
         this.origem = origem;
         this.alvo = alvo;
         this.dano = dano;
@@ -46,6 +66,10 @@ public class ComponenteProjetil extends Component {
     //do projétil, sem esse desvio.
     @Override
     public void onAdded() {
+        if (direcao != null) {
+            direcao = direcao.normalize();
+            return;
+        }
         Point2D de = entity.getCenter();
         Point2D para = alvo.getCenter();
         Point2D bruta = para.subtract(de);
@@ -60,6 +84,9 @@ public class ComponenteProjetil extends Component {
     public void onUpdate(double tpf) {
         tempoDeVida += tpf;
 
+        if (RelogioJogo.emPeriodoDeGraca()) {
+            return;
+        }
         if (tempoDeVida >= TEMPO_VIDA_MAXIMO_SEGUNDOS) {
             entity.removeFromWorld();
             return;
@@ -69,12 +96,21 @@ public class ComponenteProjetil extends Component {
         // "míssil teleguiado".
         entity.translate(direcao.multiply(velocidade * tpf));
 
+        if (paraEmPlataforma) {
+            for (Entity plataforma : getGameWorld().getEntitiesByType(TipoEntidade.PLATAFORMA)) {
+                if (entity.isColliding(plataforma)) {
+                    entity.removeFromWorld();
+                    return;
+                }
+            }
+        }
+
         // Só checa colisão se o alvo ainda existir. Se o alvo morreu no
         // meio do caminho, a bala não desaparece por causa disso, ela
         // continua reto até bater no tempoDeVida (bala não sabe que o
         // alvo morreu, ela só ia numa direção).
         if (alvo != null && alvo.isActive()
-                && entity.getCenter().distance(alvo.getCenter()) <= DISTANCIA_ACERTO) {
+                && entity.getCenter().distance(alvo.getCenter()) <= distanciaAcerto) {
             ComponentePersonagem personagem = ComponentePersonagem.obterDe(alvo);
 
             //Se o alvo é o jogador, usa serAtingido(), ganha knockback e

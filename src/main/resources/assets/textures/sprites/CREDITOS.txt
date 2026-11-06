@@ -37,3 +37,8 @@ robo-melee/, robo-atirador/
 itens/
   Ícones dos itens do chão e do inventário (armas e módulos), 24x24,
   desenhados para este projeto (Eixo 0).
+
+chefe/
+  NEXUS, o chefe da sala 5: "logo de IA" genérico desenhado para este
+  projeto (Eixo 0), sem copiar marca nenhuma. Conjuntos normal e fúria
+  (parado, carga, dano), tiro e bloco da chuva.

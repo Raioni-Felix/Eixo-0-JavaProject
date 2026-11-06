@@ -14,6 +14,7 @@ import com.almasb.fxgl.physics.box2d.dynamics.FixtureDef;
 import com.almasb.fxgl.physics.box2d.dynamics.Fixture;
 import com.jogo.componentes.AtaqueJogadorComponent;
 import com.jogo.componentes.ComponenteBuracoNegro;
+import com.jogo.componentes.ComponenteChefe;
 import com.jogo.componentes.ComponenteInimigo;
 import com.jogo.componentes.ComponenteInimigoVoador;
 import com.jogo.componentes.ComponenteJogador;
@@ -38,6 +39,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.animation.TranslateTransition;
 import javafx.animation.ScaleTransition;
+import javafx.animation.FadeTransition;
 import javafx.scene.shape.Rectangle;
 import com.almasb.fxgl.dsl.components.ExpireCleanComponent;
 import javafx.util.Duration;
@@ -254,6 +256,99 @@ public class FabricaEntidades implements EntityFactory {
 
         configurarContatoComJogador(fisica, inimigo, largura, altura);
         return inimigo;
+    }
+
+    //Chefe da última sala (tipo "chefe" no JSON). Voa como o drone
+    //(DYNAMIC sem gravidade), é bem maior e tem as animações em dois
+    //conjuntos: "normal" e "furia" (fase 2, com metade da vida)
+    @Spawns("inimigo_chefe")
+    public Entity spawnChefe(SpawnData data) {
+        String nome = data.get("nome");
+        int vidaMaxima = data.get("vidaMaxima");
+        double velocidade = data.get("velocidade");
+        int dano = data.get("dano");
+        double larguraSala = data.get("larguraSala");
+
+        var fisica = new PhysicsComponent();
+        var bodyDef = new BodyDef();
+        bodyDef.setType(BodyType.DYNAMIC);
+        bodyDef.setFixedRotation(true);
+        bodyDef.setGravityScale(0f);
+        fisica.setBodyDef(bodyDef);
+        fisica.setFixtureDef(new FixtureDef().friction(0f).density(1f));
+
+        double lado = 110; //caixa do corpo; o sprite (96 x 1,5 = 144) é um pouco maior
+        var chefe = new ComponenteChefe(nome, vidaMaxima, velocidade, dano, larguraSala);
+        Map<String, Map<EstadoAnimacao, com.almasb.fxgl.texture.AnimationChannel>> conjuntos = Map.of(
+                "normal", animacoesChefe("normal"),
+                "furia", animacoesChefe("furia"));
+        var animacao = new ComponenteAnimado(conjuntos,
+                () -> chefe.getFase() == 1 ? "normal" : "furia",
+                //quadro de 96 px; centro do sprite no centro da caixa
+                96, 48, (lado / 2 + 72) / ESCALA_SPRITES, ESCALA_SPRITES,
+                () -> ComponenteAnimado.escolherEstado(chefe.estaMachucado(), chefe.estaAtacando(),
+                        true, 0, 0),
+                () -> true)
+                .comCongelamento(chefe::estaCongelado);
+
+        Entity entidade = entityBuilder(data)
+                .type(TipoEntidade.CHEFE)
+                .bbox(new HitBox(BoundingShape.box(lado, lado)))
+                .collidable()
+                .with(fisica)
+                .with(chefe)
+                .with(animacao)
+                .build();
+        configurarContatoComJogador(fisica, entidade, lado, lado);
+        return entidade;
+    }
+
+    private static Map<EstadoAnimacao, com.almasb.fxgl.texture.AnimationChannel> animacoesChefe(String conjunto) {
+        return Map.of(
+                EstadoAnimacao.PARADO, Sprites.animacao("chefe", conjunto + "-parado", 8, 0.9, ESCALA_SPRITES),
+                EstadoAnimacao.ATACANDO, Sprites.animacao("chefe", conjunto + "-carga", 4, 0.25, ESCALA_SPRITES),
+                EstadoAnimacao.MACHUCADO, Sprites.animacao("chefe", conjunto + "-dano", 1, 0.1, ESCALA_SPRITES));
+    }
+
+    //Tiro do chefe (leque) e bloco da chuva: projétil com direção fixa
+    @Spawns("projetil_chefe")
+    public Entity spawnProjetilChefe(SpawnData data) {
+        Entity origem = data.get("origem");
+        Entity alvo = data.get("alvo");
+        int dano = data.get("dano");
+        double velocidade = data.get("velocidade");
+        Point2D direcao = data.get("direcao");
+        String sprite = data.get("sprite");
+
+        AnimatedTexture visual = new AnimatedTexture(Sprites.animacao("chefe", sprite, 2, 0.2, ESCALA_SPRITES));
+        visual.loop();
+        return entityBuilder(data)
+                .type(TipoEntidade.PROJETIL)
+                .view(visual)
+                .zIndex(40)
+                .with(new ComponenteProjetil(origem, alvo, dano, velocidade, direcao, 30))
+                .build();
+    }
+
+    //Aviso da chuva: coluna vermelha piscando onde o bloco vai cair
+    @Spawns("alerta_chefe")
+    public Entity spawnAlertaChefe(SpawnData data) {
+        double duracao = data.get("duracao");
+        Rectangle coluna = new Rectangle(28, 720, Color.rgb(255, 60, 110, 0.18));
+        Rectangle chao = new Rectangle(28, 8, Color.rgb(255, 90, 140, 0.9));
+        chao.setTranslateY(672);
+        Group visual = new Group(coluna, chao);
+        FadeTransition piscar = new FadeTransition(Duration.seconds(0.15), visual);
+        piscar.setFromValue(1);
+        piscar.setToValue(0.35);
+        piscar.setAutoReverse(true);
+        piscar.setCycleCount(javafx.animation.Animation.INDEFINITE);
+        piscar.play();
+        return entityBuilder(data)
+                .view(visual)
+                .zIndex(5)
+                .with(new ExpireCleanComponent(Duration.seconds(duracao)))
+                .build();
     }
 
     @Spawns("inimigo_ranged")

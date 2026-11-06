@@ -1,6 +1,7 @@
 package com.jogo.visao;
 
 import com.jogo.componentes.ComponenteArma;
+import com.jogo.componentes.ComponenteChefe;
 import com.jogo.componentes.ComponenteJogador;
 import com.jogo.componentes.visual.Sprites;
 import com.jogo.inventario.Inventario;
@@ -21,6 +22,7 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.util.Duration;
 
+import static com.almasb.fxgl.dsl.FXGL.getAppWidth;
 import static com.almasb.fxgl.dsl.FXGL.getGameScene;
 
 //HUD do jogo: barras de vida e energia, ícones dos módulos (com
@@ -51,6 +53,11 @@ public class HudJogo {
     private final Text qtdCura = criarTexto(0, Color.WHITE);
     private final Text qtdEnergia = criarTexto(0, Color.WHITE);
     private final ImageView iconeArma = new ImageView();
+    //Barra do chefe, no topo e no meio da tela (só na sala dele)
+    private static final double LARGURA_BARRA_CHEFE = 560;
+    private final Rectangle fundoChefe = new Rectangle(LARGURA_BARRA_CHEFE + 6, 18, Color.web("#0b1420"));
+    private final Rectangle vidaChefe = new Rectangle(LARGURA_BARRA_CHEFE, 12, Color.web("#c24dff"));
+    private final Text nomeChefe = criarTexto(0, Color.web("#dffdf7"));
     private SequentialTransition animacaoAviso;
     private SequentialTransition animacaoMensagem;
 
@@ -114,8 +121,19 @@ public class HudJogo {
         textoMensagem = criarTexto(textoAviso.getTranslateY() + 22, Color.web("#ffe066"));
         textoMensagem.setOpacity(0);
 
+        //Barra do chefe (escondida até entrar na sala dele)
+        double xChefe = (getAppWidth() - LARGURA_BARRA_CHEFE) / 2;
+        fundoChefe.setTranslateX(xChefe - 3);
+        fundoChefe.setTranslateY(MARGEM + 20);
+        fundoChefe.setStroke(Color.web("#4de8d4"));
+        vidaChefe.setTranslateX(xChefe);
+        vidaChefe.setTranslateY(MARGEM + 23);
+        nomeChefe.setTranslateX(xChefe);
+        nomeChefe.setTranslateY(MARGEM + 12);
+        esconderChefe();
+
         getGameScene().addUINodes(fundoVida, preenchimentoVida, fundoEnergia, preenchimentoEnergia,
-                icones, textoStatus, textoAviso, textoMensagem);
+                icones, textoStatus, textoAviso, textoMensagem, fundoChefe, vidaChefe, nomeChefe);
         atualizarInventario();
         atualizarStatus();
     }
@@ -141,6 +159,26 @@ public class HudJogo {
     }
 
     //Mensagem que aparece por 2 segundos e some devagar
+    //Mostra a barra do chefe, amarrada à vida dele (bind, igual à do jogador)
+    public void mostrarChefe(ComponenteChefe chefe) {
+        nomeChefe.setText(chefe.getNome());
+        vidaChefe.widthProperty().bind(Bindings.createDoubleBinding(
+                () -> Math.max(0, chefe.getVidaAtual()) * LARGURA_BARRA_CHEFE / chefe.getVidaMaxima(),
+                chefe.vidaAtualProperty()));
+        chefe.vidaAtualProperty().addListener((o, antigo, novo) ->
+                vidaChefe.setFill(chefe.getFase() == 2 ? Color.web("#ff4d7a") : Color.web("#c24dff")));
+        fundoChefe.setVisible(true);
+        vidaChefe.setVisible(true);
+        nomeChefe.setVisible(true);
+    }
+
+    public void esconderChefe() {
+        vidaChefe.widthProperty().unbind();
+        fundoChefe.setVisible(false);
+        vidaChefe.setVisible(false);
+        nomeChefe.setVisible(false);
+    }
+
     //(vermelho: algo deu errado, ex: exceção tratada)
     public void mostrarAviso(String mensagem) {
         animacaoAviso = piscar(textoAviso, mensagem, animacaoAviso);

@@ -12,8 +12,8 @@ import static org.junit.jupiter.api.Assertions.*;
 class CarregadorDeNiveisTest {
 
     @ParameterizedTest(name = "nivel{0}.json: {1} inimigos, {2} itens")
-    @CsvSource({"1,3,4", "2,4,4", "3,5,4", "4,6,5"})
-    @DisplayName("As 4 salas do mapa carregam completas")
+    @CsvSource({"1,3,4", "2,4,4", "3,5,4", "4,6,5", "5,1,2"})
+    @DisplayName("As 5 salas do mapa carregam completas")
     void salasDoMapa(int numero, int inimigos, int itens) throws Exception {
         DadosNivel sala = CarregadorDeNiveis.carregar("/assets/levels/nivel" + numero + ".json");
         assertEquals("Herói", sala.jogador.nome);

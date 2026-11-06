@@ -66,7 +66,7 @@ O código fica em `src/main/java/com/jogo`, dividido em pacotes por responsabili
 
 `controle` guarda os controladores: `ControleJogo` (fluxo do jogo: menu, pausa, Game Over, reiniciar, colisões de gatilho/item, arsenal inicial e tratamento das exceções do modelo), `ControleEntrada` (teclas), `Controles` (lista das teclas, mostrada nas Opções) e `GerenciadorSalas` (monta a sala, inimigos e itens, troca de sala e câmera).
 
-`visao` guarda o que aparece na tela: `HudJogo` (barras de vida e energia, ícones dos módulos e da arma, status e avisos), as telas sobrepostas (`TelaSobreposta`, abstrata, e as filhas `TelaMenuPrincipal`, `TelaPausa`, `TelaGameOver`, `TelaInventario` e `TelaOpcoes`), a `CortinaTransicao` da troca de sala e os auxiliares `EstiloUI` e `RecursosVisuais`.
+`visao` guarda o que aparece na tela: `HudJogo` (barras de vida e energia, ícones dos módulos e da arma, status e avisos), as telas sobrepostas (`TelaSobreposta`, abstrata, e as filhas `TelaMenuPrincipal`, `TelaPausa`, `TelaGameOver`, `TelaVitoria`, `TelaInventario` e `TelaOpcoes`), a `CortinaTransicao` da troca de sala e os auxiliares `EstiloUI` e `RecursosVisuais`.
 
 `excecoes` guarda as exceções próprias do jogo. Ver "Exceções".
 
@@ -131,6 +131,22 @@ Cada nível também pode definir seu próprio tema visual de fundo: a sala 1 usa
 O jogo é dividido em salas, e só o conteúdo da sala atual fica carregado e visível por vez, no estilo metroidvania tradicional. A câmera fica travada nos limites da sala atual em vez de seguir livremente por um mapa contínuo. A ordem das salas é definida em `GerenciadorSalas.SALAS_DO_MAPA` e determina implicitamente qual é a vizinha da esquerda e da direita de cada uma.
 
 Nas bordas de cada sala existem entidades gatilho, que ao serem tocadas pelo jogador disparam uma transição pra sala vizinha: a tela escurece com um fade, a sala nova é montada por trás do fade, e o jogador é reposicionado na entrada correspondente do lado oposto. O jogador em si não é recriado nessa troca, só reposicionado, então o estado dele (vida atual, por exemplo) é preservado entre salas. Nas extremidades do mapa, onde não existe mais sala vizinha, o que existe no lugar do gatilho é uma parede sólida invisível, barrando a passagem.
+
+## Chefe: NEXUS (sala 5)
+
+A última sala (`nivel5.json`) é uma arena do tamanho da tela com o chefe **NEXUS**, um "logo de IA" flutuante: anel segmentado girando, hexágono com uma rede de nós e um núcleo/olho no meio. O desenho é original, feito pra este projeto no padrão genérico dos logos de IA, e não copia a marca de ninguém. Ao entrar, a porta da esquerda vira parede (como nas salas de chefe de Metroid) e só abre depois que ele cai; no topo aparece a barra de vida dele.
+
+`ComponenteChefe` é filho de `ComponenteInimigo` (vida, dano de toque, XP, congelar), com uma máquina de estados própria: **paira** acima da jogadora, **avisa** (brilha e treme, animação de carga) e **ataca**, sempre na rotação do enum `AtaqueChefe`:
+
+| Ataque | O que faz | Como desviar |
+|---|---|---|
+| Rajada | leque de 5 tiros na direção da jogadora | pular entre os tiros ou se esconder embaixo de uma plataforma |
+| Investida | mergulha em cima de onde ela estava (toque com dano dobrado) e sobe de volta | sair do lugar durante o aviso (dash) |
+| Chuva de dados | marca colunas vermelhas no chão e solta blocos do teto nelas | sair das colunas; as plataformas seguram os blocos |
+
+Com metade da vida ou menos entra na **fase 2**: muda pra vermelho/laranja, espera menos entre os ataques, avisa mais rápido e solta 7 tiros e 6 blocos. Os tiros do chefe usam o `ComponenteProjetil` dos robôs, com o construtor novo que recebe a direção pronta e batem nas plataformas.
+
+O chefe também mostra polimorfismo nas magias: sobrescreve `congelar()` (o gelo dura metade), `puxarPara()` (o Buraco Negro não o arrasta) e `danoDeBuracoNegro()` (tira 25% da vida máxima em vez de matar). Ao morrer explode em vários pontos, dá 300 de XP e, 2 s depois, aparece a `TelaVitoria` com nível e tempo de jogo ("Jogar de novo" ou "Menu Principal").
 
 ## Combate
 
@@ -291,12 +307,12 @@ São "checked" (herdam de `Exception`): quem chama é obrigado a tratar ou repas
 
 ## Testes
 
-74 testes JUnit 5 em `src/test/java`, todos passando. Rodam com `mvn test`.
+79 testes JUnit 5 em `src/test/java`, todos passando. Rodam com `mvn test`.
 
-- Unitários: `ComponenteAnimadoTest` (qual animação mostrar em cada situação, ampliação dos sprites), `ComponenteJogadorTest` (energia, cura, invencibilidade, subir de nível, usar módulos), `ComponenteInimigoTest` (XP de cada tipo, interfaces), `ArmaTest` (cooldown do `atacar()` com uma arma de teste, `multiplicarDano`, ids únicos), `ArmasDeFogoTest` (ganchos de cada arma, `Perfurante`, coleção polimórfica), `HabilidadeTest`, `InventarioTest` (pilha, duplicata, `listarDoTipo` genérico, sobrecargas), `ComponenteAuxiliaresTest`, `DificuldadeTest` (multiplicador de dano de cada dificuldade), magias novas em `HabilidadeTest` (custo do Buraco Negro, gelo, liberação por nível) e `congelar` em `ComponenteInimigoTest`, `CatalogoArmasTest` (arma certa pra cada nome do JSON).
+- Unitários: `ComponenteAnimadoTest` (qual animação mostrar em cada situação, ampliação dos sprites), `ComponenteJogadorTest` (energia, cura, invencibilidade, subir de nível, usar módulos), `ComponenteInimigoTest` (XP de cada tipo, interfaces), `ArmaTest` (cooldown do `atacar()` com uma arma de teste, `multiplicarDano`, ids únicos), `ArmasDeFogoTest` (ganchos de cada arma, `Perfurante`, coleção polimórfica), `HabilidadeTest`, `InventarioTest` (pilha, duplicata, `listarDoTipo` genérico, sobrecargas), `ComponenteAuxiliaresTest`, `ComponenteChefeTest` (fases, rotação dos ataques, resistência às magias), `DificuldadeTest` (multiplicador de dano de cada dificuldade), magias novas em `HabilidadeTest` (custo do Buraco Negro, gelo, liberação por nível) e `congelar` em `ComponenteInimigoTest`, `CatalogoArmasTest` (arma certa pra cada nome do JSON).
 - Casos de sucesso e de falha: cada classe testa o caminho certo e os errados (sem energia, em cooldown, item que não existe, valores inválidos no construtor).
 - Exceções: `assertThrows` para cada exceção própria e para as `IllegalArgumentException` dos construtores.
-- Integração: `CarregadorDeNiveisTest` lê os JSON de verdade das 4 salas com o Gson (e JSON de teste quebrado/incompleto em `src/test/resources`); `JogadorSalaIntegracaoTest` carrega a sala 4, cria o jogador com os dados dela, coleta os módulos e o rifle do chão, soma o XP dos inimigos, sobe de nível e usa os módulos até dar a exceção.
+- Integração: `CarregadorDeNiveisTest` lê os JSON de verdade das 5 salas com o Gson (e JSON de teste quebrado/incompleto em `src/test/resources`); `JogadorSalaIntegracaoTest` carrega a sala 4, cria o jogador com os dados dela, coleta os módulos e o rifle do chão, soma o XP dos inimigos, sobe de nível e usa os módulos até dar a exceção.
 
 Cobertura (JaCoCo): `inventario` 96% das linhas, `niveis` 95%, `excecoes` 100%. O total do projeto fica baixo (cerca de 20%) porque `visao`, `controle` e boa parte de `componentes` só funcionam com a janela e o motor do FXGL rodando; essas partes foram testadas jogando.
 
@@ -306,6 +322,7 @@ Os sprites ficam em `src/main/resources/assets/textures/sprites`, uma pasta por 
 
 - `jogador`, `drone` (o inimigo voador) e `explosao`: do pacote Warped City, de ansimuz, CC0 (domínio público). As animações com espada, adagas e arma vieram em folhas de sprite ampliadas do pacote e foram reduzidas ao tamanho original; os quadros de "parado", "cair" e "atirar correndo" foram montados a partir delas.
 - `robo-melee` e `robo-atirador`: desenhados para este projeto, na paleta do Warped City.
+- `chefe` (NEXUS: conjuntos normal e fúria, com parado, carga e dano; tiro e bloco da chuva): desenhado para este projeto.
 
 | Personagem | Animações |
 |---|---|

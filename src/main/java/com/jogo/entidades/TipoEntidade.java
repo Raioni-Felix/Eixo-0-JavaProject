@@ -12,6 +12,7 @@ public enum TipoEntidade {
     INIMIGO_VOADOR,
     INIMIGO_DISTANCIA,
     INIMIGO_MELEE,
+    CHEFE,         //NEXUS, o chefe da última sala
     PROJETIL,
     PLATAFORMA,
     ATAQUE_JOGADOR,

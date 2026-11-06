@@ -201,6 +201,12 @@ public abstract class ComponenteInimigo extends ComponentePersonagem implements 
         return true;
     }
 
+    //Quanto o Buraco Negro tira deste inimigo: a vida inteira (morre).
+    //O chefe sobrescreve (resiste)
+    public int danoDeBuracoNegro() {
+        return getVidaAtual();
+    }
+
     //Buraco negro puxando: velocidade na direção do ponto
     public void puxarPara(Point2D ponto, double forca) {
         if (fisica == null || entity == null) {
