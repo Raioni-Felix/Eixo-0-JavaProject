@@ -1,0 +1,68 @@
+# Gera o executável do jogo para Windows e Linux no próprio GitHub.
+#
+# - Aba Actions > "Executáveis" > Run workflow: gera os dois e deixa para
+#   baixar em "Artifacts" no fim da execução.
+# - Criar uma tag "v*" (ex.: git tag v1.0 && git push origin v1.0): gera os
+#   dois e publica numa Release (aba Releases do repositório).
+#
+# Os arquivos não ficam dentro do repositório porque passam de 100 MB, o
+# limite de arquivo do GitHub. Cada executável leva o Java junto: quem
+# baixa não precisa instalar nada.
+name: Executáveis
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  executavel:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            nome: Eixo0-windows
+          - os: ubuntu-latest
+            nome: Eixo0-linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      # Testes + target/Eixo0.jar (com o JavaFX do sistema em que roda)
+      - name: Compilar e testar
+        run: mvn -B package
+
+      - name: Gerar executável (jpackage)
+        shell: bash
+        run: |
+          mkdir -p target/entrada && cp target/Eixo0.jar target/entrada/
+          jpackage --type app-image --name Eixo0 --input target/entrada --main-jar Eixo0.jar \
+            --main-class com.jogo.Lancador --dest target/executavel --app-version 1.0 \
+            --add-modules java.base,java.desktop,java.scripting,java.sql,jdk.jfr,jdk.unsupported,java.logging,java.xml,java.naming,java.net.http,jdk.crypto.ec,java.management \
+            --jlink-options "--strip-debug --no-header-files --no-man-pages --strip-native-commands"
+
+      - name: Compactar
+        shell: bash
+        run: |
+          cd target/executavel
+          if [ "$RUNNER_OS" = "Windows" ]; then 7z a ../../${{ matrix.nome }}.zip Eixo0; else tar czf ../../${{ matrix.nome }}.tar.gz Eixo0; fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.nome }}
+          path: ${{ matrix.nome }}.*
+
+      - name: Publicar na Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.nome }}.*

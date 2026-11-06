@@ -44,6 +44,15 @@ jpackage --type app-image --name Eixo0 --input target/entrada --main-jar Eixo0.j
 
 O jogo fica em `target/executavel/Eixo0/bin/Eixo0` (no Windows, `Eixo0.exe`).
 
+### Executável pronto para Windows e Linux (GitHub Actions)
+
+O workflow `.github/workflows/executaveis.yml` gera os dois no próprio GitHub, cada um com o Java junto:
+
+- na aba **Actions**, em "Executáveis", **Run workflow**: no fim, os arquivos `Eixo0-windows.zip` e `Eixo0-linux.tar.gz` ficam em "Artifacts";
+- criando uma tag, por exemplo `git tag v1.0 && git push origin v1.0`: os dois são publicados na aba **Releases**.
+
+No Windows, é só extrair o zip e abrir `Eixo0\Eixo0.exe`. Os executáveis não ficam dentro do repositório porque passam de 100 MB, o limite de arquivo do GitHub.
+
 ## Documentação
 
 - [`docs/REQUISITOS.md`](docs/REQUISITOS.md): requisitos funcionais e não funcionais, com onde cada um está no código e qual teste cobre.
