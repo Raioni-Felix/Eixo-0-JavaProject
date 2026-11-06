@@ -1,20 +1,18 @@
 Sprites do jogo
 ===============
 
-drone/, explosao/, jogador/dano-1.png
+drone/, explosao/, jogador/
   Do pacote "Warped City", de Luis Zuno (ansimuz).
   Licença CC0 (domínio público): uso livre, inclusive comercial; crédito não é obrigatório.
   https://opengameart.org/content/warped-city
   https://ansimuz.itch.io/warped-city
+  As animações da personagem com espada, adagas duplas e arma vieram em
+  folhas de sprite ampliadas do mesmo pacote: os quadros foram reduzidos
+  ao tamanho original do pixel art e o fundo branco removido.
+  Montados a partir delas: jogador/*-parado (pose de pé com respiração),
+  jogador/*-cair (último quadro do pulo) e jogador/arma-atirar-correndo
+  (corrida com arma + clarão do tiro parado).
   drone/dano-1.png é o voar-1.png pintado de branco (piscada de dano).
-
-jogador/ (exceto dano-1.png)
-  Extraídos das folhas de sprite com espada, adagas duplas e arma que a
-  equipe forneceu (a personagem do Warped City com armas): reduzidos ao
-  tamanho original do pixel art e com o fundo branco removido.
-  Criados a partir delas: *-parado (pose de pé com respiração),
-  *-cair (último quadro do pulo) e arma-atirar-correndo (corrida com
-  arma + clarão do tiro parado).
 
 robo-melee/, robo-atirador/
   Desenhados para este projeto (Eixo 0), na paleta do Warped City.

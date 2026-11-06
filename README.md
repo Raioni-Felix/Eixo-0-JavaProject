@@ -283,8 +283,7 @@ Cobertura (JaCoCo): `inventario` 96% das linhas, `niveis` 95%, `excecoes` 100%. 
 
 Os sprites ficam em `src/main/resources/assets/textures/sprites`, uma pasta por personagem, com os quadros numerados (`correr-1.png`, `correr-2.png`...). A origem e a licença de cada um estão em `CREDITOS.txt` nessa pasta:
 
-- `drone` (o inimigo voador), `explosao` e o quadro de dano da jogadora: do pacote Warped City, de ansimuz, CC0 (domínio público).
-- `jogador`: extraídos das folhas de sprite da personagem com espada, adagas duplas e arma que a equipe forneceu; os quadros de "parado", "cair" e "atirar correndo" foram montados a partir delas.
+- `jogador`, `drone` (o inimigo voador) e `explosao`: do pacote Warped City, de ansimuz, CC0 (domínio público). As animações com espada, adagas e arma vieram em folhas de sprite ampliadas do pacote e foram reduzidas ao tamanho original; os quadros de "parado", "cair" e "atirar correndo" foram montados a partir delas.
 - `robo-melee` e `robo-atirador`: desenhados para este projeto, na paleta do Warped City.
 
 | Personagem | Animações |
