@@ -32,6 +32,18 @@ class ComponenteAnimadoTest {
     }
 
     @Test
+    @DisplayName("Jogadora: dash e magia vêm logo depois do dano")
+    void dashEMagia() {
+        assertEquals(EstadoAnimacao.DASH, ComponenteAnimado.escolherEstadoJogadora(true, true, false, true, true, 900, 0));
+        assertEquals(EstadoAnimacao.MAGIA, ComponenteAnimado.escolherEstadoJogadora(false, true, false, true, true, 0, 0));
+        assertEquals(EstadoAnimacao.MACHUCADO, ComponenteAnimado.escolherEstadoJogadora(true, true, true, false, true, 0, 0));
+        assertEquals(EstadoAnimacao.ANDANDO, ComponenteAnimado.escolherEstadoJogadora(false, false, false, false, true, 200, 0));
+        Set<EstadoAnimacao> robo = EnumSet.of(EstadoAnimacao.PARADO, EstadoAnimacao.ANDANDO, EstadoAnimacao.ATACANDO);
+        assertEquals(EstadoAnimacao.ANDANDO, ComponenteAnimado.animacaoDisponivel(EstadoAnimacao.DASH, robo));
+        assertEquals(EstadoAnimacao.ATACANDO, ComponenteAnimado.animacaoDisponivel(EstadoAnimacao.MAGIA, robo));
+    }
+
+    @Test
     @DisplayName("Dano vence todo o resto")
     void danoPrimeiro() {
         assertEquals(EstadoAnimacao.MACHUCADO, ComponenteAnimado.escolherEstado(true, true, false, 200, 0));
@@ -64,6 +76,17 @@ class ComponenteAnimadoTest {
             assertEquals(6, Sprites.quadros("jogador", emp + "-correr", 6, 1).size());
         }
         assertEquals(6, Sprites.quadros("jogador", "arma-atirar-correndo", 6, 1).size());
+        for (String emp : new String[]{"espada", "adagas", "arma"}) {
+            assertEquals(3, Sprites.quadros("jogador", emp + "-dash", 3, 1).size());
+            assertEquals(3, Sprites.quadros("jogador", emp + "-magia", 3, 1).size());
+        }
+        for (String magia : new String[]{"bola-de-fogo", "energia", "escudo"}) {
+            assertEquals(4, Sprites.quadros("magias", magia, 4, 1).size());
+        }
+        assertEquals(3, Sprites.quadros("magias", "impacto", 3, 1).size());
+        for (String peca : new String[]{"chao", "chao-borda", "plataforma-esquerda", "plataforma-meio", "plataforma-direita"}) {
+            assertEquals(1, Sprites.quadros("cenario", peca, 1, 1).size());
+        }
         assertEquals(4, Sprites.quadros("drone", "voar", 4, 1).size());
         assertEquals(6, Sprites.quadros("robo-melee", "andar", 6, 1).size());
         assertEquals(3, Sprites.quadros("robo-atirador", "tiro", 3, 1).size());

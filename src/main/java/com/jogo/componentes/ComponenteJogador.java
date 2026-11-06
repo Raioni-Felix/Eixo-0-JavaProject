@@ -5,8 +5,10 @@ import com.almasb.fxgl.entity.components.ViewComponent;
 import com.almasb.fxgl.input.KeyTrigger;
 import com.almasb.fxgl.input.TriggerListener;
 import com.almasb.fxgl.physics.PhysicsComponent;
+import com.almasb.fxgl.texture.AnimatedTexture;
 import com.jogo.excecoes.ItemIncompativelException;
 import com.jogo.excecoes.ItemNaoEncontradoException;
+import com.jogo.componentes.visual.Sprites;
 import com.jogo.habilidades.Apara;
 import com.jogo.habilidades.BolaDeFogo;
 import com.jogo.habilidades.GolpeDeEnergia;
@@ -18,7 +20,6 @@ import javafx.beans.property.ReadOnlyIntegerProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.scene.input.KeyCode;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.Rectangle;
 import java.util.List;
 
 import static com.almasb.fxgl.dsl.FXGL.getInput;
@@ -128,7 +129,7 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
     //Janela da Apara: enquanto > 0, serAtingido() ignora dano e
     //empurrão. O escudo é só o contorno visual dessa janela.
     private double timerApara = 0;
-    private Rectangle escudo;
+    private AnimatedTexture escudo;
 
     //Pra qual lado o jogador está olhando, atualizado em
     //moverEsquerda()/moverDireita(). Só usado pra saber se o jogador pode se
@@ -189,12 +190,12 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
         fisica = entity.getComponent(PhysicsComponent.class);
         visao = entity.getComponent(ViewComponent.class);
 
-        //Contorno ciano em volta do jogador, só aparece durante a Apara.
-        escudo = new Rectangle(entity.getWidth() + 8, entity.getHeight() + 8, Color.TRANSPARENT);
-        escudo.setStroke(Color.CYAN);
-        escudo.setStrokeWidth(3);
-        escudo.setTranslateX(-4);
-        escudo.setTranslateY(-4);
+        //Escudo hexagonal ciano em volta da jogadora, só aparece durante a
+        //Apara (sprite em sprites/magias, centralizado na caixa)
+        escudo = new AnimatedTexture(Sprites.animacao("magias", "escudo", 4, 0.4, 1.5));
+        escudo.loop();
+        escudo.setTranslateX(entity.getWidth() / 2 - 30);
+        escudo.setTranslateY(entity.getHeight() / 2 - 45);
         escudo.setVisible(false);
         visao.addChild(escudo);
 
@@ -562,6 +563,15 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
         instanteUltimoAtaque = System.nanoTime();
     }
 
+    //Pose de conjurar depois do Golpe de Energia (tecla X)
+    private static final double DURACAO_POSE_MAGIA = 0.3;
+    private long instanteUltimaMagia = 0;
+
+    public boolean estaUsandoMagia() {
+        return instanteUltimaMagia != 0
+                && (System.nanoTime() - instanteUltimaMagia) / 1e9 < DURACAO_POSE_MAGIA;
+    }
+
     public boolean estaAtacando() {
         return instanteUltimoAtaque != 0
                 && (System.nanoTime() - instanteUltimoAtaque) / 1e9 < DURACAO_POSE_ATAQUE;
@@ -589,7 +599,7 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
         }
         boolean usou = golpe.usar(this);
         if (usou) {
-            marcarAtaque();
+            instanteUltimaMagia = System.nanoTime();
         }
         return usou;
     }
@@ -606,6 +616,7 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
     public void iniciarApara(double duracao) {
         timerApara = duracao;
         escudo.setVisible(true);
+        escudo.toFront(); //por cima do sprite da jogadora
     }
 
     public boolean estaAparando() {

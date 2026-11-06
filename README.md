@@ -270,7 +270,7 @@ São "checked" (herdam de `Exception`): quem chama é obrigado a tratar ou repas
 
 ## Testes
 
-60 testes JUnit 5 em `src/test/java`, todos passando. Rodam com `mvn test`.
+61 testes JUnit 5 em `src/test/java`, todos passando. Rodam com `mvn test`.
 
 - Unitários: `ComponenteAnimadoTest` (qual animação mostrar em cada situação, ampliação dos sprites), `ComponenteJogadorTest` (energia, cura, invencibilidade, subir de nível, usar módulos), `ComponenteInimigoTest` (XP de cada tipo, interfaces), `ArmaTest` (cooldown do `atacar()` com uma arma de teste, `multiplicarDano`, ids únicos), `ArmasDeFogoTest` (ganchos de cada arma, `Perfurante`, coleção polimórfica), `HabilidadeTest`, `InventarioTest` (pilha, duplicata, `listarDoTipo` genérico, sobrecargas), `ComponenteAuxiliaresTest`.
 - Casos de sucesso e de falha: cada classe testa o caminho certo e os errados (sem energia, em cooldown, item que não existe, valores inválidos no construtor).
@@ -292,7 +292,13 @@ Os sprites ficam em `src/main/resources/assets/textures/sprites`, uma pasta por 
 | Robô melee | parado, andar, ataque com a garra, dano |
 | Robô atirador | parado, andar na esteira, tiro com recuo, dano |
 | Drone | voar (vale pra parado e andando), dano |
+| Jogadora (todas as armas) | dash (rastro ciano), conjurar magia (aura e orbe na mão) |
+| Golpe de Energia | Bola de Fogo (orbe laranja com rastro); o golpe padrão é um orbe ciano |
+| Apara | escudo hexagonal ciano em volta da jogadora |
+| Tiros e magias | faísca no ponto do acerto |
 | Todo inimigo | explode ao morrer |
+
+O cenário também usa o Warped City: as plataformas flutuantes e o chão são montados com peças do tileset (`sprites/cenario`, repetidas com `ImagePattern` em `FabricaEntidades.visualPlataforma()`), e as salas 2 a 4 têm o fundo animado `cidade` (12 quadros com os letreiros de neon piscando). A sala 1 continua com o laboratório (`cryolab`). O fundo de cada sala é o campo `"background"` do JSON.
 
 A jogadora segura a arma equipada no próprio sprite: cada arma diz como é segurada em `Arma.getEmpunhadura()` (`"espada"`, `"adagas"` ou `"arma"`; Shotgun, Pistola e Rifle herdam `"arma"` da `ArmaDeFogo`), e trocar de arma com Q troca o conjunto de animações. Por isso as armas não desenham mais um retângulo/imagem por cima da jogadora (o antigo `criarVisual()`).
 

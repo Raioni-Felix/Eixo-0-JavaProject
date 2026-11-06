@@ -88,10 +88,11 @@ class HabilidadeTest {
     }
 
     @Test
-    @DisplayName("BolaDeFogo sobrescreve só a cor do GolpeDeEnergia")
+    @DisplayName("BolaDeFogo sobrescreve a cor e o sprite do GolpeDeEnergia")
     void bolaDeFogo() {
         GolpeDeEnergia golpe = new BolaDeFogo(true, 2.0, 15, 0.0, 25);
         assertEquals(Color.ORANGERED, golpe.getCor());
+        assertEquals("bola-de-fogo", golpe.getSprite());
         assertEquals(25, golpe.getDano());
         assertEquals(15, golpe.getCustoEnergia());
     }

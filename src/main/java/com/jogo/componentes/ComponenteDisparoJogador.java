@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static com.almasb.fxgl.dsl.FXGL.getGameWorld;
+import static com.almasb.fxgl.dsl.FXGL.spawn;
 
 //Projétil do jogador: tiro das armas de fogo (ArmaDeFogo e filhas) e
 //disparo do GolpeDeEnergia. Diferente do ComponenteProjetil dos
@@ -69,6 +70,8 @@ public class ComponenteDisparoJogador extends Component {
                 if (componente != null) {
                     componente.tomarDano(dano);
                 }
+                //Faísca no ponto do acerto (só visual, ver FabricaEntidades)
+                spawn("impacto", entity.getCenter().getX(), entity.getCenter().getY());
                 atingidos.add(inimigo);
                 if (atingidos.size() >= alvosMaximos) {
                     entity.removeFromWorld();

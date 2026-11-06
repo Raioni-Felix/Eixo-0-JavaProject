@@ -28,6 +28,11 @@ import com.almasb.fxgl.texture.AnimatedTexture;
 import java.util.Map;
 import com.jogo.entidades.TipoEntidade;
 import javafx.geometry.Point2D;
+import javafx.scene.Group;
+import javafx.scene.Node;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.paint.ImagePattern;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import com.almasb.fxgl.dsl.components.ExpireCleanComponent;
@@ -146,8 +151,9 @@ public class FabricaEntidades implements EntityFactory {
         var animacao = new ComponenteAnimado(conjuntos,
                 () -> arma.getArmaEquipada() == null ? "espada" : arma.getArmaEquipada().getEmpunhadura(),
                 130, 65, 80, ESCALA_SPRITES,
-                () -> ComponenteAnimado.escolherEstado(jogador.estaAtordoado(), jogador.estaAtacando(),
-                        jogador.estaNoChao(), jogador.getVelocidadeX(), jogador.getVelocidadeY()),
+                () -> ComponenteAnimado.escolherEstadoJogadora(jogador.estaNoDash(), jogador.estaUsandoMagia(),
+                        jogador.estaAtordoado(), jogador.estaAtacando(), jogador.estaNoChao(),
+                        jogador.getVelocidadeX(), jogador.getVelocidadeY()),
                 jogador::estaOlhandoDireita);
 
         //A animação entra antes da arma, pra arma ficar desenhada por cima
@@ -338,15 +344,17 @@ public class FabricaEntidades implements EntityFactory {
         String atacar = emp.equals("arma") ? "atirar" : "ataque";
         String atacarCorrendo = emp.equals("arma") ? "atirar-correndo" : "ataque-correndo";
         String atacarNoAr = emp.equals("arma") ? "atirar-ar" : "ataque-ar";
-        return Map.of(
-                EstadoAnimacao.PARADO, Sprites.animacao("jogador", emp + "-parado", 4, 0.9, ESCALA_SPRITES),
-                EstadoAnimacao.ANDANDO, Sprites.animacao("jogador", emp + "-correr", correr, 0.6, ESCALA_SPRITES),
-                EstadoAnimacao.PULANDO, Sprites.animacao("jogador", emp + "-pular", pular, 0.3, ESCALA_SPRITES),
-                EstadoAnimacao.CAINDO, Sprites.animacao("jogador", emp + "-cair", 1, 0.2, ESCALA_SPRITES),
-                EstadoAnimacao.ATACANDO, Sprites.animacao("jogador", emp + "-" + atacar, ataque, 0.3, ESCALA_SPRITES),
-                EstadoAnimacao.ATACANDO_ANDANDO, Sprites.animacao("jogador", emp + "-" + atacarCorrendo, ataqueCorrendo, 0.45, ESCALA_SPRITES),
-                EstadoAnimacao.ATACANDO_NO_AR, Sprites.animacao("jogador", emp + "-" + atacarNoAr, ataqueNoAr, 0.3, ESCALA_SPRITES),
-                EstadoAnimacao.MACHUCADO, Sprites.animacao("jogador", "dano", 1, 0.2, ESCALA_SPRITES));
+        return Map.ofEntries(
+                Map.entry(EstadoAnimacao.PARADO, Sprites.animacao("jogador", emp + "-parado", 4, 0.9, ESCALA_SPRITES)),
+                Map.entry(EstadoAnimacao.ANDANDO, Sprites.animacao("jogador", emp + "-correr", correr, 0.6, ESCALA_SPRITES)),
+                Map.entry(EstadoAnimacao.PULANDO, Sprites.animacao("jogador", emp + "-pular", pular, 0.3, ESCALA_SPRITES)),
+                Map.entry(EstadoAnimacao.CAINDO, Sprites.animacao("jogador", emp + "-cair", 1, 0.2, ESCALA_SPRITES)),
+                Map.entry(EstadoAnimacao.ATACANDO, Sprites.animacao("jogador", emp + "-" + atacar, ataque, 0.3, ESCALA_SPRITES)),
+                Map.entry(EstadoAnimacao.ATACANDO_ANDANDO, Sprites.animacao("jogador", emp + "-" + atacarCorrendo, ataqueCorrendo, 0.45, ESCALA_SPRITES)),
+                Map.entry(EstadoAnimacao.ATACANDO_NO_AR, Sprites.animacao("jogador", emp + "-" + atacarNoAr, ataqueNoAr, 0.3, ESCALA_SPRITES)),
+                Map.entry(EstadoAnimacao.MACHUCADO, Sprites.animacao("jogador", "dano", 1, 0.2, ESCALA_SPRITES)),
+                Map.entry(EstadoAnimacao.DASH, Sprites.animacao("jogador", emp + "-dash", 3, 0.2, ESCALA_SPRITES)),
+                Map.entry(EstadoAnimacao.MAGIA, Sprites.animacao("jogador", emp + "-magia", 3, 0.3, ESCALA_SPRITES)));
     }
 
     //Animação de qualquer inimigo: mesma regra de estado do jogador,
@@ -455,10 +463,26 @@ public class FabricaEntidades implements EntityFactory {
         double tamanho = data.get("tamanho");
         Color cor = data.get("cor");
 
+        //Magias mandam um sprite animado (sprites/magias, ver
+        //GolpeDeEnergia.getSprite()); tiro de arma é um quadrado da cor dela
+        Node visual;
+        if (data.hasKey("sprite")) {
+            AnimatedTexture magia = new AnimatedTexture(
+                    Sprites.animacao("magias", data.get("sprite"), 4, 0.3, ESCALA_SPRITES));
+            magia.loop();
+            //quadro 28x18 (x1,5 = 42x27): a frente do orbe na frente da caixa
+            magia.setTranslateX(direcaoX > 0 ? tamanho - 42 : 0);
+            magia.setTranslateY(tamanho / 2 - 13.5);
+            magia.setScaleX(direcaoX > 0 ? 1 : -1);
+            visual = magia;
+        } else {
+            visual = new Rectangle(tamanho, tamanho, cor);
+        }
+
         return entityBuilder(data)
                 .type(TipoEntidade.DISPARO_JOGADOR)
                 .bbox(new HitBox(BoundingShape.box(tamanho, tamanho)))
-                .view(new Rectangle(tamanho, tamanho, cor))
+                .view(visual)
                 .with(new ComponenteDisparoJogador(dano, direcaoX, direcaoY, velocidade, tempoVida, alvosMaximos))
                 .build();
     }
@@ -499,6 +523,20 @@ public class FabricaEntidades implements EntityFactory {
     //Plataforma: corpo estático, não cai nem se move, só existe pra
     //outros corpos colidirem com ela. Retângulo colorido por
     //enquanto, no lugar de um tileset de verdade.
+    //Faísca de acerto (shot-hit do Warped City): toca uma vez e some
+    @Spawns("impacto")
+    public Entity spawnImpacto(SpawnData data) {
+        AnimatedTexture impacto = new AnimatedTexture(Sprites.animacao("magias", "impacto", 3, 0.2, ESCALA_SPRITES));
+        impacto.setTranslateX(-impacto.getImage().getWidth() / 2);
+        impacto.setTranslateY(-impacto.getImage().getHeight() / 2);
+        impacto.play();
+        return entityBuilder(data)
+                .view(impacto)
+                .zIndex(10)
+                .with(new ExpireCleanComponent(Duration.seconds(0.2)))
+                .build();
+    }
+
     @Spawns("plataforma")
     public Entity spawnPlataforma(SpawnData data) {
         double largura = data.get("largura");
@@ -510,9 +548,38 @@ public class FabricaEntidades implements EntityFactory {
         return entityBuilder(data)
                 .type(TipoEntidade.PLATAFORMA)
                 .bbox(new HitBox(BoundingShape.box(largura, altura)))
-                .view(new Rectangle(largura, altura, Color.BLACK))
+                .view(visualPlataforma(largura, altura))
                 .with(fisica)
                 .build();
+    }
+
+    //Visual da plataforma com as peças do tileset do Warped City
+    //(sprites/cenario). Baixa (até 24 px): plataforma flutuante com as
+    //duas pontas e o meio repetido. Alta (o chão): blocos repetidos com
+    //a faixa ciano no topo. ImagePattern repete a imagem sozinho.
+    private Node visualPlataforma(double largura, double altura) {
+        Group grupo = new Group();
+        if (altura <= 24) {
+            double escala = altura / 16; //a peça tem 16 px de altura
+            Image esquerda = Sprites.quadros("cenario", "plataforma-esquerda", 1, escala).get(0);
+            Image meio = Sprites.quadros("cenario", "plataforma-meio", 1, escala).get(0);
+            Image direita = Sprites.quadros("cenario", "plataforma-direita", 1, escala).get(0);
+            Rectangle centro = new Rectangle(largura, altura);
+            centro.setFill(new ImagePattern(meio, 0, 0, meio.getWidth(), meio.getHeight(), false));
+            ImageView pontaEsquerda = new ImageView(esquerda);
+            ImageView pontaDireita = new ImageView(direita);
+            pontaDireita.setTranslateX(largura - direita.getWidth());
+            grupo.getChildren().addAll(centro, pontaEsquerda, pontaDireita);
+        } else {
+            Image bloco = Sprites.quadros("cenario", "chao", 1, ESCALA_SPRITES).get(0);
+            Image borda = Sprites.quadros("cenario", "chao-borda", 1, ESCALA_SPRITES).get(0);
+            Rectangle corpo = new Rectangle(largura, altura);
+            corpo.setFill(new ImagePattern(bloco, 0, 0, bloco.getWidth(), bloco.getHeight(), false));
+            Rectangle topo = new Rectangle(largura, borda.getHeight());
+            topo.setFill(new ImagePattern(borda, 0, 0, borda.getWidth(), borda.getHeight(), false));
+            grupo.getChildren().addAll(corpo, topo);
+        }
+        return grupo;
     }
 
     //Parede invisível: mesma física da plataforma (corpo estático,

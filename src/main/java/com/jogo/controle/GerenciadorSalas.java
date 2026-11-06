@@ -102,16 +102,19 @@ public class GerenciadorSalas {
                     .zIndex(-1) // fundo atrás de tudo
                     .buildAndAttach();
         } else {
-            //Cada tile tem 4000 de largura; repete lado a lado pela
-            //largura DESSA sala. Os quadros vêm do cache (RecursosVisuais)
+            //O quadro é esticado até a altura da sala (sem borrar) e
+            //repetido lado a lado pela largura dela. Ex.: cryolab
+            //1000x180 vira 4000x720; cidade 1479x240 vira 4437x720.
+            //Os quadros vêm do cache (RecursosVisuais)
             String tema = sala.fundo != null ? sala.fundo : "cryolab";
             List<Image> quadros = RecursosVisuais.quadrosFundo(tema);
 
-            int larguraTileBackground = 4000;
+            Image primeiro = quadros.get(0);
+            double larguraTileBackground = primeiro.getWidth() * alturaNivel / primeiro.getHeight();
             int tilesBackground = (int) Math.ceil(larguraNivel / larguraTileBackground);
 
             for (int i = 0; i < tilesBackground; i++) {
-                ComponenteAnimacaoFundo background = new ComponenteAnimacaoFundo(quadros, 15);
+                ComponenteAnimacaoFundo background = new ComponenteAnimacaoFundo(quadros, RecursosVisuais.fpsFundo(tema));
 
                 Texture visaoBg = background.getVisao();
                 visaoBg.setFitWidth(larguraTileBackground);

@@ -23,14 +23,38 @@ public final class RecursosVisuais {
     //padrão de nome e usar o nome no campo "background" do JSON da sala.
     private static final Map<String, List<Image>> cacheQuadrosFundo = new HashMap<>();
 
+    //Temas de fundo animado. Cada um é uma pasta em assets/textures com
+    //frame_000.png, frame_001.png... (quantos houver):
+    // - "cryolab": laboratório da sala 1, 60 quadros, arquivos 4000x720
+    //   (upscale 4x) decodificados em 1000x180;
+    // - "cidade": cidade do Warped City (ver sprites/CREDITOS.txt), 12
+    //   quadros 1479x240 no tamanho original, com os letreiros piscando.
+    private static final Map<String, double[]> TAMANHO_DECODIFICADO = Map.of("cryolab", new double[]{1000, 180});
+    private static final Map<String, Double> FPS = Map.of("cryolab", 15.0, "cidade", 8.0);
+
     public static List<Image> quadrosFundo(String tema) {
         return cacheQuadrosFundo.computeIfAbsent(tema, chave -> {
             List<Image> quadros = new ArrayList<>();
-            for (int i = 0; i < 60; i++) {
+            for (int i = 0; existeQuadro(chave, i); i++) {
                 quadros.add(carregarQuadroFundo(chave, i));
+            }
+            if (quadros.isEmpty()) {
+                throw new IllegalStateException("Tema de fundo sem quadros: " + chave);
             }
             return quadros;
         });
+    }
+
+    public static double fpsFundo(String tema) {
+        return FPS.getOrDefault(tema, 10.0);
+    }
+
+    private static String caminhoQuadro(String tema, int index) {
+        return "/assets/textures/" + tema + "/frame_" + String.format("%03d", index) + ".png";
+    }
+
+    private static boolean existeQuadro(String tema, int index) {
+        return RecursosVisuais.class.getResource(caminhoQuadro(tema, index)) != null;
     }
 
     //Carrega um quadro já pedindo pro JavaFX decodificar em 1000x180 em
@@ -38,13 +62,14 @@ public final class RecursosVisuais {
     //nearest-neighbor do desenho original, e smooth=false desfaz esse
     //upscale sem borrar, gastando 16x menos memória por quadro.
     private static Image carregarQuadroFundo(String tema, int index) {
-        String caminho = "/assets/textures/" + tema + "/frame_" + String.format("%03d", index) + ".png";
+        String caminho = caminhoQuadro(tema, index);
+        double[] tamanho = TAMANHO_DECODIFICADO.getOrDefault(tema, new double[]{0, 0}); //0 = tamanho do arquivo
 
         try (InputStream stream = RecursosVisuais.class.getResourceAsStream(caminho)) {
             if (stream == null) {
                 throw new IllegalStateException("Quadro não encontrado: " + caminho);
             }
-            return new Image(stream, 1000, 180, true, false);
+            return new Image(stream, tamanho[0], tamanho[1], true, false);
         } catch (Exception e) {
             throw new RuntimeException("Falha ao carregar quadro do background (" + tema + "): " + caminho, e);
         }

@@ -42,13 +42,15 @@ public class ComponenteAnimado extends Component {
         ATACANDO,
         ATACANDO_ANDANDO,
         ATACANDO_NO_AR,
+        DASH,
+        MAGIA,
         MACHUCADO
     }
 
     //Estes tocam uma vez e param no último quadro; os outros repetem
     private static final Set<EstadoAnimacao> TOCAM_UMA_VEZ =
             EnumSet.of(EstadoAnimacao.PULANDO, EstadoAnimacao.ATACANDO, EstadoAnimacao.ATACANDO_NO_AR,
-                    EstadoAnimacao.MACHUCADO);
+                    EstadoAnimacao.MAGIA, EstadoAnimacao.MACHUCADO);
 
     //Velocidade horizontal a partir da qual o personagem está "andando"
     private static final double VELOCIDADE_MINIMA_ANDANDO = 10;
@@ -174,6 +176,22 @@ public class ComponenteAnimado extends Component {
         return andando ? EstadoAnimacao.ANDANDO : EstadoAnimacao.PARADO;
     }
 
+    //Só a jogadora tem dash e magia: eles vêm logo depois do dano na
+    //prioridade, e o resto segue a regra comum
+    public static EstadoAnimacao escolherEstadoJogadora(boolean dash, boolean magia, boolean machucado,
+            boolean atacando, boolean noChao, double velocidadeX, double velocidadeY) {
+        if (machucado) {
+            return EstadoAnimacao.MACHUCADO;
+        }
+        if (dash) {
+            return EstadoAnimacao.DASH;
+        }
+        if (magia) {
+            return EstadoAnimacao.MAGIA;
+        }
+        return escolherEstado(false, atacando, noChao, velocidadeX, velocidadeY);
+    }
+
     //Se o personagem não tem a animação pedida, usa a mais parecida
     //(ex.: o drone só tem voar e dano)
     public static EstadoAnimacao animacaoDisponivel(EstadoAnimacao pedido, Set<EstadoAnimacao> existentes) {
@@ -181,6 +199,12 @@ public class ComponenteAnimado extends Component {
             return pedido;
         }
         if (pedido == EstadoAnimacao.ATACANDO_ANDANDO || pedido == EstadoAnimacao.ATACANDO_NO_AR) {
+            return animacaoDisponivel(EstadoAnimacao.ATACANDO, existentes);
+        }
+        if (pedido == EstadoAnimacao.DASH) {
+            return animacaoDisponivel(EstadoAnimacao.ANDANDO, existentes);
+        }
+        if (pedido == EstadoAnimacao.MAGIA) {
             return animacaoDisponivel(EstadoAnimacao.ATACANDO, existentes);
         }
         if (pedido == EstadoAnimacao.CAINDO) {

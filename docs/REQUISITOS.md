@@ -26,6 +26,7 @@ Status: ✅ feito · 🧪 com teste automático · 🎮 testado jogando (depende
 | RF16 | Pausa (ESC) com Continuar e Menu | `visao.TelaPausa`, `ControleJogo` | 🎮 |
 | RF17 | Game Over com Reiniciar (volta direto pro jogo) e Menu Principal | `visao.TelaGameOver`, `ControleJogo` | 🎮 |
 | RF18 | Personagens animados: parado, andar, pular/cair, atacar (parado, correndo, no ar), dano; a jogadora aparece com a arma equipada; inimigos explodem ao morrer; voador é um drone, os outros dois são robôs | `componentes.visual.ComponenteAnimado`, `Sprites` | 🧪 `ComponenteAnimadoTest` · 🎮 |
+| RF19 | Cenário com arte: plataformas e chão do tileset, fundo animado (laboratório na sala 1, cidade nas salas 2 a 4); dash, magia, escudo e acertos com efeito visual | `FabricaEntidades`, `visao.RecursosVisuais` | 🧪 `ComponenteAnimadoTest` · 🎮 |
 
 ## Tratamento de erros
 
@@ -43,7 +44,7 @@ Status: ✅ feito · 🧪 com teste automático · 🎮 testado jogando (depende
 | RNF01 | Java 17, FXGL 17.3, Gson, Maven | `pom.xml` |
 | RNF02 | Separação MVC | modelo (`componentes`, `itens`, `habilidades`, `inventario`, `niveis`, `entidades`, `factories`, `excecoes`), visão (`visao`, `componentes.visual`), controle (`controle`); `Main` só repassa as etapas do FXGL |
 | RNF03 | Balanceamento fora do código | vida, dano, velocidade, inimigos e itens de cada sala nos JSON de `assets/levels` |
-| RNF04 | Testes automatizados | 60 testes JUnit 5 (`mvn test`), unidade e integração |
+| RNF04 | Testes automatizados | 61 testes JUnit 5 (`mvn test`), unidade e integração |
 | RNF05 | Cobertura | JaCoCo: `inventario` 96%, `niveis` 95%, `excecoes` 100%; total ≈ 20%, porque visão/controle precisam do motor rodando |
 | RNF06 | 60 FPS, janela 1280×720 com tela cheia opcional (F11) | `Main.initSettings` |
 | RNF07 | Não acelerar depois de despausar | `componentes.RelogioJogo` |

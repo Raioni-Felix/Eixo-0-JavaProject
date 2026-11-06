@@ -35,6 +35,12 @@ public abstract class GolpeDeEnergia extends Habilidade {
         return Color.DEEPSKYBLUE;
     }
 
+    //Sprite animado do disparo (pasta sprites/magias). Mesma ideia da
+    //cor: a filha troca sem mexer no executar()
+    public String getSprite() {
+        return "energia";
+    }
+
     @Override
     protected void executar(ComponenteJogador usuario) {
         Entity corpo = usuario.getEntity();
@@ -52,6 +58,7 @@ public abstract class GolpeDeEnergia extends Habilidade {
                 .put("tempoVida", TEMPO_VIDA_DISPARO)
                 .put("alvosMaximos", 1)
                 .put("tamanho", TAMANHO_DISPARO)
-                .put("cor", getCor()));
+                .put("cor", getCor())
+                .put("sprite", getSprite()));
     }
 }

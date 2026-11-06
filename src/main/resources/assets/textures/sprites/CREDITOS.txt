@@ -14,5 +14,20 @@ drone/, explosao/, jogador/
   (corrida com arma + clarão do tiro parado).
   drone/dano-1.png é o voar-1.png pintado de branco (piscada de dano).
 
+cenario/, magias/impacto-*.png, ../cidade/ (fundo animado das salas 2 a 4)
+  Também do Warped City (CC0):
+  - cenario/: recortes do tileset.png (plataforma flutuante e bloco do chão);
+  - magias/impacto: shot-hit;
+  - cidade/: 12 quadros montados com o céu (skyline-a/b), os prédios
+    (buildings-bg, near-buildings-bg) e os letreiros animados (banner-neon,
+    banner-big, banner-coke, banner-scroll, banner-side, banner-sushi,
+    monitorface, hotel-sign, antenna).
+
+Criados para este projeto (Eixo 0):
+  - jogador/*-dash: corrida com rastro ciano e linhas de velocidade;
+  - jogador/*-magia: pose parada com aura e orbe de fogo na mão;
+  - magias/bola-de-fogo, magias/energia (orbe com rastro) e magias/escudo
+    (hexágono da Apara).
+
 robo-melee/, robo-atirador/
   Desenhados para este projeto (Eixo 0), na paleta do Warped City.

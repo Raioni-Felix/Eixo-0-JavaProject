@@ -1,7 +1,7 @@
 {
   "levelWidth": 3200,
   "levelHeight": 720,
-  "backgroundColor": "#3a3a3a",
+  "background": "cidade",
   "player": {
     "x": 400,
     "y": 420,
