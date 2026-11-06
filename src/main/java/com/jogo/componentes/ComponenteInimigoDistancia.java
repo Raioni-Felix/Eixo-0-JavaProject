@@ -50,12 +50,17 @@ public class ComponenteInimigoDistancia extends ComponenteInimigo {
     }
 
 
+    //Sobrescreve por inteiro, sem super: o atirador não bate, atira. O
+    //dano NÃO é aplicado aqui, só o ComponenteProjetil aplica, e só
+    //quando o projétil realmente alcança o alvo.
     @Override
-    public void atacar(Entity alvo) {
-        // O dano NÃO é mais aplicado aqui, só o ComponenteProjetil
-        // aplica, e só quando o projétil realmente alcança o alvo.
-        // atacar() agora só dispara o projétil.
+    public void iniciarAtaque() {
         dispararProjetil(alvo);
+    }
+
+    @Override
+    public int getExperienciaConcedida() {
+        return 35;
     }
 
     // Cria o projétil de verdade: agora passa pela FabricaEntidades

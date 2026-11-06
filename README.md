@@ -11,10 +11,10 @@ O projeto usa Java 17, FXGL 17.3 (framework em cima do JavaFX voltado pra jogos 
 Com o Maven configurado, o comando
 
 ```
-mvn compile exec:java
+mvn clean compile exec:java
 ```
 
-compila o projeto e executa a classe principal, `com.jogo.Main`, que é a que o `exec-maven-plugin` está configurado pra rodar no `pom.xml`. Também dá pra rodar `Main.java` direto pela IDE, contanto que as dependências do Maven já tenham sido baixadas.
+compila o projeto e executa a classe principal, `com.jogo.Main`, que é a que o `exec-maven-plugin` está configurado pra rodar no `pom.xml`. O goal é `exec:java`; escrever com prefixo `java:` dá o erro "No plugin found for prefix 'java'". Também dá pra rodar `Main.java` direto pela IDE, contanto que as dependências do Maven já tenham sido baixadas.
 
 ## Estrutura geral
 
@@ -28,39 +28,53 @@ O código fica em `src/main/java/com/jogo`, dividido em pacotes por responsabili
 
 `factories` guarda `FabricaEntidades`, responsável por criar de fato as entidades do jogo (jogador, inimigos, plataformas, projéteis, gatilhos de sala) e configurar a física de cada uma.
 
-`itens` guarda as classes relacionadas a armas, hoje representadas pela classe `Weapon` e pelo enum `WeaponType`.
+`habilidades` guarda as habilidades com tempo de espera (cooldown) trazidas da versão barebones: `Habilidade` (abstrata), `GolpeDeEnergia` (abstrata), `BolaDeFogo` e `Apara`.
+
+`inventario` guarda o inventário do jogador e os itens que vão nele, também trazidos do barebones: `Inventario`, `Item` (abstrata), as interfaces `Inventariavel` e `Consumivel`, o enum `Categoria` e os itens `ModuloCura` e `ModuloEnergia`.
+
+`itens` guarda as armas, com a mesma hierarquia da versão barebones: `Arma` (abstrata, implementa `Inventariavel`), `Espada`, `ArmaDeFogo` e as filhas dela `Shotgun`, `PistolaDuplaDePlasma` e `RifleSniper`, além da interface `Perfurante`. Ver "Armas, interfaces de combate e polimorfismo".
 
 `niveis` guarda as classes que espelham a estrutura dos arquivos JSON de nível, usadas pelo Gson pra desserializar os dados de cada sala.
 
 Os arquivos JSON com os dados de cada nível ficam em `src/main/resources/assets/levels`, um arquivo por sala (`nivel1.json` até `nivel4.json`). As texturas (imagens dos personagens, inimigos, projéteis, fundos animados) ficam em `src/main/resources/assets/textures`.
 
+## Nomes em português
+
+Os nomes de classes, métodos e campos do projeto estão em português, no mesmo padrão da versão barebones (por exemplo `ComponenteJogador`, `tomarDano`, `estaMorto`, `moverEsquerda`, `obterDe`). Algumas coisas ficaram em inglês de propósito: a classe `Main` (ponto de entrada, referenciada no `pom.xml`), termos de jogo como "dash", "XP", "fade" e "overlay", a string `@Spawns("inimigo_ranged")` (precisa bater com `"type": "ranged"` no JSON) e os nomes de API do FXGL e do JavaFX.
+
+Nas classes `Dados*` de `niveis`, os campos estão em português com `@SerializedName` apontando para as chaves em inglês dos arquivos JSON, então os JSON não precisaram mudar. As chaves de `SpawnData`, que só são usadas dentro do nosso código, foram traduzidas (`"nome"`, `"vidaMaxima"`, `"dano"`, `"largura"`, `"indiceDestino"`, `"ladoEntrada"`...).
+
 ## O sistema de componentes
 
-A base de todo personagem vivo é `CharacterComponent`. Ele guarda nome, vida máxima, velocidade de movimento e a vida atual, essa última como uma `IntegerProperty` do JavaFX, o que permite que a UI (a barra de vida, por exemplo) fique automaticamente amarrada ao valor sem precisar de atualização manual a cada frame. `CharacterComponent` também cuida de receber dano (`takeDamage`), zerando a vida no mínimo em zero e removendo a entidade do mundo quando ela morre.
+A base de todo personagem vivo é `ComponentePersonagem`. Ele guarda nome, vida máxima, velocidade de movimento e a vida atual, essa última como uma `IntegerProperty` do JavaFX, o que permite que a UI (a barra de vida, por exemplo) fique automaticamente amarrada ao valor sem precisar de atualização manual a cada frame. `ComponentePersonagem` também cuida de receber dano (`tomarDano`), zerando a vida no mínimo em zero e removendo a entidade do mundo quando ela morre.
 
-`PlayerComponent` estende `CharacterComponent` e adiciona tudo que é específico do jogador: movimento horizontal, pulo, dash, invencibilidade temporária depois de tomar dano, e a lógica de reação ao toque de um inimigo.
+`ComponenteJogador` estende `ComponentePersonagem` e adiciona tudo que é específico do jogador: movimento horizontal, pulo, dash, invencibilidade temporária depois de tomar dano, e a lógica de reação ao toque de um inimigo.
 
-`EnemyComponent` também estende `CharacterComponent` e adiciona o que é comum a todo inimigo: dano de ataque, alcance de ataque, alcance de detecção do jogador, se é um inimigo voador, se ataca à distância, e a lógica de perseguir o alvo quando ele está dentro do alcance de detecção. Essa classe é abstrata: ela nunca é instanciada sozinha, só existe pra dar base às subclasses reais, e o método `attack(Entity target)` nela é abstrato de propósito, sem corpo, obrigando cada subclasse a dizer explicitamente como o próprio ataque funciona. A lógica de causar dano direto (achar o `CharacterComponent` do alvo e aplicar dano nele, com tratamento especial se o alvo for o jogador) fica disponível num método auxiliar, `applyDirectDamage`, que qualquer subclasse pode chamar de dentro do seu próprio `attack()`. A partir dela existem três subclasses, cada uma ajustando os parâmetros do construtor e implementando `attack()` do seu jeito:
+`ComponenteInimigo` também estende `ComponentePersonagem` e adiciona o que é comum a todo inimigo: dano de ataque, alcance de ataque, alcance de detecção do jogador, se é um inimigo voador, se ataca à distância, e a lógica de perseguir o alvo quando ele está dentro do alcance de detecção. Essa classe é abstrata: ela nunca é instanciada sozinha, só existe pra dar base às subclasses reais. Ela implementa as interfaces `Atacante` e `ConcedeExperiencia` (as mesmas do `Inimigo` do barebones). O `iniciarAtaque()` tem um comportamento padrão aqui, o dano direto no alvo (`aplicarDanoDireto`: acha o `ComponentePersonagem` do alvo e aplica dano, com tratamento especial se o alvo for o jogador). Já o `getExperienciaConcedida()` não é escrito em `ComponenteInimigo`, então cada subclasse é obrigada a dizer quanto XP vale. `ComponenteInimigo` também sobrescreve o `tomarDano()`: chama `super.tomarDano()` pra parte comum e, se o inimigo morreu, dá o XP dele ao jogador. A partir dela existem três subclasses, cada uma tratando o ataque de um jeito:
 
-`MeleeEnemyComponent` é o inimigo terrestre mais simples, sem alcance à distância. O `attack()` dele só chama `applyDirectDamage`, aplicando o dano assim que o alvo está perto o suficiente.
+`ComponenteInimigoMelee` é o inimigo terrestre mais simples, sem alcance à distância. Ele não sobrescreve o `iniciarAtaque()`: herda o ataque padrão da mãe, aplicando o dano assim que o alvo está perto o suficiente. Vale 20 de XP.
 
-`FlyingEnemyComponent` se move livremente em duas dimensões (não só no eixo X) e, quando não está perseguindo o jogador, fica flutuando num movimento senoidal em vez de ficar parado. O `attack()` dele também usa `applyDirectDamage`, igual ao inimigo melee, só muda a forma como ele se movimenta até chegar perto.
+`ComponenteInimigoVoador` se move livremente em duas dimensões (não só no eixo X) e, quando não está perseguindo o jogador, fica flutuando num movimento senoidal em vez de ficar parado. Ele sobrescreve o `iniciarAtaque()` reaproveitando o da mãe: chama `super.iniciarAtaque()` (o golpe normal) e depois sobe por 0,4 segundo antes de voltar a perseguir ("bate e sobe"). Vale 25 de XP.
 
-`RangedEnemyComponent` mantém distância do jogador em vez de se aproximar até o alcance de ataque corpo a corpo, e o `attack()` dele não usa `applyDirectDamage`: em vez de causar dano direto, ele cria um projétil na direção do alvo, e o dano só é aplicado de verdade se o projétil realmente acertar. O tempo entre ataques desse inimigo é maior que o padrão, de propósito, pra dar tempo do jogador reagir.
+`ComponenteInimigoDistancia` mantém distância do jogador em vez de se aproximar até o alcance de ataque corpo a corpo, e sobrescreve o `iniciarAtaque()` por inteiro, sem `super`: em vez de causar dano direto, ele cria um projétil na direção do alvo, e o dano só é aplicado de verdade se o projétil realmente acertar. Vale 35 de XP. O tempo entre ataques desse inimigo é maior que o padrão, de propósito, pra dar tempo do jogador reagir.
 
-Por que existe um `getFrom(Entity)` estático tanto em `CharacterComponent` quanto em `EnemyComponent`: o FXGL indexa os componentes de uma entidade pela classe exata deles em tempo de execução, então pedir `entity.getComponent(CharacterComponent.class)` nunca encontra nada se a entidade na verdade tem um `PlayerComponent` anexado, porque `PlayerComponent` é uma classe diferente de `CharacterComponent`, mesmo sendo subclasse dela. O `getFrom` contorna isso percorrendo todos os componentes da entidade e testando com `instanceof`.
+Por que existe um `obterDe(Entity)` estático tanto em `ComponentePersonagem` quanto em `ComponenteInimigo`: o FXGL indexa os componentes de uma entidade pela classe exata deles em tempo de execução, então pedir `entity.getComponent(ComponentePersonagem.class)` nunca encontra nada se a entidade na verdade tem um `ComponenteJogador` anexado, porque `ComponenteJogador` é uma classe diferente de `ComponentePersonagem`, mesmo sendo subclasse dela. O `obterDe` contorna isso percorrendo todos os componentes da entidade e testando com `instanceof`.
 
-## A interface Danificavel
+## As interfaces de combate
 
-Existe uma interface chamada `Danificavel`, em `componentes`, com dois métodos: `takeDamage(int quant)` e `isDead()`. `CharacterComponent` implementa essa interface, e como ele já tinha esses dois métodos escritos, não precisou mudar nada na lógica, só declarar que cumpre o contrato.
+São as mesmas três interfaces da versão barebones, todas em `componentes`:
 
-A ideia por trás dela é separar "saber tomar dano" de "ser um personagem vivo". Hoje só quem estende `CharacterComponent` consegue receber dano, e isso significa carregar junto nome, vida máxima e velocidade de movimento, coisas que fazem sentido pra um personagem mas não pra, por exemplo, um baú ou uma caixa destrutível do cenário. Se esse tipo de objeto entrar no jogo no futuro, ele pode implementar `Danificavel` diretamente, sem herdar de `CharacterComponent` e sem carregar nada que não precisa.
+`Atacavel` tem `tomarDano(int quant)` e `estaMorto()`. `ComponentePersonagem` implementa essa interface. Antes ela se chamava `Danificavel` aqui no FXGL; o contrato é o mesmo, só mudou o nome pra as duas versões do projeto usarem as mesmas interfaces. A ideia é separar "saber tomar dano" de "ser um personagem vivo": um baú ou uma caixa destrutível do cenário poderia implementar `Atacavel` sem herdar de `ComponentePersonagem` e sem carregar nome, vida máxima e velocidade.
+
+`Atacante` tem `iniciarAtaque()`. Implementada por `ComponenteInimigo` e por `ComponenteJogador` (no barebones, por `Inimigo` e `Jogador`). No barebones o método recebe a vítima (`iniciarAtaque(Personagem vitima)`), porque sem posição na tela alguém precisa dizer quem apanha. Aqui não precisa: o inimigo já guarda o alvo dele (`definirAlvo()`) e o jogador ataca pra onde está olhando.
+
+`ConcedeExperiencia` tem `getExperienciaConcedida()`. Implementada por `ComponenteInimigo`, e cada subclasse devolve o próprio valor (melee 20, voador 25, distância 35). É ela que faz o `adicionarXp()` do jogador finalmente ser usado: matar inimigo dá XP, e com XP suficiente o jogador sobe de nível.
 
 ## Dados de nível em JSON
 
-Os valores de balanceamento do jogo, como vida máxima, velocidade e dano, não ficam escritos direto no código Java. Eles ficam nos arquivos JSON de cada nível, e são carregados em classes espelho como `DadosJogador` e `DadosInimigo`, que o Gson preenche automaticamente a partir do JSON. Esses dados então são repassados para os construtores dos componentes na hora em que `Main` e `FabricaEntidades` montam a sala.
+Os valores de balanceamento do jogo, como vida máxima, energia máxima, velocidade, dano e os módulos espalhados pela sala, não ficam escritos direto no código Java. Eles ficam nos arquivos JSON de cada nível, e são carregados em classes espelho como `DadosJogador` e `DadosInimigo`, que o Gson preenche automaticamente a partir do JSON. Esses dados então são repassados para os construtores dos componentes na hora em que `Main` e `FabricaEntidades` montam a sala.
 
-A razão principal é que as mesmas classes de componente (por exemplo `MeleeEnemyComponent`) são reaproveitadas em várias salas diferentes, com valores diferentes em cada uma. Um inimigo melee da sala 1 pode ter vida bem menor que um da sala 4, sem precisar de uma classe Java separada pra cada variação. Isso também significa que ajustar o balanceamento do jogo (deixar um inimigo mais forte, mudar a vida do jogador) não exige recompilar nada, só editar o JSON.
+A razão principal é que as mesmas classes de componente (por exemplo `ComponenteInimigoMelee`) são reaproveitadas em várias salas diferentes, com valores diferentes em cada uma. Um inimigo melee da sala 1 pode ter vida bem menor que um da sala 4, sem precisar de uma classe Java separada pra cada variação. Isso também significa que ajustar o balanceamento do jogo (deixar um inimigo mais forte, mudar a vida do jogador) não exige recompilar nada, só editar o JSON.
 
 Cada nível também pode definir seu próprio tema visual de fundo: a sala 1 usa um fundo animado (uma sequência de frames em loop), enquanto as outras salas usam uma cor sólida definida no próprio JSON.
 
@@ -72,11 +86,71 @@ Nas bordas de cada sala existem entidades gatilho, que ao serem tocadas pelo jog
 
 ## Combate
 
-O ataque corpo a corpo do jogador é iniciado por `WeaponComponent`, que ao ser acionado cria uma entidade de hitbox separada através de `FabricaEntidades`, usando o componente `AtaqueJogadorComponent`. Essa entidade de ataque acompanha a posição do jogador a cada frame, o que evita que a hitbox fique presa num ponto fixo do cenário caso o jogador pule ou se mova durante o próprio ataque.
+O ataque do jogador começa no `iniciarAtaque()` do `ComponenteJogador` (tecla Z), que chama o `ComponenteArma`, que por sua vez manda a arma equipada atacar (ver "Armas, interfaces de combate e polimorfismo"). A `Espada` cria uma entidade de hitbox separada através de `FabricaEntidades`, usando o componente `AtaqueJogadorComponent`. Essa entidade de ataque acompanha a posição do jogador a cada frame, o que evita que a hitbox fique presa num ponto fixo do cenário caso o jogador pule ou se mova durante o próprio ataque.
 
-Inimigos à distância, como o `RangedEnemyComponent`, atacam criando uma entidade de projétil através de `FabricaEntidades`, usando o `ProjectileComponent`. O projétil calcula a direção até o alvo uma única vez, no momento em que nasce, e depois disso viaja em linha reta nessa direção fixa, não é teleguiado. A cada frame ele ainda verifica a distância atual até o alvo só pra saber se colidiu, o que é diferente de perseguir o alvo. Se o tempo de vida do projétil passar de três segundos sem acertar nada, ele se remove sozinho.
+Inimigos à distância, como o `ComponenteInimigoDistancia`, atacam criando uma entidade de projétil através de `FabricaEntidades`, usando o `ComponenteProjetil`. O projétil calcula a direção até o alvo uma única vez, no momento em que nasce, e depois disso viaja em linha reta nessa direção fixa, não é teleguiado. A cada frame ele ainda verifica a distância atual até o alvo só pra saber se colidiu, o que é diferente de perseguir o alvo. Se o tempo de vida do projétil passar de três segundos sem acertar nada, ele se remove sozinho.
 
-Quando um inimigo atinge o jogador, o dano é aplicado de um jeito um pouco diferente do dano comum: em vez de só descontar a vida, o jogo chama `hitBy` no `PlayerComponent`, que além do dano aplica um pequeno knockback e um período de invencibilidade temporária, evitando que o jogador tome vários hits seguidos do mesmo toque.
+Quando um inimigo atinge o jogador, o dano é aplicado de um jeito um pouco diferente do dano comum: em vez de só descontar a vida, o jogo chama `serAtingido` no `ComponenteJogador`, que além do dano aplica um pequeno knockback e um período de invencibilidade temporária, evitando que o jogador tome vários hits seguidos do mesmo toque.
+
+## Controles
+
+| Tecla | Ação |
+|---|---|
+| ← / → | mover |
+| Espaço ou ↑ | pular (com pulo duplo no ar) |
+| Shift | dash |
+| Z | ataque com a arma equipada |
+| Q | trocar de arma (Espada → Shotgun → Pistola Dupla de Plasma → Rifle Sniper) |
+| X | Golpe de Energia (Bola de Fogo) |
+| C | Apara (parry) |
+| 1 | usar Módulo de Cura |
+| 2 | usar Módulo de Energia |
+| ESC | pausar |
+
+## Energia, habilidades e inventário
+
+Essas partes vieram da versão barebones e seguem as mesmas regras de lá.
+
+O jogador tem energia, além da vida. Ela aparece numa barra azul embaixo da barra de vida, amarrada à propriedade `energiaAtual` do `ComponenteJogador` do mesmo jeito que a barra de vida. A energia só muda por três métodos: `consumirEnergia`, `recuperarEnergia` (que nunca passa da máxima) e `energiaSuficiente`, usado pra conferir se dá pra usar uma habilidade. A energia máxima vem do campo `"maxEnergy"` do bloco `"player"` do JSON (50 se não vier). Diferente do barebones, aqui a energia também recarrega devagar sozinha (`RECARGA_ENERGIA_POR_SEGUNDO`, 2 pontos por segundo); pra desligar isso é só pôr 0 nessa constante.
+
+A vida também ganhou um `curar(int)` em `ComponentePersonagem`: ignora quantidade menor ou igual a zero, não cura personagem morto e não passa da vida máxima.
+
+Cada `Habilidade` controla o próprio tempo de espera: o `ComponenteJogador` chama `atualizar(tpf)` dela a cada frame. O método `usar()` é `final` e sempre faz a mesma sequência: confere se pode usar (aprendida, fora do cooldown e com energia), gasta a energia, chama o `executar()` da subclasse e reinicia o cooldown. Cada subclasse só diz o que faz no `executar()`. A diferença pro barebones é que aqui não existe parâmetro de alvo: no FXGL quem decide em quem o golpe acerta é a posição na tela.
+
+`GolpeDeEnergia` é abstrata e já traz o `executar()` pronto: cria um disparo (`"disparo_jogador"` na `FabricaEntidades`, o mesmo das armas de fogo) que anda reto na direção em que o jogador está olhando. Quem move o disparo é o `ComponenteDisparoJogador`, que some ao acertar um inimigo (aplicando o dano), ao bater numa plataforma ou parede, ou depois de 1,5 segundo. `BolaDeFogo` é a subclasse concreta usada no jogo e só troca a cor do disparo (sobrescreve `getCor()`). No `ComponenteJogador` ela fica guardada numa variável do tipo `GolpeDeEnergia`, como exemplo de polimorfismo. Números (os mesmos do teste do barebones): dano 20, custo 15 de energia, espera de 2 segundos.
+
+`Apara` abre uma janela curta (0,3 segundo) em que `serAtingido()` ignora o golpe por inteiro, sem dano e sem empurrão, tanto no toque de inimigo quanto no projétil. Durante a janela aparece um contorno ciano em volta do jogador. Custo de 5 de energia e espera de 1,5 segundo.
+
+O `Inventario` é o mesmo do barebones e guarda tanto os módulos quanto as armas. Ele usa duas tabelas hash (`LinkedHashMap`): uma com os objetos e outra com as quantidades. Itens de categoria empilhável (como `CONSUMIVEL`) com o mesmo id são somados numa entrada só, com contador. Itens não empilháveis (como `ARMA`) ganham um id único na criação (`espada-1`, `espada-2`...), então cada um ocupa sua própria entrada.
+
+A `Arma` implementa `Inventariavel` com categoria `ARMA`, igual no barebones. As quatro armas iniciais são criadas em `Main.initGame()`, entram no inventário com `coletarItem()` e a espada é equipada com `ComponenteArma.equiparArma(idArma)`, que busca a arma pelo id no inventário e recusa qualquer coisa que não seja `Arma`. Uma arma nova (loot, upgrade) segue o mesmo caminho. Os módulos ficam espalhados pelas salas, na lista `"items"` do JSON de cada uma (`"type"` vale `"cura"` ou `"energia"`, e `"amount"` é quanto ele devolve). No mapa, o quadradinho verde é cura e o azul é energia. Ao encostar, o `CollisionHandler(JOGADOR, ITEM)` em `Main.initPhysics()` cria o `ModuloCura` ou `ModuloEnergia` e coloca no inventário. As teclas 1 e 2 chamam `usarItem(id)`, que só funciona com `Consumivel`: chama `efeito()` e tira um do inventário. O texto embaixo das barras mostra quantos de cada tem. `Main` guarda quais itens já foram pegos (`itensColetados`), pra eles não reaparecerem quando o jogador volta pra uma sala; essa lista zera em "Reiniciar" e "Menu Principal".
+
+## Armas, interfaces de combate e polimorfismo
+
+As armas seguem a mesma hierarquia da versão barebones:
+
+```
+Arma (abstrata, implementa Inventariavel)
+├── Espada
+└── ArmaDeFogo
+    ├── Shotgun
+    ├── PistolaDuplaDePlasma
+    └── RifleSniper (implementa Perfurante)
+```
+
+Antes existia uma classe `Arma` só, com um enum `TipoArma` (`MELEE`, `DISTANCIA`, `MAGIA`), e o `ComponenteArma` decidia o ataque num `switch`. Agora quem decide é a própria arma: `Arma.atacar(portador, direcaoX)` é `final` (a regra do cooldown é igual pra todas) e chama `executarAtaque()`, que é abstrato e cada subclasse escreve do seu jeito. O `ComponenteArma` só chama `armaEquipada.atacar(...)`, sem saber que arma é. Uma arma nova é uma classe nova, sem mexer no `ComponenteArma`.
+
+- `Espada`: cria a hitbox `"ataque_jogador"` na frente do jogador (o antigo `case MELEE`). Corte de 20.
+- `ArmaDeFogo`: um projétil reto (`"disparo_jogador"`, movido pelo `ComponenteDisparoJogador`) que some quando percorre o alcance da arma. Ela tem métodos-gancho que as filhas podem sobrescrever: quantos alvos o projétil acerta, velocidade, tamanho e cor.
+- `Shotgun`: sobrescreve `executarAtaque()` e chama `super.executarAtaque()` pro balim do meio; os outros saem em leque, 9 graus acima e abaixo. 5 balins de 8, alcance curto (220).
+- `PistolaDuplaDePlasma`: sobrescreve `executarAtaque()` chamando `super.executarAtaque()` duas vezes, a segunda 0,12 segundo depois (timer `runOnce` do FXGL). 2 tiros de 9, magenta.
+- `RifleSniper`: implementa `Perfurante` e sobrescreve só o gancho de quantos alvos o tiro acerta, devolvendo `getAlvosAtravessados()`. O projétil guarda quais inimigos já acertou e só some depois de 3. Tiro de 30, rápido e de longo alcance.
+
+Cada arma também diz como é desenhada na mão do jogador (`criarVisual()`) e descreve o próprio ataque (`getDescricaoCombate()`), mostrado no HUD.
+
+**Coleção polimórfica:** as quatro armas ficam no inventário, e o `ComponenteArma.getArsenal()` devolve todas numa `List<Arma>`, apesar de cada uma ser de uma classe diferente. A tecla Q passa pra próxima arma da lista, e a tecla Z faz sempre a mesma chamada (`atacar`), que dá um resultado diferente pra cada arma. Ao começar o jogo, o `Main` percorre essa lista e imprime no console a `getDescricaoCombate()` de cada arma: mesma chamada, resposta diferente pra cada classe, o equivalente ao `foreach` de `atacar()` da atividade de RPG. A lista vem de `Inventario.listarDoTipo(Arma.class)`, um método genérico (`<T> List<T> listarDoTipo(Class<T> tipo)`) que já devolve a lista no tipo pedido, sem cast.
+
+**Uso de `super`:** além do `super(...)` nos construtores, o projeto chama a versão da classe mãe dentro de métodos sobrescritos em quatro lugares: `ComponenteInimigoVoador.iniciarAtaque()`, `ComponenteInimigo.tomarDano()`, `Shotgun.executarAtaque()` e `PistolaDuplaDePlasma.executarAtaque()` (este último também dentro de uma lambda). Nos quatro casos a subclasse reaproveita o comportamento da mãe e acrescenta o dela, como o `parent::atacar()` do Paladino na atividade de RPG.
 
 ## Movimento e dash
 
@@ -96,24 +170,24 @@ O contato de dano entre jogador e inimigos usa uma combinação de duas fixtures
 
 ## Interface e menus
 
-A UI é construída em `Main.initUI()`. A barra de vida do jogador fica amarrada diretamente à propriedade de vida do `PlayerComponent`, atualizando sozinha sempre que a vida muda. Existem overlays separados para o menu principal, a tela de pausa e a tela de game over, cada um com seus próprios botões e, no caso do menu principal, alguma animação decorativa no título.
+A UI é construída em `Main.initUI()`. A barra de vida do jogador fica amarrada diretamente à propriedade de vida do `ComponenteJogador`, atualizando sozinha sempre que a vida muda. Existem overlays separados para o menu principal, a tela de pausa e a tela de game over, cada um com seus próprios botões e, no caso do menu principal, alguma animação decorativa no título.
 
 ## Pausa, Game Over e o "período de graça" ao despausar
 
 O jogo tem três telas que pausam o motor do FXGL (`getGameController().pauseEngine()`): o menu principal (no início), o menu de pausa (ESC) e a tela de Game Over. Os botões "Reiniciar" (Game Over) e "Menu Principal" (Game Over e pausa) usam `startNewGame()` por baixo dos panos pra reconstruir o nível do zero, sempre voltando pro início do mapa (não existe sistema de checkpoint ainda). A diferença entre os dois é só se o menu principal aparece de novo depois ou não: "Reiniciar" volta direto pra dentro do jogo, "Menu Principal" mostra o menu de novo antes.
 
-Sempre que o motor é despausado, em vez de chamar `getGameController().resumeEngine()` direto, o código passa por um método próprio, `despausarMotor()`. O motivo: quando o jogador fica parado numa tela pausada por um tempo (alguns segundos ou mais), o FXGL tenta recuperar esse tempo processando vários ticks em sequência bem rápida assim que o motor despausa, e isso fazia tudo que depende do tempo entre frames (câmera, o "flutuar" dos inimigos voadores, os timers do dash) avançar rápido demais por um instante, dando a impressão de que o jogo acelerou por alguns segundos antes de se estabilizar. `despausarMotor()` marca um "período de graça" bem curto (0.4 segundo de tempo real) logo depois de despausar, e o `onUpdate` do `Main`, do `PlayerComponent` e do `EnemyComponent` (e subclasses) ignoram esse instante inicial, deixando o FXGL recuperar esse atraso sem que nada visível reaja a isso.
+Sempre que o motor é despausado, em vez de chamar `getGameController().resumeEngine()` direto, o código passa por um método próprio, `despausarMotor()`. O motivo: quando o jogador fica parado numa tela pausada por um tempo (alguns segundos ou mais), o FXGL tenta recuperar esse tempo processando vários ticks em sequência bem rápida assim que o motor despausa, e isso fazia tudo que depende do tempo entre frames (câmera, o "flutuar" dos inimigos voadores, os timers do dash) avançar rápido demais por um instante, dando a impressão de que o jogo acelerou por alguns segundos antes de se estabilizar. `despausarMotor()` marca um "período de graça" bem curto (0.4 segundo de tempo real) logo depois de despausar, e o `onUpdate` do `Main`, do `ComponenteJogador` e do `ComponenteInimigo` (e subclasses) ignoram esse instante inicial, deixando o FXGL recuperar esse atraso sem que nada visível reaja a isso.
 
-Existia um bug maior, relacionado mas separado: "Reiniciar" e "Menu Principal" acabavam sempre voltando pro menu principal, mesmo o "Reiniciar" nunca devendo mostrar o menu. A causa era uma suposição errada de que `initUI()` só roda uma vez, no começo do app. Na prática, o FXGL chama `initGame()` + `initPhysics()` + `initUI()` de novo toda vez que `getGameController().startNewGame()` é chamado, ou seja, em todo "Reiniciar" e todo "Menu Principal" também. Como `initUI()` reconstruía o `mainMenuOverlay` do zero e ele fica visível por padrão (diferente do overlay de Game Over e do de pausa, que são escondidos explicitamente na hora de criar), esse menu recém-criado reaparecia por cima de qualquer coisa, e o motor era pausado de novo, independente de qual botão o jogador tivesse apertado.
+Existia um bug maior, relacionado mas separado: "Reiniciar" e "Menu Principal" acabavam sempre voltando pro menu principal, mesmo o "Reiniciar" nunca devendo mostrar o menu. A causa era uma suposição errada de que `initUI()` só roda uma vez, no começo do app. Na prática, o FXGL chama `initGame()` + `initPhysics()` + `initUI()` de novo toda vez que `getGameController().startNewGame()` é chamado, ou seja, em todo "Reiniciar" e todo "Menu Principal" também. Como `initUI()` reconstruía o `overlayMenuPrincipal` do zero e ele fica visível por padrão (diferente do overlay de Game Over e do de pausa, que são escondidos explicitamente na hora de criar), esse menu recém-criado reaparecia por cima de qualquer coisa, e o motor era pausado de novo, independente de qual botão o jogador tivesse apertado.
 
-A primeira correção guardava só "já passamos do primeiro launch" numa flag, e deixava `restartLevel()`/`quitToMainMenu()` mexerem no `mainMenuOverlay` e chamarem `pauseEngine()` depois de chamar `startNewGame()`. Isso resolveu o "Reiniciar", mas o "Menu"/"Menu Principal" continuou com um bug parecido: o nível reiniciava (dava pra ver o jogo voltando pro início), mas o menu principal nunca aparecia, e o jogo travava sem responder mais a input. A causa provável: não tem confirmação, na fonte do FXGL, de que `startNewGame()` termina o reset do mundo de forma síncrona antes de devolver o controle pro código que chamou. Se não for síncrono, o `pauseEngine()` chamado logo em seguida em `quitToMainMenu()` podia pausar o motor antes do reset de verdade acontecer, ou mexer num `mainMenuOverlay` que já tinha virado obsoleto.
+A primeira correção guardava só "já passamos do primeiro launch" numa flag, e deixava `reiniciarNivel()`/`voltarAoMenuPrincipal()` mexerem no `overlayMenuPrincipal` e chamarem `pauseEngine()` depois de chamar `startNewGame()`. Isso resolveu o "Reiniciar", mas o "Menu"/"Menu Principal" continuou com um bug parecido: o nível reiniciava (dava pra ver o jogo voltando pro início), mas o menu principal nunca aparecia, e o jogo travava sem responder mais a input. A causa provável: não tem confirmação, na fonte do FXGL, de que `startNewGame()` termina o reset do mundo de forma síncrona antes de devolver o controle pro código que chamou. Se não for síncrono, o `pauseEngine()` chamado logo em seguida em `voltarAoMenuPrincipal()` podia pausar o motor antes do reset de verdade acontecer, ou mexer num `overlayMenuPrincipal` que já tinha virado obsoleto.
 
-A correção definitiva move essa decisão pra dentro do próprio `initUI()`: por padrão, toda vez que `initUI()` roda, ele mostra o menu principal e pausa o motor sozinho (certo tanto pro launch do app quanto pro "Menu"/"Menu Principal", que só chamam `startNewGame()` sem mexer em mais nada). Existe uma flag, `pularMenuAoIniciar`, que só o `restartLevel()` liga (antes de chamar `startNewGame()`), avisando "dessa vez não, quero cair direto no jogo"; o próprio `initUI()` desliga a flag de novo depois de consumir. Assim o "mostra o menu e pausa" sempre roda exatamente no momento em que o mundo novo é de fato montado, não importa quando isso aconteça.
+A correção definitiva move essa decisão pra dentro do próprio `initUI()`: por padrão, toda vez que `initUI()` roda, ele mostra o menu principal e pausa o motor sozinho (certo tanto pro launch do app quanto pro "Menu"/"Menu Principal", que só chamam `startNewGame()` sem mexer em mais nada). Existe uma flag, `pularMenuAoIniciar`, que só o `reiniciarNivel()` liga (antes de chamar `startNewGame()`), avisando "dessa vez não, quero cair direto no jogo"; o próprio `initUI()` desliga a flag de novo depois de consumir. Assim o "mostra o menu e pausa" sempre roda exatamente no momento em que o mundo novo é de fato montado, não importa quando isso aconteça.
 
-De quebra, o ESC (`initInput()`) ganhou um terceiro guard: além de não abrir a pausa se o player estiver morto/inativo ou o Game Over estiver na tela, agora também não abre se `mainMenuOverlay` estiver visível — sem isso, como o player novo já nasce ativo assim que o "Menu"/"Menu Principal" termina, apertar ESC bem nesse instante abria a tela de pausa por cima do próprio menu principal.
+De quebra, o ESC (`initInput()`) ganhou um terceiro guard: além de não abrir a pausa se o player estiver morto/inativo ou o Game Over estiver na tela, agora também não abre se `overlayMenuPrincipal` estiver visível — sem isso, como o player novo já nasce ativo assim que o "Menu"/"Menu Principal" termina, apertar ESC bem nesse instante abria a tela de pausa por cima do próprio menu principal.
 
 ## Observações sobre o estado atual do projeto
 
-Existe um componente `AnimatedComponent`, em `componentes/visual`, pensado pra trocar a textura do personagem conforme o estado dele (parado, andando, pulando, tomando dano), mas a troca de textura em si ainda não foi implementada, é um ponto em aberto pra quando existirem os spritesheets necessários.
+Existe um componente `ComponenteAnimado`, em `componentes/visual`, pensado pra trocar a textura do personagem conforme o estado dele (parado, andando, pulando, tomando dano), mas a troca de textura em si ainda não foi implementada, é um ponto em aberto pra quando existirem os spritesheets necessários.
 
 Este README é atualizado conforme o projeto muda. Qualquer alteração de código que mude comportamento, adicione sistema novo ou torne alguma explicação aqui desatualizada deve vir acompanhada da atualização correspondente neste arquivo.

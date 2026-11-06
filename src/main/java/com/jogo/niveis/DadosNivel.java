@@ -30,6 +30,10 @@ public class DadosNivel {
     public List<DadosPlataforma> plataformas;
     @SerializedName("enemies")
     public List<DadosInimigo> inimigos;
+    //Módulos de cura/energia da sala. Opcional: sala sem "items" no
+    //JSON fica com null aqui (ver Main.spawnItensDaSala()).
+    @SerializedName("items")
+    public List<DadosItem> itens;
 
     //Nome do tema de background animado dessa sala (uma pasta em
     //assets/textures/<nome>/ com os frames_NNN.png, ver

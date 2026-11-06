@@ -6,7 +6,18 @@ import com.almasb.fxgl.input.KeyTrigger;
 import com.almasb.fxgl.input.TriggerListener;
 import com.almasb.fxgl.physics.PhysicsComponent;
 import com.jogo.Main;
+import com.jogo.habilidades.Apara;
+import com.jogo.habilidades.BolaDeFogo;
+import com.jogo.habilidades.GolpeDeEnergia;
+import com.jogo.inventario.Consumivel;
+import com.jogo.inventario.Inventariavel;
+import com.jogo.inventario.Inventario;
+import javafx.beans.property.IntegerProperty;
+import javafx.beans.property.ReadOnlyIntegerProperty;
+import javafx.beans.property.SimpleIntegerProperty;
 import javafx.scene.input.KeyCode;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 
 import static com.almasb.fxgl.dsl.FXGL.getInput;
 
@@ -18,10 +29,14 @@ import static com.almasb.fxgl.dsl.FXGL.getInput;
  * depois de tomar dano, o sistema de XP/nível (metroidvania, sem
  * score), o movimento (via física de verdade) e o empurrão (recoil)
  * de contato com inimigos.
+ *
+ * Trazido do barebones: energia (a "mana" das habilidades), inventário
+ * com consumíveis, e as habilidades GolpeDeEnergia (tecla X) e Apara
+ * (tecla C), cada uma com o próprio cooldown (ver pacote habilidades).
  */
 
 
-public class ComponenteJogador extends ComponentePersonagem {
+public class ComponenteJogador extends ComponentePersonagem implements Atacante {
 
     //Atributos de invencibilidade
     protected double duracaoInvencibilidade = 1.0; //segundos de invencibilidade após tomar dano
@@ -87,6 +102,32 @@ public class ComponenteJogador extends ComponentePersonagem {
     //piscar durante os frames de invencibilidade.
     private ViewComponent visao;
 
+    //ENERGIA (trazida do barebones). Propriedade observável igual a
+    //vida, pra barra de energia do HUD se atualizar sozinha (ver
+    //Main.initUI()).
+    protected int energiaMaxima;
+    protected IntegerProperty energiaAtual = new SimpleIntegerProperty();
+
+    //Recarga lenta da energia, pontos por segundo. Não existe no
+    //barebones; sem ela o golpe acabava depois de 3 usos e só voltava
+    //com Módulo de Energia. Pra desligar, é só pôr 0.
+    private static final double RECARGA_ENERGIA_POR_SEGUNDO = 2.0;
+    private double acumuladorRecarga = 0; //guarda a fração até virar 1 ponto
+
+    //INVENTÁRIO (trazido do barebones): cada jogador tem o seu.
+    private final Inventario inventario = new Inventario();
+
+    //HABILIDADES (trazidas do barebones, mesmos números do Jogo.java
+    //de lá). Variável do tipo da mãe (GolpeDeEnergia) guardando uma
+    //filha (BolaDeFogo): polimorfismo.
+    private final GolpeDeEnergia golpe = new BolaDeFogo(true, 2.0, 15, 0.0, 20);
+    private final Apara apara = new Apara(true, 1.5, 5, 0.3);
+
+    //Janela da Apara: enquanto > 0, serAtingido() ignora dano e
+    //empurrão. O escudo é só o contorno visual dessa janela.
+    private double timerApara = 0;
+    private Rectangle escudo;
+
     //Pra qual lado o jogador está olhando, atualizado em
     //moverEsquerda()/moverDireita(). Só usado pra saber se o jogador pode se
     //mexer (estaAtordoado()), o empurrão agora usa a posição de quem
@@ -135,14 +176,25 @@ public class ComponenteJogador extends ComponentePersonagem {
     //for Shift — dash() no toque (onKeyBegin dispara uma vez só, sem
     //precisar controlar "borda de subida" na mão) e desliga o boost
     //ao soltar (onKeyEnd).
-    public ComponenteJogador(String nome, int vidaMaxima, double velocidade) {
+    public ComponenteJogador(String nome, int vidaMaxima, double velocidade, int energiaMaxima) {
         super(nome, vidaMaxima, velocidade);
+        this.energiaMaxima = energiaMaxima;
+        this.energiaAtual.set(energiaMaxima); //começa com energia cheia
     }
 
     @Override
     public void onAdded() {
         fisica = entity.getComponent(PhysicsComponent.class);
         visao = entity.getComponent(ViewComponent.class);
+
+        //Contorno ciano em volta do jogador, só aparece durante a Apara.
+        escudo = new Rectangle(entity.getWidth() + 8, entity.getHeight() + 8, Color.TRANSPARENT);
+        escudo.setStroke(Color.CYAN);
+        escudo.setStrokeWidth(3);
+        escudo.setTranslateX(-4);
+        escudo.setTranslateY(-4);
+        escudo.setVisible(false);
+        visao.addChild(escudo);
 
         getInput().addTriggerListener(new TriggerListener() {
             @Override
@@ -169,6 +221,19 @@ public class ComponenteJogador extends ComponentePersonagem {
         }
 
         if (timerCooldownDash > 0) timerCooldownDash -= tpf;
+
+        //Cooldown das habilidades: cada uma conta o próprio tempo.
+        golpe.atualizar(tpf);
+        apara.atualizar(tpf);
+
+        if (timerApara > 0) {
+            timerApara -= tpf;
+            if (timerApara <= 0) {
+                escudo.setVisible(false);
+            }
+        }
+
+        recarregarEnergia(tpf);
 
         //Conta a janela do dash. Ao terminar, corta a velocidade na
         //hora — sem desaceleração suave. Pesquisei o comportamento
@@ -252,6 +317,12 @@ public class ComponenteJogador extends ComponentePersonagem {
     //empurrão acontece sempre, dano e piscada só se não estiver
     //invencível ainda.
     public void serAtingido(Entity origem, int dano) {
+        //Apara ativa: o golpe é bloqueado por inteiro (sem dano e sem
+        //empurrão).
+        if (estaAparando()) {
+            return;
+        }
+
         empurrar(origem);
 
         if (!estaInvencivel()) {
@@ -423,6 +494,121 @@ public class ComponenteJogador extends ComponentePersonagem {
         return xpProximoNivel;
     }
 
+    //ENERGIA (mesmas regras do Jogador do barebones)
+
+    //Substitui um setEnergiaAtual: o jogador garante que a energia não
+    //passa da máxima. Quem recupera (ex: ModuloEnergia) só diz quanto.
+    public void recuperarEnergia(int quantidade) {
+        if (quantidade <= 0) {
+            return;
+        }
+        energiaAtual.set(Math.min(energiaMaxima, energiaAtual.get() + quantidade));
+    }
+
+    public boolean energiaSuficiente(int custoEnergia) {
+        return energiaAtual.get() >= custoEnergia;
+    }
+
+    public void consumirEnergia(int custoEnergia) {
+        energiaAtual.set(Math.max(0, energiaAtual.get() - custoEnergia));
+    }
+
+    private void recarregarEnergia(double tpf) {
+        if (energiaAtual.get() >= energiaMaxima) {
+            acumuladorRecarga = 0;
+            return;
+        }
+        acumuladorRecarga += RECARGA_ENERGIA_POR_SEGUNDO * tpf;
+        if (acumuladorRecarga >= 1) {
+            int pontos = (int) acumuladorRecarga;
+            acumuladorRecarga -= pontos;
+            recuperarEnergia(pontos);
+        }
+    }
+
+    public ReadOnlyIntegerProperty energiaAtualProperty() {
+        return energiaAtual;
+    }
+
+    public int getEnergiaAtual() {
+        return energiaAtual.get();
+    }
+
+    public int getEnergiaMaxima() {
+        return energiaMaxima;
+    }
+
+    //ATAQUE (interface Atacante, igual ao Jogador do barebones)
+
+    //Tecla Z (ver Main.initInput()). O jogador não escolhe alvo: ataca
+    //pra onde está olhando com a arma equipada, e quem sabe COMO atacar
+    //é a própria arma (ver ComponenteArma e pacote itens).
+    @Override
+    public void iniciarAtaque() {
+        entity.getComponent(ComponenteArma.class).atacar();
+    }
+
+    //HABILIDADES
+
+    //Tecla X (ver Main.initInput()). Quem confere cooldown e energia é
+    //o usar() da Habilidade; aqui só barra o hit-stun.
+    public boolean usarGolpeDeEnergia() {
+        if (estaAtordoado()) {
+            return false;
+        }
+        return golpe.usar(this);
+    }
+
+    //Tecla C (ver Main.initInput()).
+    public boolean usarApara() {
+        if (estaAtordoado()) {
+            return false;
+        }
+        return apara.usar(this);
+    }
+
+    //Chamado pelo executar() da Apara.
+    public void iniciarApara(double duracao) {
+        timerApara = duracao;
+        escudo.setVisible(true);
+    }
+
+    public boolean estaAparando() {
+        return timerApara > 0;
+    }
+
+    public GolpeDeEnergia getGolpe() {
+        return golpe;
+    }
+
+    public Apara getApara() {
+        return apara;
+    }
+
+    //INVENTÁRIO
+
+    //Chamado quando o jogador encosta num item do mapa (ver
+    //Main.initPhysics()).
+    public boolean coletarItem(Inventariavel item) {
+        return inventario.adicionar(item);
+    }
+
+    //Usa um item pelo id (teclas 1 e 2, ver Main.initInput()). Só
+    //consumível tem efeito; depois de usar, sai do inventário.
+    public boolean usarItem(String id) {
+        Inventariavel item = inventario.buscar(id);
+        if (!(item instanceof Consumivel consumivel)) {
+            return false;
+        }
+        consumivel.efeito(this);
+        inventario.remover(id);
+        return true;
+    }
+
+    public Inventario getInventario() {
+        return inventario;
+    }
+
     @Override
     public String toString() {
         return "Jogador{" +
@@ -430,6 +616,7 @@ public class ComponenteJogador extends ComponentePersonagem {
                 "vida=" + vidaAtual.get() + "/" + vidaMaxima +
                 ", nivel=" + nivel +
                 ", xp=" + xp + "/" + xpProximoNivel +
+                ", energia=" + energiaAtual.get() + "/" + energiaMaxima +
                 '}';
     }
 }

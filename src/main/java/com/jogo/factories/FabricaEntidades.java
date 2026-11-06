@@ -19,6 +19,7 @@ import com.jogo.componentes.ComponenteJogador;
 import com.jogo.componentes.ComponenteInimigoDistancia;
 import com.jogo.componentes.ComponenteInimigoMelee;
 import com.jogo.componentes.ComponenteArma;
+import com.jogo.componentes.ComponenteDisparoJogador;
 import com.jogo.componentes.visual.ComponenteProjetil;
 import com.jogo.entidades.TipoEntidade;
 import javafx.geometry.Point2D;
@@ -86,6 +87,7 @@ public class FabricaEntidades implements EntityFactory {
         String nome = data.get("nome");
         int vidaMaxima = data.get("vidaMaxima");
         double velocidade = data.get("velocidade");
+        int energiaMaxima = data.get("energiaMaxima");
 
         //Corpo dinâmico, sofre gravidade e colide com as plataformas
         //(corpos estáticos). fixedRotation impede o jogador de tombar
@@ -124,7 +126,7 @@ public class FabricaEntidades implements EntityFactory {
                 .viewWithBBox("player.png")
                 .collidable()
                 .with(fisica)
-                .with(new ComponenteJogador(nome, vidaMaxima, velocidade))
+                .with(new ComponenteJogador(nome, vidaMaxima, velocidade, energiaMaxima))
                 .with(new ComponenteArma())
                 .build();
     }
@@ -132,10 +134,10 @@ public class FabricaEntidades implements EntityFactory {
     @Spawns("ataque_jogador")
     public Entity spawnAtaqueJogador(SpawnData data) {
         int dano = data.get("dano");
-        double tamanho = data.get("tamanho"); // vem de Arma.getAlcance(), ver ComponenteArma
+        double tamanho = data.get("tamanho"); // vem de Arma.getAlcance(), ver Espada
 
         // jogador/deslocamentoX/deslocamentoY vêm de
-        // ComponenteArma.executarAtaqueMelee() e alimentam
+        // Espada.executarAtaque() e alimentam
         // AtaqueJogadorComponent, que gruda essa hitbox no jogador
         // todo frame (ver comentário lá) — sem isso ela nascia numa
         // posição fixa e ficava pra trás se o jogador se mexesse
@@ -343,6 +345,64 @@ public class FabricaEntidades implements EntityFactory {
                 .viewWithBBox("projectile.png")
                 .with(new ComponenteProjetil(origem, alvo, dano, velocidade))
                 .build();
+    }
+
+    //Projétil do jogador: tiro das armas de fogo (ArmaDeFogo e filhas)
+    //e disparo do GolpeDeEnergia. Quem cria escolhe tudo pelo SpawnData
+    //(direção, velocidade, alcance via tempoVida, quantos inimigos
+    //atravessa, tamanho e cor). Sem PhysicsComponent: não cai nem
+    //empurra nada, só anda reto e confere colisão pela bounding box
+    //(ver ComponenteDisparoJogador).
+    @Spawns("disparo_jogador")
+    public Entity spawnDisparoJogador(SpawnData data) {
+        int dano = data.get("dano");
+        double direcaoX = data.get("direcaoX");
+        double direcaoY = data.get("direcaoY");
+        double velocidade = data.get("velocidade");
+        double tempoVida = data.get("tempoVida");
+        int alvosMaximos = data.get("alvosMaximos");
+        double tamanho = data.get("tamanho");
+        Color cor = data.get("cor");
+
+        return entityBuilder(data)
+                .type(TipoEntidade.DISPARO_JOGADOR)
+                .bbox(new HitBox(BoundingShape.box(tamanho, tamanho)))
+                .view(new Rectangle(tamanho, tamanho, cor))
+                .with(new ComponenteDisparoJogador(dano, direcaoX, direcaoY, velocidade, tempoVida, alvosMaximos))
+                .build();
+    }
+
+    //Módulo de cura ou de energia parado no mapa (lista "items" do JSON
+    //da sala, ver Main.spawnItensDaSala()). Igual ao gatilho: sem
+    //física, só bounding box + collidable(), e quem trata o toque é o
+    //CollisionHandler(JOGADOR, ITEM) em Main.initPhysics(). Verde =
+    //cura, azul = energia.
+    @Spawns("item")
+    public Entity spawnItem(SpawnData data) {
+        String tipoItem = data.get("tipoItem"); //"cura" ou "energia"
+        int quantidade = data.get("quantidade");
+        String idColeta = data.get("idColeta");
+
+        double tamanho = 16;
+        Color cor = "energia".equals(tipoItem) ? Color.DEEPSKYBLUE : Color.LIMEGREEN;
+
+        Rectangle visual = new Rectangle(tamanho, tamanho, cor);
+        visual.setStroke(Color.WHITE);
+        visual.setStrokeWidth(2);
+
+        Entity item = entityBuilder(data)
+                .type(TipoEntidade.ITEM)
+                .bbox(new HitBox(BoundingShape.box(tamanho, tamanho)))
+                .view(visual)
+                .collidable()
+                .build();
+
+        //Mesmo truque do gatilho: guarda no Entity pra o
+        //CollisionHandler ler na hora do toque.
+        item.setProperty("tipoItem", tipoItem);
+        item.setProperty("quantidade", quantidade);
+        item.setProperty("idColeta", idColeta);
+        return item;
     }
 
     //Plataforma: corpo estático, não cai nem se move, só existe pra

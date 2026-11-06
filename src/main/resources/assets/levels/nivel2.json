@@ -7,7 +7,8 @@
     "y": 420,
     "name": "Herói",
     "maxHealth": 100,
-    "moveSpeed": 200.0
+    "moveSpeed": 200.0,
+    "maxEnergy": 50
   },
   "platforms": [
     { "x": 0, "y": 680, "width": 3200, "height": 40 },
@@ -62,5 +63,9 @@
       "attackRange": 40.0,
       "detectionRange": 280.0
     }
+  ],
+  "items": [
+    { "type": "energia", "x": 968, "y": 500, "amount": 20 },
+    { "type": "cura", "x": 2168, "y": 480, "amount": 30 }
   ]
 }

@@ -16,7 +16,7 @@ Regra Base:
 
 */
 
-public class ComponentePersonagem extends Component implements Danificavel {
+public class ComponentePersonagem extends Component implements Atacavel {
     // ATRIBUTOS
     //OBS: (Protected -> Private, mas as subclasses tem acesso.)
     protected String nome;
@@ -49,6 +49,16 @@ public class ComponentePersonagem extends Component implements Danificavel {
         if (estaMorto()) {
             entity.removeFromWorld();
         }
+    }
+
+    //Trazido do barebones: a vida só sobe por aqui, e o próprio
+    //personagem garante as regras (não passa da máxima, não revive
+    //morto). Quem cura (ex: ModuloCura) só diz quanto.
+    public void curar(int quantidade) {
+        if (quantidade <= 0 || estaMorto()) {
+            return;
+        }
+        vidaAtual.set(Math.min(vidaMaxima, vidaAtual.get() + quantidade));
     }
 
     // A UI pode observar as mudanças, mas não pode usar o método .set() para trapacear.

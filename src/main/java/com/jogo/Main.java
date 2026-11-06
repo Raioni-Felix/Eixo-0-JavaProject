@@ -12,12 +12,19 @@ import com.jogo.componentes.ComponenteInimigo;
 import com.jogo.componentes.ComponenteArma;
 import com.jogo.componentes.visual.ComponenteAnimacaoFundo;
 import com.jogo.itens.Arma;
-import com.jogo.itens.TipoArma;
+import com.jogo.itens.Espada;
+import com.jogo.itens.PistolaDuplaDePlasma;
+import com.jogo.itens.RifleSniper;
+import com.jogo.itens.Shotgun;
 import com.almasb.fxgl.texture.Texture;
 import com.jogo.entidades.TipoEntidade;
 import com.jogo.factories.FabricaEntidades;
+import com.jogo.inventario.Categoria;
+import com.jogo.inventario.ModuloCura;
+import com.jogo.inventario.ModuloEnergia;
 import com.jogo.niveis.CarregadorDeNiveis;
 import com.jogo.niveis.DadosInimigo;
+import com.jogo.niveis.DadosItem;
 import com.jogo.niveis.DadosNivel;
 import com.jogo.niveis.DadosPlataforma;
 import javafx.animation.FadeTransition;
@@ -56,8 +63,10 @@ import javafx.util.Duration;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.almasb.fxgl.dsl.FXGL.*;
 
@@ -78,6 +87,38 @@ public class Main extends GameApplication {
     private Rectangle preenchimentoBarraVida;
     private static final double LARGURA_BARRA_VIDA = 200;
     private static final double ALTURA_BARRA_VIDA = 20;
+
+    //Barra de energia (HUD), logo abaixo da de vida. Mesmo esquema:
+    //a largura fica amarrada à energiaAtual do jogador (ver initUI()).
+    private Rectangle fundoBarraEnergia;
+    private Rectangle preenchimentoBarraEnergia;
+    private static final double ALTURA_BARRA_ENERGIA = 10;
+
+    //Texto do HUD com a quantidade de módulos no inventário. Não é
+    //propriedade observável, então é atualizado na mão sempre que um
+    //item entra ou sai (ver atualizarTextoInventario()).
+    private Text textoInventario;
+
+    //Linha do HUD com a arma equipada e o nível/XP. Atualizada a cada
+    //frame no onUpdate() (o XP muda dentro do ComponenteInimigo quando
+    //um inimigo morre, e o Main não fica sabendo na hora).
+    private Text textoStatus;
+
+    //Energia máxima usada quando o JSON da sala não traz "maxEnergy"
+    //(mesmo valor do teste do barebones).
+    private static final int ENERGIA_MAXIMA_PADRAO = 50;
+
+    //Ids dos módulos no inventário. Os dois são CONSUMIVEL (empilhável),
+    //então o Inventario junta todos do mesmo tipo num id só e conta a
+    //quantidade.
+    private static final String ID_MODULO_CURA = "modulo_cura";
+    private static final String ID_MODULO_ENERGIA = "modulo_energia";
+
+    //Itens do mapa que o jogador já pegou ("sala<i>-item<j>"). Sem
+    //isso, voltar pra uma sala recriava os módulos e dava pra pegar
+    //de novo infinitamente (trocarSala() remonta tudo pelo JSON).
+    //Zera em initGame() (Reiniciar/Menu Principal).
+    private final Set<String> itensColetados = new HashSet<>();
 
     //Antes eram constantes fixas (3000x720). Agora vêm do mapa
     //montado em initGame() (ver CarregadorDeNiveis), então mexer no
@@ -229,6 +270,29 @@ public class Main extends GameApplication {
                 iniciarTransicaoDeSala(indiceDestino, ladoEntrada);
             }
         });
+
+        //Módulo de cura/energia no chão (ver FabricaEntidades.spawnItem()):
+        //ao encostar, vira objeto do inventário e some do mapa.
+        getPhysicsWorld().addCollisionHandler(new CollisionHandler(TipoEntidade.JOGADOR, TipoEntidade.ITEM) {
+            @Override
+            protected void onCollisionBegin(Entity jogadorEntity, Entity itemEntity) {
+                String tipoItem = itemEntity.getString("tipoItem");
+                int quantidade = itemEntity.getInt("quantidade");
+
+                ComponenteJogador componente = jogadorEntity.getComponent(ComponenteJogador.class);
+                if ("energia".equals(tipoItem)) {
+                    componente.coletarItem(new ModuloEnergia(ID_MODULO_ENERGIA, "Módulo de Energia",
+                            "Recupera " + quantidade + " de energia", Categoria.CONSUMIVEL, quantidade));
+                } else {
+                    componente.coletarItem(new ModuloCura(ID_MODULO_CURA, "Módulo de Cura",
+                            "Recupera " + quantidade + " de vida", Categoria.CONSUMIVEL, quantidade));
+                }
+
+                itensColetados.add(itemEntity.getString("idColeta"));
+                itemEntity.removeFromWorld();
+                atualizarTextoInventario();
+            }
+        });
     }
 
     //Carrega um quadro do background de um tema (pasta em
@@ -316,13 +380,35 @@ public class Main extends GameApplication {
         jogador = spawn("jogador", new SpawnData(sala.jogador.x, sala.jogador.y)
                 .put("nome", sala.jogador.nome)
                 .put("vidaMaxima", sala.jogador.vidaMaxima)
-                .put("velocidade", sala.jogador.velocidade));
+                .put("velocidade", sala.jogador.velocidade)
+                .put("energiaMaxima", sala.jogador.energiaMaxima > 0
+                        ? sala.jogador.energiaMaxima
+                        : ENERGIA_MAXIMA_PADRAO));
 
-        //Arma inicial do jogador. Trocar/adicionar armas depois (loot,
-        //upgrades) é só chamar equiparArma() de novo em qualquer outro
-        //ponto do código.
-        jogador.getComponent(ComponenteArma.class).equiparArma(
-                new Arma("Espada", 20, 0.5, 40, TipoArma.MELEE));
+        //Arsenal inicial. Igual ao barebones: cada arma primeiro entra
+        //no inventário e só depois é equipada pelo id. Todas ficam numa
+        //lista do tipo Arma, mesmo sendo de classes diferentes. Uma arma
+        //nova (loot, upgrade) segue o mesmo caminho: coletarItem() +
+        //equiparArma(id).
+        List<Arma> armasIniciais = List.of(
+                new Espada("espada", "Espada", "Arma inicial do jogador", 20, 0.5, 40),
+                new Shotgun("shotgun", "Shotgun", "Balins em leque, forte de perto", 8, 5, 0.9, 220),
+                new PistolaDuplaDePlasma("pistola", "Pistola Dupla de Plasma", "Dois tiros por ataque", 9, 0.45, 450),
+                new RifleSniper("rifle", "Rifle Sniper", "Tiro que atravessa inimigos", 30, 1.4, 900, 3));
+
+        ComponenteJogador componenteJogador = jogador.getComponent(ComponenteJogador.class);
+        for (Arma arma : armasIniciais) {
+            componenteJogador.coletarItem(arma);
+        }
+        ComponenteArma componenteArma = jogador.getComponent(ComponenteArma.class);
+        componenteArma.equiparArma(armasIniciais.get(0).getId());
+
+        //Mesma chamada pra todas, resposta diferente pra cada classe:
+        //polimorfismo (igual ao foreach de atacar() da atividade de RPG).
+        System.out.println("Arsenal:");
+        for (Arma arma : componenteArma.getArsenal()) {
+            System.out.println("  " + arma.getNome() + ": " + arma.getDescricaoCombate());
+        }
 
         //Câmera: centraliza no jogador já de cara (sem suavização
         //inicial), o acompanhamento suave de verdade é o
@@ -335,6 +421,11 @@ public class Main extends GameApplication {
         viewport.setY(limitarCameraY(jogador.getY() + jogador.getHeight() / 2 - getAppHeight() / 2.0));
 
         spawnInimigosDaSala(sala);
+
+        //Jogo novo: nenhum item pego ainda. Limpa antes de spawnar,
+        //senão os itens da sala 1 já nasceriam "coletados".
+        itensColetados.clear();
+        spawnItensDaSala(sala, salaAtualIndex);
 
         //Reseta o estado da tela de Game Over, importante pro
         //"Reiniciar" funcionar: initGame() roda de novo nesse botão
@@ -465,6 +556,28 @@ public class Main extends GameApplication {
         }
     }
 
+    //Módulos de cura/energia da sala (lista "items" do JSON). Pula os
+    //que o jogador já pegou (ver itensColetados). O id de coleta é a
+    //posição do item na lista, então reordenar os itens de um JSON
+    //muda quais contam como "já pegos" — não tem problema enquanto o
+    //jogo não salvar progresso.
+    private void spawnItensDaSala(DadosNivel sala, int indiceSala) {
+        if (sala.itens == null) {
+            return; //sala sem "items" no JSON
+        }
+        for (int i = 0; i < sala.itens.size(); i++) {
+            String idColeta = "sala" + indiceSala + "-item" + i;
+            if (itensColetados.contains(idColeta)) {
+                continue;
+            }
+            DadosItem dadosItem = sala.itens.get(i);
+            spawn("item", new SpawnData(dadosItem.x, dadosItem.y)
+                    .put("tipoItem", dadosItem.tipo)
+                    .put("quantidade", dadosItem.quantidade)
+                    .put("idColeta", idColeta));
+        }
+    }
+
     //Chamado pelo CollisionHandler do gatilho (ver initPhysics())
     //quando o jogador encosta na zona de passagem. Cobre a troca com
     //um fade curto pra preto (overlayFade, criado em initUI()): a
@@ -527,6 +640,7 @@ public class Main extends GameApplication {
         viewport.setY(limitarCameraY(y - getAppHeight() / 2.0));
 
         spawnInimigosDaSala(sala);
+        spawnItensDaSala(sala, salaAtualIndex);
     }
 
     @Override
@@ -630,9 +744,68 @@ public class Main extends GameApplication {
         getInput().addAction(new UserAction("Atacar") {
             @Override
             protected void onActionBegin() {
-                if (jogador.isActive()) jogador.getComponent(ComponenteArma.class).atacar();
+                if (jogador.isActive()) jogador.getComponent(ComponenteJogador.class).iniciarAtaque();
             }
         }, KeyCode.Z);
+
+        //Troca pra próxima arma do arsenal (ver ComponenteArma.trocarArma()).
+        getInput().addAction(new UserAction("Trocar Arma") {
+            @Override
+            protected void onActionBegin() {
+                if (jogador.isActive()) jogador.getComponent(ComponenteArma.class).trocarArma();
+            }
+        }, KeyCode.Q);
+
+        //Habilidades trazidas do barebones (ver pacote habilidades).
+        //Cooldown e gasto de energia ficam no usar() da Habilidade.
+        getInput().addAction(new UserAction("Golpe de Energia") {
+            @Override
+            protected void onActionBegin() {
+                if (jogador.isActive()) jogador.getComponent(ComponenteJogador.class).usarGolpeDeEnergia();
+            }
+        }, KeyCode.X);
+
+        getInput().addAction(new UserAction("Apara") {
+            @Override
+            protected void onActionBegin() {
+                if (jogador.isActive()) jogador.getComponent(ComponenteJogador.class).usarApara();
+            }
+        }, KeyCode.C);
+
+        //Consumíveis do inventário: 1 = Módulo de Cura, 2 = Módulo de Energia.
+        getInput().addAction(new UserAction("Usar Módulo de Cura") {
+            @Override
+            protected void onActionBegin() {
+                if (jogador.isActive() && jogador.getComponent(ComponenteJogador.class).usarItem(ID_MODULO_CURA)) {
+                    atualizarTextoInventario();
+                }
+            }
+        }, KeyCode.DIGIT1);
+
+        getInput().addAction(new UserAction("Usar Módulo de Energia") {
+            @Override
+            protected void onActionBegin() {
+                if (jogador.isActive() && jogador.getComponent(ComponenteJogador.class).usarItem(ID_MODULO_ENERGIA)) {
+                    atualizarTextoInventario();
+                }
+            }
+        }, KeyCode.DIGIT2);
+    }
+
+    //Arma equipada (com o jeito que ela ataca) e nível/XP.
+    private void atualizarTextoStatus() {
+        ComponenteJogador componente = jogador.getComponent(ComponenteJogador.class);
+        Arma arma = jogador.getComponent(ComponenteArma.class).getArmaEquipada();
+        textoStatus.setText("[Q] " + arma.getNome() + " (" + arma.getDescricaoCombate() + ")"
+                + "    Nv " + componente.getNivel()
+                + "  XP " + componente.getXp() + "/" + componente.getXpProximoNivel());
+    }
+
+    //Reescreve o texto do HUD com quantos módulos tem no inventário.
+    private void atualizarTextoInventario() {
+        var inventario = jogador.getComponent(ComponenteJogador.class).getInventario();
+        textoInventario.setText("[1] Cura x" + inventario.quantidadeDe(ID_MODULO_CURA)
+                + "    [2] Energia x" + inventario.quantidadeDe(ID_MODULO_ENERGIA));
     }
 
 
@@ -668,6 +841,42 @@ public class Main extends GameApplication {
 
         getGameScene().addUINode(fundoBarraVida);
         getGameScene().addUINode(preenchimentoBarraVida);
+
+        //Barra de energia, logo abaixo da de vida. Mesmo bind da vida:
+        //a largura acompanha energiaAtual sozinha.
+        double yEnergia = 20 + ALTURA_BARRA_VIDA + 6;
+        fundoBarraEnergia = new Rectangle(LARGURA_BARRA_VIDA, ALTURA_BARRA_ENERGIA, Color.DARKSLATEGRAY);
+        fundoBarraEnergia.setTranslateX(20);
+        fundoBarraEnergia.setTranslateY(yEnergia);
+
+        preenchimentoBarraEnergia = new Rectangle(LARGURA_BARRA_VIDA, ALTURA_BARRA_ENERGIA, Color.DEEPSKYBLUE);
+        preenchimentoBarraEnergia.setTranslateX(20);
+        preenchimentoBarraEnergia.setTranslateY(yEnergia);
+        preenchimentoBarraEnergia.widthProperty().bind(
+            componenteJogador.energiaAtualProperty()
+                .multiply(LARGURA_BARRA_VIDA)
+                .divide(componenteJogador.getEnergiaMaxima())
+        );
+
+        getGameScene().addUINode(fundoBarraEnergia);
+        getGameScene().addUINode(preenchimentoBarraEnergia);
+
+        //Módulos no inventário, embaixo das barras.
+        textoInventario = new Text();
+        textoInventario.setFill(Color.WHITE);
+        textoInventario.setFont(Font.font("Monospaced", FontWeight.BOLD, 14));
+        textoInventario.setTranslateX(20);
+        textoInventario.setTranslateY(yEnergia + ALTURA_BARRA_ENERGIA + 20);
+        getGameScene().addUINode(textoInventario);
+        atualizarTextoInventario();
+
+        textoStatus = new Text();
+        textoStatus.setFill(Color.WHITE);
+        textoStatus.setFont(Font.font("Monospaced", FontWeight.BOLD, 14));
+        textoStatus.setTranslateX(20);
+        textoStatus.setTranslateY(textoInventario.getTranslateY() + 20);
+        getGameScene().addUINode(textoStatus);
+        atualizarTextoStatus();
         // Instancia a tela de Game Over e adiciona à cena
         overlayGameOver = construirOverlayGameOver();
         getGameScene().addUINode(overlayGameOver);
@@ -1226,6 +1435,10 @@ public class Main extends GameApplication {
         }
 
         atualizarCamera(tpf);
+
+        if (jogador.isActive() && textoStatus != null) {
+            atualizarTextoStatus();
+        }
 
         if (!jogador.isActive()) {
             // REMOVIDO: preenchimentoBarraVida.setWidth(0);

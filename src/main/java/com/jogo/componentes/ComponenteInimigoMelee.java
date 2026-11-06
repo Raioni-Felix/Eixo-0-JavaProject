@@ -1,9 +1,8 @@
 package com.jogo.componentes;
 
-import com.almasb.fxgl.entity.Entity;
-
-//Inimigo corpo a corpo, herda de ComponenteInimigo. atacar() só chama
-//aplicarDanoDireto() da mãe, que já basta pra um golpe simples.
+//Inimigo corpo a corpo, herda de ComponenteInimigo. Não sobrescreve o
+//iniciarAtaque(): o ataque padrão da mãe (dano direto) já é um golpe
+//simples, então ele só herda.
 
 public class ComponenteInimigoMelee extends ComponenteInimigo {
 
@@ -15,7 +14,7 @@ public class ComponenteInimigoMelee extends ComponenteInimigo {
     }
 
     @Override
-    public void atacar(Entity alvo) {
-        aplicarDanoDireto(alvo);
+    public int getExperienciaConcedida() {
+        return 20;
     }
 }

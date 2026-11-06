@@ -10,11 +10,18 @@ import com.jogo.Main;
  * Classe base pra todos os inimigos (dano de ataque, alcance,
  * voador/distância/agressivo). Abstrata: nunca instanciada sozinha, só
  * dá base às subclasses (ComponenteInimigoMelee/Voador/Distancia).
- * atacar(Entity) é abstrato de propósito, cada subclasse decide como
- * ataca (dano direto ou projétil).
+ *
+ * Igual ao Inimigo do barebones, implementa Atacante e
+ * ConcedeExperiencia:
+ * - iniciarAtaque() tem um jeito padrão aqui (dano direto no alvo).
+ *   Cada filha escolhe: o Melee só herda, o Voador sobrescreve e chama
+ *   super.iniciarAtaque() antes do comportamento dele, e o Distancia
+ *   sobrescreve por inteiro (atira em vez de bater).
+ * - getExperienciaConcedida() não é escrito aqui: como a classe é
+ *   abstrata, cada filha é obrigada a dizer quanto XP vale.
  */
 
-public abstract class ComponenteInimigo extends ComponentePersonagem {
+public abstract class ComponenteInimigo extends ComponentePersonagem implements Atacante, ConcedeExperiencia {
 
     //Atributos específicos do inimigo
     protected int dano;
@@ -72,9 +79,40 @@ public abstract class ComponenteInimigo extends ComponentePersonagem {
         return dano;
     }
 
-    //Cada subclasse decide como ataca, ver aplicarDanoDireto() pro
-    //caso comum de melee/voador.
-    public abstract void atacar(Entity alvo);
+    //Ataque padrão de qualquer inimigo: dano direto no alvo. Mesma ideia
+    //do iniciarAtaque() do Inimigo do barebones, que é igual pra todos
+    //e só muda a arma.
+    @Override
+    public void iniciarAtaque() {
+        aplicarDanoDireto(alvo);
+    }
+
+    //Sobrescreve o tomarDano() de ComponentePersonagem pra dar o XP ao
+    //jogador quando o inimigo morre. super.tomarDano() continua fazendo
+    //a parte comum (descontar vida e sumir do mundo ao morrer).
+    @Override
+    public void tomarDano(int quant) {
+        if (estaMorto()) {
+            return; //já morreu (ex: dois tiros no mesmo frame): não dá XP duas vezes
+        }
+        super.tomarDano(quant);
+        if (estaMorto()) {
+            concederExperienciaAoAlvo();
+        }
+    }
+
+    //O XP vai pro alvo, que é sempre o jogador (ver
+    //Main.spawnInimigosDaSala()). getExperienciaConcedida() é
+    //polimórfico: cada tipo de inimigo devolve o próprio valor.
+    private void concederExperienciaAoAlvo() {
+        if (alvo == null || !alvo.isActive()) {
+            return;
+        }
+        ComponenteJogador jogador = alvo.getComponent(ComponenteJogador.class);
+        if (jogador != null) {
+            jogador.adicionarXp(getExperienciaConcedida());
+        }
+    }
 
     //Dano direto (acha o ComponentePersonagem do alvo e aplica),
     //reusado por ComponenteInimigoMelee e ComponenteInimigoVoador.
@@ -161,7 +199,7 @@ public abstract class ComponenteInimigo extends ComponentePersonagem {
         boolean fimCooldown = tempoDesdeUltimoAtaque >= cooldownAtaqueSegundos;
 
         if (noAlcance && fimCooldown) {
-            atacar(alvo);
+            iniciarAtaque();
             tempoDesdeUltimoAtaque = 0;
         }
     }

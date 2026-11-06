@@ -1,158 +1,116 @@
 package com.jogo.componentes;
 
-import com.almasb.fxgl.entity.Entity;
-import com.almasb.fxgl.entity.SpawnData;
 import com.almasb.fxgl.entity.component.Component;
-import com.almasb.fxgl.texture.Texture;
-import com.jogo.entidades.TipoEntidade;
+import com.jogo.inventario.Inventariavel;
 import com.jogo.itens.Arma;
+import javafx.scene.Node;
 
-import static com.almasb.fxgl.dsl.FXGL.getGameWorld;
-import static com.almasb.fxgl.dsl.FXGL.spawn;
-import static com.almasb.fxgl.dsl.FXGL.texture;
+import java.util.List;
 
 /**
- * Componente de combate do jogador: guarda a arma equipada e decide
- * COMO o ataque acontece dependendo do TipoArma. Fica separado do
- * ComponenteJogador de propósito — vida/movimento/progressão são
- * preocupações diferentes de "com o que eu ataco".
+ * Componente de combate do jogador: guarda a arma equipada, troca de
+ * arma e manda a arma atacar. Fica separado do ComponenteJogador de
+ * propósito: vida/movimento/progressão são preocupações diferentes de
+ * "com o que eu ataco".
  *
- * O cooldown de verdade mora dentro da própria Arma
- * (Arma.atacar() só retorna true se já passou o cooldown), então
- * esse componente não guarda nenhum timer duplicado.
+ * Antes este componente tinha um switch no TipoArma (MELEE/DISTANCIA)
+ * e montava o ataque aqui dentro. Agora ele não sabe COMO nenhuma arma
+ * ataca: só chama armaEquipada.atacar(), e cada subclasse de Arma faz o
+ * seu (polimorfismo). Arma nova não muda nada aqui.
+ *
+ * O cooldown mora dentro da própria Arma (atacar() só faz algo se já
+ * passou o cooldown), então esse componente não guarda timer.
  *
  * Depende do ComponenteJogador estar na mesma Entity (pra saber
- * olhandoDireita/estaAtordoado), por isso a ordem dos .with() na
- * FabricaEntidades importa: ComponenteJogador primeiro, ComponenteArma
- * depois.
+ * olhandoDireita/estaAtordoado e achar o inventário), por isso a ordem
+ * dos .with() na FabricaEntidades importa: ComponenteJogador primeiro,
+ * ComponenteArma depois.
  */
 public class ComponenteArma extends Component {
 
     private Arma armaEquipada;
     private ComponenteJogador jogador;
 
-    //Sprite da arma equipada, grudado no jogador (filho do
-    //ViewComponent dele). Só existe visualmente — não tem física
-    //nem colisão própria, é o ComponenteAtaqueJogador quem
-    //aplica o dano de verdade.
-    private Texture spriteArma;
+    //Desenho da arma equipada, grudado no jogador (filho do
+    //ViewComponent dele). Só visual: quem aplica dano é o ataque que a
+    //arma cria. Cada arma diz como é desenhada (Arma.criarVisual()).
+    private Node visualArma;
 
     @Override
     public void onAdded() {
         jogador = entity.getComponent(ComponenteJogador.class);
-
-        spriteArma = texture("sword.png");
-        //Encosta a espada na altura do meio do jogador; ajusta esses
-        //números se o sprite de vocês tiver proporção diferente do
-        //placeholder 32x16.
-        spriteArma.setTranslateY(entity.getHeight() / 2 - spriteArma.getHeight() / 2);
-        entity.getViewComponent().addChild(spriteArma);
     }
 
     @Override
     public void onUpdate(double tpf) {
-        if (spriteArma == null) {
+        if (visualArma == null) {
             return;
         }
 
-        //Espelha e reposiciona a espada conforme o jogador vira. scaleX
-        //negativo espelha o sprite (inverte a lâmina), sem precisar
-        //de uma segunda imagem "virada pra esquerda".
+        //Espelha e reposiciona a arma conforme o jogador vira. scaleX
+        //negativo espelha o desenho, sem precisar de uma segunda imagem
+        //"virada pra esquerda".
+        double largura = visualArma.getBoundsInLocal().getWidth();
         boolean olhandoDireita = jogador.estaOlhandoDireita();
-        spriteArma.setTranslateX(olhandoDireita ? entity.getWidth() : -spriteArma.getWidth());
-        spriteArma.setScaleX(olhandoDireita ? 1 : -1);
+        visualArma.setTranslateX(olhandoDireita ? entity.getWidth() : -largura);
+        visualArma.setScaleX(olhandoDireita ? 1 : -1);
     }
 
-    public void equiparArma(Arma arma) {
-        this.armaEquipada = arma;
+    //Igual ao equiparArma(idArma) do Jogador do barebones: só equipa
+    //arma que já está no inventário do jogador. Devolve false se o id
+    //não existir ou não for uma Arma (ex: id de um módulo).
+    public boolean equiparArma(String idArma) {
+        Inventariavel objeto = jogador.getInventario().buscar(idArma);
+        if (objeto instanceof Arma armaEncontrada) {
+            this.armaEquipada = armaEncontrada;
+            trocarVisual();
+            return true;
+        }
+        return false;
     }
 
+    //Todas as armas do inventário, na ordem em que foram pegas. A lista
+    //é do tipo da mãe (Arma), mas guarda objetos de várias filhas
+    //(Espada, Shotgun, PistolaDuplaDePlasma, RifleSniper): é a coleção
+    //polimórfica do projeto.
+    public List<Arma> getArsenal() {
+        return jogador.getInventario().listarDoTipo(Arma.class);
+    }
+
+    //Tecla Q (ver Main.initInput()): equipa a próxima arma do arsenal,
+    //voltando pra primeira depois da última.
+    public void trocarArma() {
+        List<Arma> arsenal = getArsenal();
+        if (arsenal.size() < 2) {
+            return;
+        }
+        int atual = arsenal.indexOf(armaEquipada);
+        Arma proxima = arsenal.get((atual + 1) % arsenal.size());
+        equiparArma(proxima.getId());
+    }
+
+    public Arma getArmaEquipada() {
+        return armaEquipada;
+    }
+
+    //Chamado pelo ComponenteJogador.iniciarAtaque() (tecla Z). A mesma
+    //chamada serve pra qualquer arma: quem decide se é corte, tiro,
+    //leque de balins, tiro duplo ou tiro que atravessa é a classe real
+    //do objeto guardado em armaEquipada.
     public void atacar() {
-        if (jogador.estaAtordoado() || armaEquipada == null || !armaEquipada.atacar()) {
-            return; // atordoado, sem arma, ou ainda em cooldown da arma
+        if (jogador.estaAtordoado() || armaEquipada == null) {
+            return; // atordoado ou sem arma
         }
-
-        switch (armaEquipada.getTipo()) {
-            case MELEE -> executarAtaqueMelee();
-            case DISTANCIA -> executarAtaqueDistancia();
-            case MAGIA -> { /* futuro */ }
-        }
+        armaEquipada.atacar(entity, jogador.estaOlhandoDireita() ? 1 : -1);
     }
 
-    // Reaproveita o "ataque_jogador" que já existe na FabricaEntidades
-    // (sensor + ExpireCleanComponent cuidando de sumir sozinho). Só
-    // manda o alcance da arma como tamanho do sensor, em vez do 40
-    // fixo que estava hardcoded lá antes.
-    private void executarAtaqueMelee() {
-        double alcance = armaEquipada.getAlcance();
-        boolean olhandoDireita = jogador.estaOlhandoDireita();
-
-        //deslocamentoX/deslocamentoY são relativos ao jogador, não
-        //posições absolutas do mundo — manda o próprio jogador (entity)
-        //junto, pra ComponenteAtaqueJogador conseguir seguir ele todo
-        //frame (ver comentário lá). Sem isso a hitbox nascia numa
-        //posição fixa e ficava pra trás se o jogador andasse/pulasse/
-        //desse dash durante os 0.15s do golpe.
-        double deslocamentoX = olhandoDireita ? entity.getWidth() : -alcance;
-        double deslocamentoY = 0;
-
-        SpawnData dados = new SpawnData(entity.getX() + deslocamentoX, entity.getY() + deslocamentoY)
-                .put("tamanho", alcance)
-                .put("dano", armaEquipada.getDanoTotal())
-                .put("jogador", entity)
-                .put("deslocamentoX", deslocamentoX)
-                .put("deslocamentoY", deslocamentoY);
-
-        spawn("ataque_jogador", dados);
-    }
-
-    private void executarAtaqueDistancia() {
-        Entity alvo = encontrarInimigoMaisProximo(armaEquipada.getAlcance());
-        if (alvo == null) {
-            return; // sem inimigo à vista, sem tiro
+    private void trocarVisual() {
+        if (visualArma != null) {
+            entity.getViewComponent().removeChild(visualArma);
         }
-
-        SpawnData dados = new SpawnData(entity.getX(), entity.getY())
-                .put("origem", entity)
-                .put("alvo", alvo)
-                .put("dano", armaEquipada.getDanoTotal())
-                .put("velocidade", 500.0);
-
-        spawn("projetil", dados);
-    }
-
-    // Acha o inimigo ativo mais próximo, dentro do alcance, do lado
-    // pra onde o jogador está olhando. O ComponenteProjetil precisa
-    // de um alvo (Entity) pra calcular a direção da bala, então o
-    // ataque à distância do jogador tem que escolher um alvo antes de
-    // atirar.
-    private Entity encontrarInimigoMaisProximo(double alcance) {
-        Entity maisProximo = null;
-        double distanciaMaisProxima = Double.MAX_VALUE;
-        boolean olhandoDireita = jogador.estaOlhandoDireita();
-
-        TipoEntidade[] tiposInimigo = {
-                TipoEntidade.INIMIGO_VOADOR, TipoEntidade.INIMIGO_DISTANCIA, TipoEntidade.INIMIGO_MELEE
-        };
-
-        for (TipoEntidade tipo : tiposInimigo) {
-            for (Entity candidato : getGameWorld().getEntitiesByType(tipo)) {
-                if (!candidato.isActive()) continue;
-
-                double distancia = entity.distance(candidato);
-                if (distancia > alcance) continue;
-
-                boolean naFrente = olhandoDireita
-                        ? candidato.getX() >= entity.getX()
-                        : candidato.getX() <= entity.getX();
-                if (!naFrente) continue;
-
-                if (distancia < distanciaMaisProxima) {
-                    maisProximo = candidato;
-                    distanciaMaisProxima = distancia;
-                }
-            }
-        }
-        return maisProximo;
+        visualArma = armaEquipada.criarVisual();
+        //Encosta a arma na altura do meio do jogador
+        visualArma.setTranslateY(entity.getHeight() / 2 - visualArma.getBoundsInLocal().getHeight() / 2);
+        entity.getViewComponent().addChild(visualArma);
     }
 }

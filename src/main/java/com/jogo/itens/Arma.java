@@ -1,26 +1,52 @@
 package com.jogo.itens;
-public class Arma {
-    //atributos da classe
-    private String nome;
+
+import com.almasb.fxgl.entity.Entity;
+import com.jogo.inventario.Categoria;
+import com.jogo.inventario.Inventariavel;
+import javafx.scene.Node;
+
+//Igual ao barebones: a arma é Inventariavel, então vai pro inventário
+//do jogador junto com os módulos. Categoria ARMA não empilha, por isso
+//cada arma ganha um id único (idBase + número), e duas espadas iguais
+//ocupam dois espaços diferentes no Inventario.
+//
+//Abstrata, igual no barebones: não existe "arma genérica", só Espada,
+//ArmaDeFogo e as filhas dela. Antes era uma classe só com um enum
+//TipoArma, e o ComponenteArma decidia o ataque num switch. Agora cada
+//subclasse diz como ataca no executarAtaque() (polimorfismo no lugar
+//do switch): arma nova = classe nova, sem mexer no ComponenteArma.
+public abstract class Arma implements Inventariavel {
+
+    private static int contadorInstancias = 0;
+
+    //Informações pro inventário
+    private final String id;
+    private final String nome;
+    private final String descricao;
+
+    //atributos de combate
     private int dano;
     private double cooldown;
     private double alcance;
-    private TipoArma tipo;
 
     private double multiplicadorDano;
     private double ultimoUso;
-    public Arma(String nome, int dano, double cooldown, double alcance, TipoArma tipo){
+
+    public Arma(String idBase, String nome, String descricao, int dano, double cooldown, double alcance){
+        this.id = idBase + "-" + (++contadorInstancias);
         this.nome = nome;
+        this.descricao = descricao;
         this.dano = dano;
         this.cooldown = cooldown;
         this.alcance = alcance;
-        this.tipo = tipo;
         this.multiplicadorDano = 1;
         this.ultimoUso = 0;
     }
+
     public int getDanoTotal(){
         return (int) Math.round(dano * multiplicadorDano);
     }
+
     // Verifica se o cooldown já passou
     public boolean podeAtacar() {
         long agora = System.currentTimeMillis();
@@ -28,16 +54,29 @@ public class Arma {
         return segundosDesdeUltimoUso >= cooldown;
     }
 
-    // Executa o ataque, se possível
-    public boolean atacar() {
+    //final: a regra do cooldown é a mesma pra TODA arma (mesma ideia do
+    //causarDano() final do barebones). O que muda de uma arma pra
+    //outra fica no executarAtaque(), que é abstrato.
+    //portador = quem segura a arma; direcaoX = 1 (direita) ou -1 (esquerda)
+    public final boolean atacar(Entity portador, double direcaoX) {
         if (!podeAtacar()) {
-            System.out.println(nome + " ainda em cooldown!");
             return false;
         }
         ultimoUso = System.currentTimeMillis();
-        System.out.println(nome + " atacou causando " + getDanoTotal() + " de dano.");
+        executarAtaque(portador, direcaoX);
         return true;
     }
+
+    //Cada arma decide do jeito que quiser
+    protected abstract void executarAtaque(Entity portador, double direcaoX);
+
+    //O desenho da arma na mão do jogador (ver ComponenteArma). Abstrato
+    //pelo mesmo motivo: espada é uma imagem, arma de fogo é um retângulo
+    public abstract Node criarVisual();
+
+    //Uma linha explicando como a arma ataca (usada no HUD). Cada filha
+    //sobrescreve com os números dela
+    public abstract String getDescricaoCombate();
 
     // Quanto tempo falta pro cooldown acabar (útil pra UI, tipo barra de cooldown)
     public double getCooldownRestante() {
@@ -52,10 +91,18 @@ public class Arma {
         this.multiplicadorDano *= multiplicador;
     }
 
-    // Getters básicos
+    //Métodos da interface Inventariavel
+    @Override
+    public String getId() { return id; }
+    @Override
     public String getNome() { return nome; }
+    @Override
+    public String getDescricao() { return descricao; }
+    @Override
+    public Categoria getCategoria() { return Categoria.ARMA; }
+
+    // Getters básicos
     public int getDano() { return dano; }
     public double getCooldownSegundos() { return cooldown; }
-    public TipoArma getTipo() { return tipo ; }
     public double getAlcance() { return alcance; }
 }

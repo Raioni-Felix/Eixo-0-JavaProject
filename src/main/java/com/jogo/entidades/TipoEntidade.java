@@ -15,5 +15,7 @@ public enum TipoEntidade {
     PROJETIL,
     PLATAFORMA,
     ATAQUE_JOGADOR,
-    GATILHO
+    GATILHO,
+    DISPARO_JOGADOR, //tiro das armas de fogo e do GolpeDeEnergia
+    ITEM           //módulo de cura/energia caído no mapa
 }
