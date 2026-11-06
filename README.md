@@ -26,6 +26,17 @@ que executa os testes JUnit 5 de `src/test/java` e gera o relatório de cobertur
 
 ## Executável
 
+Os executáveis prontos ficam na pasta `executaveis/`, cada um com o Java (e o JavaFX) junto, então não precisa instalar nada:
+
+| Sistema | Arquivo | Como abrir |
+|---|---|---|
+| Windows (64 bits) | `executaveis/Eixo0-windows.zip` | extrair o zip inteiro e abrir `Eixo0\Eixo0.exe` |
+| Linux (64 bits) | `executaveis/Eixo0-linux.tar.gz` | `tar xzf Eixo0-linux.tar.gz` e rodar `Eixo0/bin/Eixo0` |
+
+Os dois usam um Java 21 reduzido com `jlink` (só os módulos que o jogo usa, inclusive os do JavaFX, a partir do Liberica JDK "full", que já traz o JavaFX). No Windows, o `Eixo0.exe` é um lançador pequeno que abre `runtime\bin\javaw.exe -jar app\Eixo0.jar`. Nos executáveis, os quadros do fundo "cryolab" vão já no tamanho em que o jogo os usa (1000x180, ver `RecursosVisuais`), o que deixa o pacote bem menor; na pasta `src` eles continuam como estavam.
+
+### Rodando pelo Maven
+
 ```
 mvn clean package
 java -jar target/Eixo0.jar
@@ -51,7 +62,7 @@ O workflow `.github/workflows/executaveis.yml` gera os dois no próprio GitHub, 
 - na aba **Actions**, em "Executáveis", **Run workflow**: no fim, os arquivos `Eixo0-windows.zip` e `Eixo0-linux.tar.gz` ficam em "Artifacts";
 - criando uma tag, por exemplo `git tag v1.0 && git push origin v1.0`: os dois são publicados na aba **Releases**.
 
-No Windows, é só extrair o zip e abrir `Eixo0\Eixo0.exe`. Os executáveis não ficam dentro do repositório porque passam de 100 MB, o limite de arquivo do GitHub.
+No Windows, é só extrair o zip e abrir `Eixo0\Eixo0.exe`. Os arquivos da pasta `executaveis/` têm cerca de 55 MB cada: o GitHub aceita (o limite é 100 MB por arquivo), só avisa que passam de 50 MB.
 
 ## Documentação
 
