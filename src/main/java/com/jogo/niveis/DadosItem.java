@@ -5,7 +5,7 @@ import com.google.gson.annotations.SerializedName;
 //Espelha cada item da lista "items" do JSON do nível (módulos de cura
 //e energia, trazidos do barebones). Mesmo padrão dos outros Dados*:
 //chave em inglês no JSON, campo em português aqui.
-//"tipo" vale "cura" ou "energia" (ver controle.GerenciadorSalas.spawnItens());
+//"tipo" vale "cura", "energia" ou "arma" (ver controle.GerenciadorSalas.spawnItens());
 //"quantidade" é quanto de vida/energia o módulo devolve.
 public class DadosItem {
     @SerializedName("type")
@@ -14,4 +14,8 @@ public class DadosItem {
     public double y;
     @SerializedName("amount")
     public int quantidade;
+
+    //Só pra type "arma": qual arma (nome em itens.CatalogoArmas)
+    @SerializedName("weapon")
+    public String arma;
 }

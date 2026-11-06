@@ -33,7 +33,7 @@ import static com.almasb.fxgl.dsl.FXGL.getAppWidth;
 //Consolas em negrito (mesma família do resto da UI).
 public class TelaMenuPrincipal extends TelaSobreposta {
 
-    public TelaMenuPrincipal(Runnable aoJogar, Runnable aoSair) {
+    public TelaMenuPrincipal(Runnable aoJogar, Runnable aoOpcoes, Runnable aoSair) {
         double width = getAppWidth();
         double height = getAppHeight();
 
@@ -135,7 +135,7 @@ public class TelaMenuPrincipal extends TelaSobreposta {
 
         //Itens do menu (linhas estilo HUD). As ações vêm do controle.
         Region playRow = EstiloUI.linhaMenu("PLAY", "ENTER", true, aoJogar);
-        Region optionsRow = EstiloUI.linhaMenu("OPTIONS", "O", false, null);
+        Region optionsRow = EstiloUI.linhaMenu("OPTIONS", "O", false, aoOpcoes);
         Region quitRow = EstiloUI.linhaMenu("QUIT", "ESC", false, aoSair);
         VBox menuRows = new VBox(10, playRow, optionsRow, quitRow);
         menuRows.setAlignment(Pos.CENTER);

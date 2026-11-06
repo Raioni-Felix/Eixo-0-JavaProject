@@ -77,7 +77,9 @@
     }
   ],
   "items": [
-    { "type": "cura", "x": 918, "y": 490, "amount": 30 },
-    { "type": "energia", "x": 2018, "y": 470, "amount": 20 }
+    {"type": "cura", "x": 918, "y": 490, "amount": 30},
+    {"type": "energia", "x": 2018, "y": 470, "amount": 20},
+    {"type": "arma", "weapon": "pistola", "x": 1200, "y": 650, "amount": 0},
+    {"type": "cura", "x": 2800, "y": 650, "amount": 30}
   ]
 }

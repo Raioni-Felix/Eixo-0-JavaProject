@@ -15,15 +15,20 @@ namespace componentes {
     -deslocamentoX : double
     -deslocamentoY : double
     -fisica : PhysicsComponent
+    +AtaqueJogadorComponent(Entity, double, double)
     +onAdded()
     +onUpdate(double)
   }
   class ComponenteArma {
     -armaEquipada : Arma
     -jogador : ComponenteJogador
+    +ComponenteArma()
     +onAdded()
     +equiparArma(String)
+    -equipar(Arma)
+    +getArsenal() List~Arma~
     +trocarArma()
+    +getArmaEquipada() Arma
     +atacar() boolean
   }
   class ComponenteDisparoJogador {
@@ -35,6 +40,7 @@ namespace componentes {
     -alvosMaximos : int
     -tempoDeVida : double
     -atingidos : Set~Entity~
+    +ComponenteDisparoJogador(int, double, double, double, double, int)
     +onUpdate(double)
   }
   class ComponenteInimigo {
@@ -52,10 +58,13 @@ namespace componentes {
     -instanteUltimoAtaque : long
     -instanteUltimoDano : long
     #olhandoDireita : boolean
+    +ComponenteInimigo(String, int, double, int, double, double, boolean, boolean, boolean)
     +onAdded()
     +definirAlvo(Entity)
+    +getDano() int
     +iniciarAtaque()
     +tomarDano(int)
+    -concederExperienciaAoAlvo()
     #aplicarDanoDireto(Entity)
     +obterDe(Entity)$ ComponenteInimigo
     +onUpdate(double)
@@ -64,20 +73,31 @@ namespace componentes {
     +estaMachucado() boolean
     +estaOlhandoDireita() boolean
     +estaNoChao() boolean
+    +getVelocidadeX() double
+    +getVelocidadeY() double
+    -passouMenosDe(long, double)$ boolean
   }
   class ComponenteInimigoDistancia {
+    +ComponenteInimigoDistancia(String, int, double, int, double, double)
     +onUpdate(double)
     +iniciarAtaque()
+    +getExperienciaConcedida() int
+    -dispararProjetil(Entity)
   }
   class ComponenteInimigoMelee {
+    +ComponenteInimigoMelee(String, int, double, int, double, double)
+    +getExperienciaConcedida() int
   }
   class ComponenteInimigoVoador {
     -tempoFlutuando : double
     -amplitudeFlutuacao : double
     -velocidadeFlutuacao : double
     -tempoRecuo : double
+    +ComponenteInimigoVoador(String, int, double, int, double, double)
     +onUpdate(double)
     +iniciarAtaque()
+    +getExperienciaConcedida() int
+    -flutuar(double)
   }
   class ComponenteJogador {
     #duracaoInvencibilidade : double
@@ -103,37 +123,56 @@ namespace componentes {
     -timerCooldownDash : double
     -timerDash : double
     -boostDashAtivo : boolean
+    -dificuldade : Dificuldade
     -instanteUltimoAtaque : long
     -instanteUltimaMagia : long
+    +ComponenteJogador(String, int, double, int)
     +onAdded()
     +onUpdate(double)
     +estaAtordoado() boolean
     +tomarDano(int)
+    +setDificuldade(Dificuldade)
+    +getDificuldade() Dificuldade
     +estaInvencivel() boolean
     +serAtingido(Entity, int)
+    -empurrar(Entity)
     +pular()
     +dash()
     +estaNoDash() boolean
     +estaOlhandoDireita() boolean
     +moverEsquerda()
     +moverDireita()
+    -velocidadeComBoost() double
     +pararHorizontal()
     +adicionarXp(int)
+    -subirNivel()
+    +getNivel() int
+    +getXp() int
+    +getXpProximoNivel() int
     +recuperarEnergia(int)
     +energiaSuficiente(int) boolean
     +consumirEnergia(int)
+    -recarregarEnergia(double)
     +energiaAtualProperty() ReadOnlyIntegerProperty
+    +getEnergiaAtual() int
+    +getEnergiaMaxima() int
     +iniciarAtaque()
+    -marcarAtaque()
     +estaUsandoMagia() boolean
     +estaAtacando() boolean
     +estaNoChao() boolean
+    +getVelocidadeX() double
+    +getVelocidadeY() double
     +usarGolpeDeEnergia() boolean
     +usarApara() boolean
     +iniciarApara(double)
     +estaAparando() boolean
+    +getGolpe() GolpeDeEnergia
+    +getApara() Apara
     +coletarItem(Inventariavel) boolean
     +coletarItem(List~Inventariavel~) int
     +usarItem(String)
+    +getInventario() Inventario
     +toString() String
   }
   class ComponentePersonagem {
@@ -141,11 +180,16 @@ namespace componentes {
     #vidaMaxima : int
     #velocidade : double
     #vidaAtual : IntegerProperty
+    +ComponentePersonagem(String, int, double)
     +tomarDano(int)
     +curar(int)
     +vidaAtualProperty() ReadOnlyIntegerProperty
     +estaMorto() boolean
     +mover()
+    +getNome() String
+    +getVidaAtual() int
+    +getVidaMaxima() int
+    +getVelocidade() double
     +toString() String
     +obterDe(Entity)$ ComponentePersonagem
   }
@@ -153,8 +197,19 @@ namespace componentes {
     <<interface>>
     +getExperienciaConcedida()* int
   }
+  class Dificuldade {
+    -nome : String
+    -multiplicadorDanoRecebido : double
+    +values()$ Dificuldade[]
+    +valueOf(String)$ Dificuldade
+    -Dificuldade(String, double)
+    +getNome() String
+    +aplicar(int) int
+    +proxima() Dificuldade
+  }
   class RelogioJogo {
     -gracaAteNanos : long$
+    -RelogioJogo()
     +emPeriodoDeGraca()$ boolean
     +marcarRetomada()$
   }
@@ -166,6 +221,8 @@ namespace componentes_visual {
     -visao : Texture
     -tempoDecorrido : double
     -quadroAtual : int
+    +ComponenteAnimacaoFundo(List~Image~, double)
+    +getVisao() Texture
     +onUpdate(double)
   }
   class ComponenteAnimado {
@@ -179,6 +236,8 @@ namespace componentes_visual {
     -conjuntoAtual : String
     +onAdded()
     +onUpdate(double)
+    -conjuntoValido() String
+    -posicionar()
   }
   class ComponenteProjetil {
     -origem : Entity
@@ -187,19 +246,27 @@ namespace componentes_visual {
     -velocidade : double
     -direcao : Point2D
     -tempoDeVida : double
+    +ComponenteProjetil(Entity, Entity, int, double)
     +onAdded()
     +onUpdate(double)
   }
   class Sprites {
+    -Sprites()
     +animacao(String, String, int, double, double)$ AnimationChannel
     +quadros(String, String, int, double)$ List~Image~
     ~ampliar(Image, double)$ Image
+    -carregar(String)$ Image
   }
 }
 namespace controle {
   class ControleEntrada {
     -jogo : ControleJogo
+    +ControleEntrada(ControleJogo)
     +registrar()
+    -usarModulo(String)
+    -acaoAoApertar(String, KeyCode, Runnable)
+    -acaoDoJogador(String, KeyCode, Consumer~ComponenteJogador~)
+    -movimento(String, KeyCode, Consumer~ComponenteJogador~)
   }
   class ControleJogo {
     -salas : GerenciadorSalas
@@ -208,20 +275,42 @@ namespace controle {
     -menuPrincipal : TelaMenuPrincipal
     -pausa : TelaPausa
     -gameOver : TelaGameOver
+    -inventario : TelaInventario
+    -opcoes : TelaOpcoes
     -cortina : CortinaTransicao
+    -dificuldade : Dificuldade
+    -telaAntesDasOpcoes : TelaSobreposta
+    -ultimoToqueInventario : long
+    -fechouInventarioEm : long
     -gameOverExibido : boolean
     -pularMenuAoIniciar : boolean
+    +ControleJogo()
     +iniciarMundo()
     +registrarColisoes()
     +montarInterface()
     +atualizar(double)
     +podePausar() boolean
+    +alternarInventario()
+    +fecharInventario()
+    -equiparPeloInventario(String)
+    -abrirOpcoes(TelaSobreposta)
+    -fecharOpcoes()
+    +trocarTelaCheia()
+    -trocarDificuldade()
     +abrirMenuPausa()
     +retomarDaPausa()
     +iniciarJogo()
     +reiniciarNivel()
     +voltarAoMenuPrincipal(TelaSobreposta)
     +usarModulo(String)
+    +getJogador() Entity
+    +getComponenteJogador() ComponenteJogador
+    +getComponenteArma() ComponenteArma
+    -prepararArsenal()
+    -despausarMotor()
+  }
+  class Controles {
+    -Controles()
   }
   class GerenciadorSalas {
     -salaAtualIndex : int
@@ -229,59 +318,83 @@ namespace controle {
     -alturaNivel : double
     -transicionando : boolean
     -itensColetados : Set~String~
+    +GerenciadorSalas()
     +comecarDoInicio() DadosNivel
+    -prepararSala(int) DadosNivel
     +spawnInimigos(DadosNivel, Entity)
     +spawnItens(DadosNivel)
     +registrarColeta(String)
     +iniciarTransicao(int, String, Entity, CortinaTransicao)
+    -trocarSala(int, String, Entity)
     +centralizarCamera(Entity)
     +atualizarCamera(Entity, double)
+    -limitarCameraX(double) double
+    -limitarCameraY(double) double
   }
 }
 namespace entidades {
   class TipoEntidade {
     +values()$ TipoEntidade[]
     +valueOf(String)$ TipoEntidade
+    -TipoEntidade()
   }
 }
 namespace excecoes {
   class ItemIncompativelException {
+    +ItemIncompativelException(String, String)
   }
   class ItemNaoEncontradoException {
     -idItem : String
+    +ItemNaoEncontradoException(String)
+    +getIdItem() String
   }
   class JogoException {
+    +JogoException(String)
   }
   class NivelInvalidoException {
     -caminho : String
+    +NivelInvalidoException(String, String)
+    +NivelInvalidoException(String, Throwable)
+    +getCaminho() String
   }
 }
 namespace factories {
   class FabricaEntidades {
+    +FabricaEntidades()
     +spawnJogador(SpawnData) Entity
     +spawnAtaqueJogador(SpawnData) Entity
     +spawnInimigoVoador(SpawnData) Entity
     +spawnInimigoDistancia(SpawnData) Entity
     +spawnInimigoMelee(SpawnData) Entity
     +spawnExplosao(SpawnData) Entity
+    -configurarContatoComJogador(PhysicsComponent, Entity, double, double)
     +spawnProjetil(SpawnData) Entity
     +spawnDisparoJogador(SpawnData) Entity
     +spawnItem(SpawnData) Entity
     +spawnImpacto(SpawnData) Entity
     +spawnPlataforma(SpawnData) Entity
+    -visualPlataforma(double, double) Node
     +spawnParede(SpawnData) Entity
     +spawnGatilho(SpawnData) Entity
   }
 }
 namespace habilidades {
   class Apara {
+    +Apara(boolean, double, int, double)
     #executar(ComponenteJogador)
   }
   class BolaDeFogo {
+    +BolaDeFogo(boolean, double, int, double, int)
+    +getCor() Color
+    +getSprite() String
   }
   class GolpeDeEnergia {
     <<abstract>>
     -dano : int
+    +GolpeDeEnergia(boolean, double, int, double, int)
+    +getDano() int
+    +getCor() Color
+    +getSprite() String
     #executar(ComponenteJogador)
   }
   class Habilidade {
@@ -291,11 +404,18 @@ namespace habilidades {
     -tempoRestante : double
     -duracao : double
     -custoEnergia : int
+    +Habilidade(boolean, double, int, double)
     +atualizar(double)
     +estaDisponivel() boolean
     +podeUsar(ComponenteJogador) boolean
     +usar(ComponenteJogador) boolean
     #executar(ComponenteJogador)*
+    +getTempoEspera() double
+    +getTempoRestante() double
+    +getDuracao() double
+    +getCustoEnergia() int
+    +isAprendida() boolean
+    +setAprendida(boolean)
   }
 }
 namespace inventario {
@@ -303,6 +423,8 @@ namespace inventario {
     -empilhavel : boolean
     +values()$ Categoria[]
     +valueOf(String)$ Categoria
+    -Categoria(boolean)
+    +isEmpilhavel() boolean
   }
   class Consumivel {
     <<interface>>
@@ -318,6 +440,7 @@ namespace inventario {
   class Inventario {
     -itens : Map~String, Inventariavel~
     -quantidades : Map~String, Integer~
+    +Inventario()
     +adicionar(Inventariavel) boolean
     +adicionar(List~Inventariavel~) int
     +remover(String) boolean
@@ -327,6 +450,7 @@ namespace inventario {
     +quantidadeItem() int
     +inventarioVazio() boolean
     +listarDoTipo(Class~T~) List~T~
+    +getItens() Inventariavel~
   }
   class Item {
     <<abstract>>
@@ -335,19 +459,31 @@ namespace inventario {
     -nome : String
     -descricao : String
     -categoria : Categoria
+    +Item(String, String, String, Categoria)
+    +getId() String
+    +getNome() String
+    +getDescricao() String
+    +getCategoria() Categoria
   }
   class ModuloCura {
     -quantidadeDeCura : int
+    +ModuloCura(String, String, String, Categoria, int)
+    +ModuloCura(int)
     +efeito(ComponenteJogador)
   }
   class ModuloEnergia {
     -quantidadeEnergia : int
+    +ModuloEnergia(String, String, String, Categoria, int)
+    +ModuloEnergia(int)
     +efeito(ComponenteJogador)
   }
 }
 namespace itens {
   class AdagaDupla {
+    +AdagaDupla(String, String, String, int, double, double)
     #executarAtaque(Entity, double)
+    +getEmpunhadura() String
+    +getDescricaoCombate() String
   }
   class Arma {
     <<abstract>>
@@ -360,42 +496,81 @@ namespace itens {
     -alcance : double
     -multiplicadorDano : double
     -ultimoUso : double
+    +Arma(String, String, String, int, double, double)
+    +getDanoTotal() int
     +podeAtacar() boolean
     +atacar(Entity, double) boolean
     #executarAtaque(Entity, double)*
     +getEmpunhadura()* String
     +getDescricaoCombate()* String
+    +getCooldownRestante() double
     +multiplicarDano(double)
+    +getId() String
+    +getNome() String
+    +getDescricao() String
+    +getCategoria() Categoria
+    +getDano() int
+    +getCooldownSegundos() double
+    +getAlcance() double
   }
   class ArmaDeFogo {
+    +ArmaDeFogo(String, String, String, int, double, double)
     #executarAtaque(Entity, double)
     #dispararProjetil(Entity, double, double)
+    #getAlvosPorDisparo() int
+    #getVelocidadeProjetil() double
+    #getTamanhoProjetil() double
+    #getCorProjetil() Color
+    +getEmpunhadura() String
+    +getDescricaoCombate() String
+  }
+  class CatalogoArmas {
+    -CatalogoArmas()
+    +criar(String)$ Arma
+    +nomeDe(Arma)$ String
   }
   class Espada {
+    +Espada(String, String, String, int, double, double)
     #executarAtaque(Entity, double)
+    +getEmpunhadura() String
+    +getDescricaoCombate() String
   }
   class Perfurante {
     <<interface>>
     +getAlvosAtravessados()* int
   }
   class PistolaDuplaDePlasma {
+    +PistolaDuplaDePlasma(String, String, String, int, double, double)
     #executarAtaque(Entity, double)
+    #getCorProjetil() Color
+    +getDescricaoCombate() String
   }
   class RifleSniper {
     -alvosAtravessados : int
+    +RifleSniper(String, String, String, int, double, double, int)
+    +getAlvosAtravessados() int
+    #getAlvosPorDisparo() int
+    #getVelocidadeProjetil() double
+    #getCorProjetil() Color
+    +getDescricaoCombate() String
   }
   class Shotgun {
     -quantidadeBalins : int
+    +Shotgun(String, String, String, int, int, double, double)
     #executarAtaque(Entity, double)
+    #getTamanhoProjetil() double
+    +getDescricaoCombate() String
   }
 }
 namespace jogo {
   class Lancador {
+    +Lancador()
     +main(String[])$
   }
   class Main {
     -controle : ControleJogo
     -entrada : ControleEntrada
+    +Main()
     #initSettings(GameSettings)
     #initGame()
     #initPhysics()
@@ -407,6 +582,7 @@ namespace jogo {
 }
 namespace niveis {
   class CarregadorDeNiveis {
+    -CarregadorDeNiveis()
     +carregar(String)$ DadosNivel
   }
   class DadosInimigo {
@@ -419,12 +595,15 @@ namespace niveis {
     +dano : int
     +alcanceAtaque : double
     +alcanceDeteccao : double
+    +DadosInimigo()
   }
   class DadosItem {
     +tipo : String
     +x : double
     +y : double
     +quantidade : int
+    +arma : String
+    +DadosItem()
   }
   class DadosJogador {
     +x : double
@@ -433,6 +612,7 @@ namespace niveis {
     +vidaMaxima : int
     +velocidade : double
     +energiaMaxima : int
+    +DadosJogador()
   }
   class DadosNivel {
     +larguraNivel : double
@@ -443,19 +623,23 @@ namespace niveis {
     +itens : List~DadosItem~
     +fundo : String
     +corFundo : String
+    +DadosNivel()
   }
   class DadosPlataforma {
     +x : double
     +y : double
     +largura : double
     +altura : double
+    +DadosPlataforma()
   }
 }
 namespace visao {
   class CortinaTransicao {
+    +CortinaTransicao()
     +fecharEAbrir(Runnable, Runnable)
   }
   class EstiloUI {
+    -EstiloUI()
     +botaoMenu(String, String, String)$ Button
     +botaoMenu(String, String, String, String)$ Button
     +linhaMenu(String, String, boolean, Runnable)$ Region
@@ -473,23 +657,70 @@ namespace visao {
     -textoInventario : Text
     -textoStatus : Text
     -textoAviso : Text
+    -textoMensagem : Text
+    -qtdCura : Text
+    -qtdEnergia : Text
+    -iconeArma : ImageView
+    -animacaoAviso : SequentialTransition
+    -animacaoMensagem : SequentialTransition
+    +HudJogo(ComponenteJogador, ComponenteArma, String, String)
     +atualizarInventario()
     +atualizarStatus()
     +mostrarAviso(String)
+    +mostrarMensagem(String)
+    -piscar(Text, String, SequentialTransition)$ SequentialTransition
+    -icone(String)$ ImageView
+    -rotuloTecla(String)$ Text
+    -posicionar(Rectangle, double)$
+    -criarTexto(double, Color)$ Text
   }
   class RecursosVisuais {
+    -RecursosVisuais()
     +quadrosFundo(String)$ List~Image~
     +fpsFundo(String)$ double
+    -caminhoQuadro(String, int)$ String
+    -existeQuadro(String, int)$ boolean
+    -carregarQuadroFundo(String, int)$ Image
     +imagemFundoMenu()$ Image
   }
   class TelaGameOver {
+    +TelaGameOver(Runnable, Runnable)
+  }
+  class TelaInventario {
+    -aoEquipar : Consumer~String~
+    -aoUsar : Consumer~String~
+    -painelStatus : VBox
+    -linhaArmas : HBox
+    -linhaModulos : HBox
+    -detalheNome : Text
+    -detalheTexto : Text
+    +TelaInventario(Runnable, Consumer~String~, Consumer~String~)
+    +mostrar()
+    +atualizar(ComponenteJogador, ComponenteArma)
+    -slot(String, String, boolean, boolean, Runnable, String, String) Node
+    -barra(String, int, int, String) Node
+    ~painel(Node)$ Node
+    ~rotulo(String)$ Text
+    ~texto(String, double, String, boolean)$ Text
+    -espaco(double)$ Region
   }
   class TelaMenuPrincipal {
+    +TelaMenuPrincipal(Runnable, Runnable, Runnable)
+  }
+  class TelaOpcoes {
+    -valorTelaCheia : Text
+    -valorDificuldade : Text
+    +TelaOpcoes(Runnable, Runnable, Runnable, List~String[]~)
+    +mostrar()
+    +atualizar(boolean, String)
+    -linhaOpcao(String, String, Text, Runnable) Node
   }
   class TelaPausa {
+    +TelaPausa(Runnable, Runnable, Runnable)
   }
   class TelaSobreposta {
     <<abstract>>
+    #TelaSobreposta()
     +mostrar()
     +esconder()
     +estaVisivel() boolean
@@ -520,6 +751,7 @@ ComponenteArma ..> ItemIncompativelException : lança
 ComponenteJogador --> "1" Inventario : inventario
 ComponenteJogador --> "1" GolpeDeEnergia : golpe
 ComponenteJogador --> "1" Apara : apara
+ComponenteJogador --> "1" Dificuldade : dificuldade
 ComponenteJogador ..> ItemNaoEncontradoException : lança
 ComponenteJogador ..> ItemIncompativelException : lança
 ControleEntrada --> "1" ControleJogo : jogo
@@ -528,7 +760,11 @@ ControleJogo --> "1" HudJogo : hud
 ControleJogo --> "1" TelaMenuPrincipal : menuPrincipal
 ControleJogo --> "1" TelaPausa : pausa
 ControleJogo --> "1" TelaGameOver : gameOver
+ControleJogo --> "1" TelaInventario : inventario
+ControleJogo --> "1" TelaOpcoes : opcoes
 ControleJogo --> "1" CortinaTransicao : cortina
+ControleJogo --> "1" Dificuldade : dificuldade
+ControleJogo --> "1" TelaSobreposta : telaAntesDasOpcoes
 Inventario --> "*" Inventariavel : itens
 Item --> "1" Categoria : categoria
 Main --> "1" ControleJogo : controle
@@ -548,6 +784,8 @@ Exception <|-- JogoException
 TelaSobreposta <|-- TelaMenuPrincipal
 TelaSobreposta <|-- TelaGameOver
 StackPane <|-- TelaSobreposta
+TelaSobreposta <|-- TelaInventario
+TelaSobreposta <|-- TelaOpcoes
 Rectangle <|-- CortinaTransicao
 TelaSobreposta <|-- TelaPausa
 ArmaDeFogo <|-- RifleSniper

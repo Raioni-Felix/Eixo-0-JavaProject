@@ -11,12 +11,11 @@ import com.jogo.excecoes.JogoException;
 import com.jogo.factories.FabricaEntidades;
 import com.jogo.inventario.ModuloCura;
 import com.jogo.inventario.ModuloEnergia;
-import com.jogo.itens.AdagaDupla;
+import com.jogo.componentes.Dificuldade;
 import com.jogo.itens.Arma;
-import com.jogo.itens.Espada;
-import com.jogo.itens.PistolaDuplaDePlasma;
-import com.jogo.itens.RifleSniper;
-import com.jogo.itens.Shotgun;
+import com.jogo.itens.CatalogoArmas;
+import com.jogo.visao.TelaInventario;
+import com.jogo.visao.TelaOpcoes;
 import com.jogo.niveis.DadosNivel;
 import com.jogo.visao.CortinaTransicao;
 import com.jogo.visao.HudJogo;
@@ -24,13 +23,14 @@ import com.jogo.visao.TelaGameOver;
 import com.jogo.visao.TelaMenuPrincipal;
 import com.jogo.visao.TelaPausa;
 import com.jogo.visao.TelaSobreposta;
+import javafx.scene.input.KeyCombination;
 
-import java.util.List;
 
 import static com.almasb.fxgl.dsl.FXGL.getGameController;
 import static com.almasb.fxgl.dsl.FXGL.getGameScene;
 import static com.almasb.fxgl.dsl.FXGL.getGameWorld;
 import static com.almasb.fxgl.dsl.FXGL.getPhysicsWorld;
+import static com.almasb.fxgl.dsl.FXGL.getPrimaryStage;
 import static com.almasb.fxgl.dsl.FXGL.spawn;
 
 //CONTROLE principal do MVC: decide o fluxo do jogo (menu, pausa, Game
@@ -57,7 +57,19 @@ public class ControleJogo {
     private TelaMenuPrincipal menuPrincipal;
     private TelaPausa pausa;
     private TelaGameOver gameOver;
+    private TelaInventario inventario;
+    private TelaOpcoes opcoes;
     private CortinaTransicao cortina;
+
+    //Escolhida nas Opções; vale pra jogos novos também (sobrevive ao
+    //startNewGame, igual aos controles)
+    private Dificuldade dificuldade = Dificuldade.NORMAL;
+    //Tela que abriu as Opções (menu principal ou pausa), pra voltar pra ela
+    private TelaSobreposta telaAntesDasOpcoes;
+    //Instantes (System.nanoTime) do último toque no inventário e de
+    //quando ele fechou, pra filtrar a mesma tecla chegando duas vezes
+    private long ultimoToqueInventario = System.nanoTime() - 1_000_000_000L;
+    private long fechouInventarioEm = ultimoToqueInventario;
 
     //Evita mostrar o Game Over de novo a cada frame enquanto o jogador
     //continua morto
@@ -87,6 +99,7 @@ public class ControleJogo {
                         ? sala.jogador.energiaMaxima
                         : ENERGIA_MAXIMA_PADRAO));
 
+        getComponenteJogador().setDificuldade(dificuldade);
         prepararArsenal();
 
         salas.centralizarCamera(jogador);
@@ -120,10 +133,16 @@ public class ControleJogo {
                 int quantidade = itemEntity.getInt("quantidade");
 
                 ComponenteJogador componente = jogadorEntity.getComponent(ComponenteJogador.class);
-                if ("energia".equals(tipoItem)) {
+                if ("arma".equals(tipoItem)) {
+                    Arma arma = CatalogoArmas.criar(itemEntity.getString("arma"));
+                    componente.coletarItem(arma);
+                    hud.mostrarMensagem("Nova arma: " + arma.getNome() + "   [Q] trocar   [I] inventário");
+                } else if ("energia".equals(tipoItem)) {
                     componente.coletarItem(new ModuloEnergia(quantidade));
+                    hud.mostrarMensagem("+1 Módulo de Energia   [2] usar");
                 } else {
                     componente.coletarItem(new ModuloCura(quantidade));
+                    hud.mostrarMensagem("+1 Módulo de Cura   [1] usar");
                 }
 
                 salas.registrarColeta(itemEntity.getString("idColeta"));
@@ -139,9 +158,13 @@ public class ControleJogo {
         hud = new HudJogo(getComponenteJogador(), getComponenteArma(), ID_MODULO_CURA, ID_MODULO_ENERGIA);
 
         gameOver = new TelaGameOver(this::reiniciarNivel, () -> voltarAoMenuPrincipal(gameOver));
-        pausa = new TelaPausa(this::retomarDaPausa, () -> voltarAoMenuPrincipal(pausa));
-        menuPrincipal = new TelaMenuPrincipal(this::iniciarJogo, () -> getGameController().exit());
-        getGameScene().addUINodes(gameOver, pausa, menuPrincipal);
+        pausa = new TelaPausa(this::retomarDaPausa, () -> abrirOpcoes(pausa), () -> voltarAoMenuPrincipal(pausa));
+        menuPrincipal = new TelaMenuPrincipal(this::iniciarJogo, () -> abrirOpcoes(menuPrincipal),
+                () -> getGameController().exit());
+        inventario = new TelaInventario(this::fecharInventario, this::equiparPeloInventario, this::usarModulo);
+        opcoes = new TelaOpcoes(this::fecharOpcoes, this::trocarTelaCheia, this::trocarDificuldade, Controles.LISTA);
+        //Opções por cima do menu (abre dele), inventário por baixo da pausa
+        getGameScene().addUINodes(gameOver, inventario, pausa, menuPrincipal, opcoes);
 
         if (pularMenuAoIniciar) {
             menuPrincipal.esconder();
@@ -181,7 +204,81 @@ public class ControleJogo {
 
     //Só abre a pausa com o jogador vivo e nenhuma outra tela por cima
     public boolean podePausar() {
-        return jogador.isActive() && !gameOverExibido && !menuPrincipal.estaVisivel();
+        return jogador.isActive() && !gameOverExibido && !menuPrincipal.estaVisivel()
+                && !inventario.estaVisivel() && !opcoes.estaVisivel()
+                //ESC que fechou o inventário não abre a pausa no mesmo toque
+                && System.nanoTime() - fechouInventarioEm > 200_000_000L;
+    }
+
+    //=== Inventário (I / TAB) ===
+
+    public void alternarInventario() {
+        //A mesma tecla pode chegar duas vezes (pela tela do inventário e
+        //pelo input do FXGL): ignora a segunda se vier logo em seguida
+        long agora = System.nanoTime();
+        if (agora - ultimoToqueInventario < 200_000_000L) {
+            return;
+        }
+        ultimoToqueInventario = agora;
+        if (inventario.estaVisivel()) {
+            fecharInventario();
+        } else if (podePausar() && !pausa.estaVisivel()) {
+            inventario.atualizar(getComponenteJogador(), getComponenteArma());
+            inventario.mostrar();
+            getGameController().pauseEngine();
+        }
+    }
+
+    public void fecharInventario() {
+        if (!inventario.estaVisivel()) {
+            return;
+        }
+        fechouInventarioEm = System.nanoTime();
+        inventario.esconder();
+        hud.atualizarInventario();
+        hud.atualizarStatus();
+        despausarMotor();
+    }
+
+    //Clique numa arma do inventário. A arma veio do próprio inventário,
+    //mas a exceção ainda é tratada aqui, como no resto do controle
+    private void equiparPeloInventario(String idArma) {
+        try {
+            getComponenteArma().equiparArma(idArma);
+        } catch (JogoException e) {
+            hud.mostrarAviso(e.getMessage());
+        }
+        inventario.atualizar(getComponenteJogador(), getComponenteArma());
+    }
+
+    //=== Opções ===
+
+    private void abrirOpcoes(TelaSobreposta origem) {
+        telaAntesDasOpcoes = origem;
+        origem.esconder();
+        opcoes.atualizar(getPrimaryStage().isFullScreen(), dificuldade.getNome());
+        opcoes.mostrar();
+    }
+
+    private void fecharOpcoes() {
+        opcoes.esconder();
+        if (telaAntesDasOpcoes != null) {
+            telaAntesDasOpcoes.mostrar();
+        }
+    }
+
+    public void trocarTelaCheia() {
+        //Sem isso o ESC do JavaFX sairia da tela cheia em vez de pausar
+        getPrimaryStage().setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
+        getPrimaryStage().setFullScreenExitHint("");
+        getPrimaryStage().setFullScreen(!getPrimaryStage().isFullScreen());
+        opcoes.atualizar(getPrimaryStage().isFullScreen(), dificuldade.getNome());
+    }
+
+    private void trocarDificuldade() {
+        dificuldade = dificuldade.proxima();
+        getComponenteJogador().setDificuldade(dificuldade);
+        opcoes.atualizar(getPrimaryStage().isFullScreen(), dificuldade.getNome());
     }
 
     public void abrirMenuPausa() {
@@ -232,6 +329,9 @@ public class ControleJogo {
         } catch (JogoException e) {
             hud.mostrarAviso(e.getMessage());
         }
+        if (inventario.estaVisivel()) {
+            inventario.atualizar(getComponenteJogador(), getComponenteArma());
+        }
     }
 
     public Entity getJogador() {
@@ -248,29 +348,26 @@ public class ControleJogo {
 
     //=== Auxiliares ===
 
-    //Arsenal inicial. Igual ao barebones: cada arma entra no inventário
-    //e só depois é equipada pelo id. Todas numa lista do tipo Arma, mesmo
-    //sendo de classes diferentes.
+    //Arsenal inicial: só a espada. As outras armas ficam no chão das
+    //salas (itens "arma" no JSON) e entram no inventário ao encostar.
+    //Igual ao barebones: a arma entra no inventário e só depois é
+    //equipada pelo id.
     private void prepararArsenal() {
-        List<Arma> armasIniciais = List.of(
-                new Espada("espada", "Espada", "Arma inicial do jogador", 20, 0.5, 40),
-                new AdagaDupla("adagas", "Adagas Duplas", "Dois cortes rápidos, de perto", 8, 0.3, 30),
-                new Shotgun("shotgun", "Shotgun", "Balins em leque, forte de perto", 8, 5, 0.9, 220),
-                new PistolaDuplaDePlasma("pistola", "Pistola Dupla de Plasma", "Dois tiros por ataque", 9, 0.45, 450),
-                new RifleSniper("rifle", "Rifle Sniper", "Tiro que atravessa inimigos", 30, 1.4, 900, 3));
-
-        getComponenteJogador().coletarItem(armasIniciais); //sobrecarga da lista
+        Arma espada = CatalogoArmas.criar("espada");
+        getComponenteJogador().coletarItem(espada);
         try {
-            getComponenteArma().equiparArma(armasIniciais.get(0).getId());
+            getComponenteArma().equiparArma(espada.getId());
         } catch (JogoException e) {
             //A espada acabou de entrar no inventário: se falhar é bug
             throw new IllegalStateException("Arsenal inicial inválido", e);
         }
 
-        //Mesma chamada pra todas, resposta diferente pra cada classe:
-        //polimorfismo (igual ao foreach de atacar() da atividade de RPG)
-        System.out.println("Arsenal:");
-        for (Arma arma : getComponenteArma().getArsenal()) {
+        //Mesma chamada pra todas as armas do jogo, resposta diferente pra
+        //cada classe: polimorfismo (igual ao foreach de atacar() da
+        //atividade de RPG)
+        System.out.println("Armas do jogo:");
+        for (String nome : CatalogoArmas.NOMES) {
+            Arma arma = CatalogoArmas.criar(nome);
             System.out.println("  " + arma.getNome() + ": " + arma.getDescricaoCombate());
         }
     }

@@ -54,6 +54,11 @@ public class ControleEntrada {
         acaoDoJogador("Golpe de Energia", KeyCode.X, ComponenteJogador::usarGolpeDeEnergia);
         acaoDoJogador("Apara", KeyCode.C, ComponenteJogador::usarApara);
 
+        //Inventário (I ou TAB) e tela cheia (F11)
+        acaoAoApertar("Inventário", KeyCode.I, jogo::alternarInventario);
+        acaoAoApertar("Inventário (TAB)", KeyCode.TAB, jogo::alternarInventario);
+        acaoAoApertar("Tela cheia", KeyCode.F11, jogo::trocarTelaCheia);
+
         //Consumíveis: 1 = Módulo de Cura, 2 = Módulo de Energia
         acaoAoApertar("Usar Módulo de Cura", KeyCode.DIGIT1, () -> usarModulo(ControleJogo.ID_MODULO_CURA));
         acaoAoApertar("Usar Módulo de Energia", KeyCode.DIGIT2, () -> usarModulo(ControleJogo.ID_MODULO_ENERGIA));

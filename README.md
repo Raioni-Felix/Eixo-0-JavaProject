@@ -64,9 +64,9 @@ O código fica em `src/main/java/com/jogo`, dividido em pacotes por responsabili
 
 `Main.java` é o ponto de entrada e a classe que estende `GameApplication` do FXGL. Ela só tem as configurações da janela e repassa cada etapa do FXGL (`initGame`, `initPhysics`, `initInput`, `initUI`, `onUpdate`) pro pacote `controle`. Ver "Separação MVC".
 
-`controle` guarda os controladores: `ControleJogo` (fluxo do jogo: menu, pausa, Game Over, reiniciar, colisões de gatilho/item, arsenal inicial e tratamento das exceções do modelo), `ControleEntrada` (teclas) e `GerenciadorSalas` (monta a sala, inimigos e itens, troca de sala e câmera).
+`controle` guarda os controladores: `ControleJogo` (fluxo do jogo: menu, pausa, Game Over, reiniciar, colisões de gatilho/item, arsenal inicial e tratamento das exceções do modelo), `ControleEntrada` (teclas), `Controles` (lista das teclas, mostrada nas Opções) e `GerenciadorSalas` (monta a sala, inimigos e itens, troca de sala e câmera).
 
-`visao` guarda o que aparece na tela: `HudJogo` (barras de vida e energia, inventário, status e avisos), as telas sobrepostas (`TelaSobreposta`, abstrata, e as filhas `TelaMenuPrincipal`, `TelaPausa` e `TelaGameOver`), a `CortinaTransicao` da troca de sala e os auxiliares `EstiloUI` e `RecursosVisuais`.
+`visao` guarda o que aparece na tela: `HudJogo` (barras de vida e energia, ícones dos módulos e da arma, status e avisos), as telas sobrepostas (`TelaSobreposta`, abstrata, e as filhas `TelaMenuPrincipal`, `TelaPausa`, `TelaGameOver`, `TelaInventario` e `TelaOpcoes`), a `CortinaTransicao` da troca de sala e os auxiliares `EstiloUI` e `RecursosVisuais`.
 
 `excecoes` guarda as exceções próprias do jogo. Ver "Exceções".
 
@@ -80,7 +80,7 @@ O código fica em `src/main/java/com/jogo`, dividido em pacotes por responsabili
 
 `inventario` guarda o inventário do jogador e os itens que vão nele, também trazidos do barebones: `Inventario`, `Item` (abstrata), as interfaces `Inventariavel` e `Consumivel`, o enum `Categoria` e os itens `ModuloCura` e `ModuloEnergia`.
 
-`itens` guarda as armas, com a mesma hierarquia da versão barebones: `Arma` (abstrata, implementa `Inventariavel`), `Espada` e a filha `AdagaDupla`, `ArmaDeFogo` e as filhas dela `Shotgun`, `PistolaDuplaDePlasma` e `RifleSniper`, além da interface `Perfurante`. Ver "Armas, interfaces de combate e polimorfismo".
+`itens` guarda as armas, com a mesma hierarquia da versão barebones: `Arma` (abstrata, implementa `Inventariavel`), `Espada` e a filha `AdagaDupla`, `ArmaDeFogo` e as filhas dela `Shotgun`, `PistolaDuplaDePlasma` e `RifleSniper`, além da interface `Perfurante` e do `CatalogoArmas` (cria uma arma pelo nome usado no JSON). Ver "Armas, interfaces de combate e polimorfismo".
 
 `niveis` guarda as classes que espelham a estrutura dos arquivos JSON de nível, usadas pelo Gson pra desserializar os dados de cada sala.
 
@@ -148,12 +148,24 @@ Quando um inimigo atinge o jogador, o dano é aplicado de um jeito um pouco dife
 | Espaço ou ↑ | pular (com pulo duplo no ar) |
 | Shift | dash |
 | Z | ataque com a arma equipada |
-| Q | trocar de arma (Espada → Adagas Duplas → Shotgun → Pistola Dupla de Plasma → Rifle Sniper) |
+| Q | trocar de arma (entre as que já foram pegas) |
 | X | Golpe de Energia (Bola de Fogo) |
 | C | Apara (parry) |
 | 1 | usar Módulo de Cura |
 | 2 | usar Módulo de Energia |
-| ESC | pausar |
+| I ou TAB | abrir/fechar o inventário |
+| ESC | pausar (no inventário ou nas Opções: fechar) |
+| F11 | tela cheia |
+
+A mesma lista aparece no jogo, na tela de Opções. Ela fica em `controle.Controles.LISTA`; se uma tecla mudar no `ControleEntrada`, muda lá também.
+
+### Inventário (I / TAB)
+
+`visao.TelaInventario` pausa o jogo e mostra três partes: status (nível, XP, vida, energia, habilidades e dificuldade), a fileira de **armas** (as cinco, na ordem do catálogo; as que ainda não foram pegas aparecem apagadas com "?", e a equipada fica com borda ciano) e a fileira de **módulos** com a quantidade. Clicar numa arma equipa (`ComponenteArma.equiparArma(id)`, exceção tratada no controle); clicar num módulo (ou apertar 1/2) usa. Passar o mouse mostra a descrição embaixo. Os ícones (24x24, desenhados por nós) ficam em `assets/textures/sprites/itens/`.
+
+### Opções
+
+OPTIONS no menu principal e "Opções" na pausa abrem `visao.TelaOpcoes`: **tela cheia** (liga/desliga, igual ao F11) e **dificuldade** (Fácil, Normal, Difícil), além da lista completa de controles. A dificuldade é o enum `componentes.Dificuldade`, que multiplica o dano que a jogadora recebe (0,5x / 1x / 1,5x, nunca menos de 1); vale na hora e continua valendo em "Reiniciar" e "Menu".
 
 ## Energia, habilidades e inventário
 
@@ -171,7 +183,7 @@ Cada `Habilidade` controla o próprio tempo de espera: o `ComponenteJogador` cha
 
 O `Inventario` é o mesmo do barebones e guarda tanto os módulos quanto as armas. Ele usa duas tabelas hash (`LinkedHashMap`): uma com os objetos e outra com as quantidades. Itens de categoria empilhável (como `CONSUMIVEL`) com o mesmo id são somados numa entrada só, com contador. Itens não empilháveis (como `ARMA`) ganham um id único na criação (`espada-1`, `espada-2`...), então cada um ocupa sua própria entrada.
 
-A `Arma` implementa `Inventariavel` com categoria `ARMA`, igual no barebones. As cinco armas iniciais são criadas em `ControleJogo.prepararArsenal()`, entram no inventário de uma vez com `coletarItem(lista)` (sobrecarga do `coletarItem(item)`) e a espada é equipada com `ComponenteArma.equiparArma(idArma)`, que busca a arma pelo id no inventário e recusa qualquer coisa que não seja `Arma`. Uma arma nova (loot, upgrade) segue o mesmo caminho. Os módulos ficam espalhados pelas salas, na lista `"items"` do JSON de cada uma (`"type"` vale `"cura"` ou `"energia"`, e `"amount"` é quanto ele devolve). No mapa, o quadradinho verde é cura e o azul é energia. Ao encostar, o `CollisionHandler(JOGADOR, ITEM)` em `ControleJogo.registrarColisoes()` cria o `ModuloCura` ou `ModuloEnergia` (com o construtor curto, que só recebe a quantidade) e coloca no inventário. As teclas 1 e 2 chamam `usarItem(id)`, que só funciona com `Consumivel`: chama `efeito()` e tira um do inventário. Se não tiver o módulo, `usarItem` lança `ItemNaoEncontradoException`, e o controle mostra a mensagem em vermelho no HUD (ver "Exceções"). O texto embaixo das barras mostra quantos de cada tem. `GerenciadorSalas` guarda quais itens já foram pegos (`itensColetados`), pra eles não reaparecerem quando o jogador volta pra uma sala; essa lista zera em "Reiniciar" e "Menu Principal".
+A `Arma` implementa `Inventariavel` com categoria `ARMA`, igual no barebones. O jogo começa só com a espada (`ControleJogo.prepararArsenal()`), que entra no inventário e é equipada com `ComponenteArma.equiparArma(idArma)`, que busca a arma pelo id no inventário e recusa qualquer coisa que não seja `Arma`. As outras quatro armas e os módulos ficam espalhados pelo chão das salas, na lista `"items"` do JSON de cada uma: `"type"` vale `"cura"`, `"energia"` ou `"arma"` (com `"weapon"`: `adagas`, `shotgun`, `pistola` ou `rifle`), e `"amount"` é quanto o módulo devolve. Sala 1 tem as Adagas Duplas, a 2 a Shotgun, a 3 a Pistola e a 4 o Rifle. No mapa, cada item aparece com o ícone e um brilho (verde cura, ciano energia, amarelo arma), flutuando. Ao encostar, o `CollisionHandler(JOGADOR, ITEM)` em `ControleJogo.registrarColisoes()` cria o `ModuloCura`/`ModuloEnergia` (construtor curto, só a quantidade) ou a arma pelo `itens.CatalogoArmas.criar(nome)`, coloca no inventário e mostra uma mensagem amarela no HUD. As teclas 1 e 2 chamam `usarItem(id)`, que só funciona com `Consumivel`: chama `efeito()` e tira um do inventário. Se não tiver o módulo, `usarItem` lança `ItemNaoEncontradoException`, e o controle mostra a mensagem em vermelho no HUD (ver "Exceções"). Embaixo das barras, o HUD mostra os ícones dos módulos com a quantidade e o ícone da arma equipada. `GerenciadorSalas` guarda quais itens já foram pegos (`itensColetados`), pra eles não reaparecerem quando o jogador volta pra uma sala; essa lista zera em "Reiniciar" e "Menu Principal".
 
 ## Armas, interfaces de combate e polimorfismo
 
@@ -198,7 +210,7 @@ Antes existia uma classe `Arma` só, com um enum `TipoArma` (`MELEE`, `DISTANCIA
 
 Cada arma também diz como a jogadora a segura (`getEmpunhadura()`, que escolhe as animações; ver "Sprites e animações") e descreve o próprio ataque (`getDescricaoCombate()`), mostrado no HUD.
 
-**Coleção polimórfica:** as cinco armas ficam no inventário, e o `ComponenteArma.getArsenal()` devolve todas numa `List<Arma>`, apesar de cada uma ser de uma classe diferente. A tecla Q passa pra próxima arma da lista, e a tecla Z faz sempre a mesma chamada (`atacar`), que dá um resultado diferente pra cada arma. Ao começar o jogo, o `ControleJogo` percorre essa lista e imprime no console a `getDescricaoCombate()` de cada arma: mesma chamada, resposta diferente pra cada classe, o equivalente ao `foreach` de `atacar()` da atividade de RPG. A lista vem de `Inventario.listarDoTipo(Arma.class)`, um método genérico (`<T> List<T> listarDoTipo(Class<T> tipo)`) que já devolve a lista no tipo pedido, sem cast.
+**Coleção polimórfica:** as armas pegas ficam no inventário, e o `ComponenteArma.getArsenal()` devolve todas numa `List<Arma>`, apesar de cada uma ser de uma classe diferente. A tecla Q passa pra próxima arma da lista, e a tecla Z faz sempre a mesma chamada (`atacar`), que dá um resultado diferente pra cada arma. Ao começar o jogo, o `ControleJogo` percorre as cinco armas do `CatalogoArmas` e imprime no console a `getDescricaoCombate()` de cada arma: mesma chamada, resposta diferente pra cada classe, o equivalente ao `foreach` de `atacar()` da atividade de RPG. A lista vem de `Inventario.listarDoTipo(Arma.class)`, um método genérico (`<T> List<T> listarDoTipo(Class<T> tipo)`) que já devolve a lista no tipo pedido, sem cast.
 
 **Uso de `super`:** além do `super(...)` nos construtores, o projeto chama a versão da classe mãe dentro de métodos sobrescritos em quatro lugares: `ComponenteInimigoVoador.iniciarAtaque()`, `ComponenteInimigo.tomarDano()`, `Shotgun.executarAtaque()` e `PistolaDuplaDePlasma.executarAtaque()` (este último também dentro de uma lambda). Nos quatro casos a subclasse reaproveita o comportamento da mãe e acrescenta o dela, como o `parent::atacar()` do Paladino na atividade de RPG.
 
@@ -270,12 +282,12 @@ São "checked" (herdam de `Exception`): quem chama é obrigado a tratar ou repas
 
 ## Testes
 
-61 testes JUnit 5 em `src/test/java`, todos passando. Rodam com `mvn test`.
+70 testes JUnit 5 em `src/test/java`, todos passando. Rodam com `mvn test`.
 
-- Unitários: `ComponenteAnimadoTest` (qual animação mostrar em cada situação, ampliação dos sprites), `ComponenteJogadorTest` (energia, cura, invencibilidade, subir de nível, usar módulos), `ComponenteInimigoTest` (XP de cada tipo, interfaces), `ArmaTest` (cooldown do `atacar()` com uma arma de teste, `multiplicarDano`, ids únicos), `ArmasDeFogoTest` (ganchos de cada arma, `Perfurante`, coleção polimórfica), `HabilidadeTest`, `InventarioTest` (pilha, duplicata, `listarDoTipo` genérico, sobrecargas), `ComponenteAuxiliaresTest`.
+- Unitários: `ComponenteAnimadoTest` (qual animação mostrar em cada situação, ampliação dos sprites), `ComponenteJogadorTest` (energia, cura, invencibilidade, subir de nível, usar módulos), `ComponenteInimigoTest` (XP de cada tipo, interfaces), `ArmaTest` (cooldown do `atacar()` com uma arma de teste, `multiplicarDano`, ids únicos), `ArmasDeFogoTest` (ganchos de cada arma, `Perfurante`, coleção polimórfica), `HabilidadeTest`, `InventarioTest` (pilha, duplicata, `listarDoTipo` genérico, sobrecargas), `ComponenteAuxiliaresTest`, `DificuldadeTest` (multiplicador de dano de cada dificuldade), `CatalogoArmasTest` (arma certa pra cada nome do JSON).
 - Casos de sucesso e de falha: cada classe testa o caminho certo e os errados (sem energia, em cooldown, item que não existe, valores inválidos no construtor).
 - Exceções: `assertThrows` para cada exceção própria e para as `IllegalArgumentException` dos construtores.
-- Integração: `CarregadorDeNiveisTest` lê os JSON de verdade das 4 salas com o Gson (e JSON de teste quebrado/incompleto em `src/test/resources`); `JogadorSalaIntegracaoTest` carrega a sala 4, cria o jogador com os dados dela, coleta os módulos, soma o XP dos inimigos, sobe de nível e usa os módulos até dar a exceção.
+- Integração: `CarregadorDeNiveisTest` lê os JSON de verdade das 4 salas com o Gson (e JSON de teste quebrado/incompleto em `src/test/resources`); `JogadorSalaIntegracaoTest` carrega a sala 4, cria o jogador com os dados dela, coleta os módulos e o rifle do chão, soma o XP dos inimigos, sobe de nível e usa os módulos até dar a exceção.
 
 Cobertura (JaCoCo): `inventario` 96% das linhas, `niveis` 95%, `excecoes` 100%. O total do projeto fica baixo (cerca de 20%) porque `visao`, `controle` e boa parte de `componentes` só funcionam com a janela e o motor do FXGL rodando; essas partes foram testadas jogando.
 

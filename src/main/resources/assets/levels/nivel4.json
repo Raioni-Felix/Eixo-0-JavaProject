@@ -89,8 +89,10 @@
     }
   ],
   "items": [
-    { "type": "cura", "x": 868, "y": 480, "amount": 30 },
-    { "type": "energia", "x": 1918, "y": 460, "amount": 20 },
-    { "type": "cura", "x": 2968, "y": 470, "amount": 30 }
+    {"type": "cura", "x": 868, "y": 480, "amount": 30},
+    {"type": "energia", "x": 1918, "y": 460, "amount": 20},
+    {"type": "cura", "x": 2968, "y": 470, "amount": 30},
+    {"type": "arma", "weapon": "rifle", "x": 1600, "y": 650, "amount": 0},
+    {"type": "energia", "x": 3200, "y": 650, "amount": 20}
   ]
 }

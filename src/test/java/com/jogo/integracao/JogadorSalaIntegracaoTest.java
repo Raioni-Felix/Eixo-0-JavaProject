@@ -10,6 +10,8 @@ import com.jogo.excecoes.ItemNaoEncontradoException;
 import com.jogo.excecoes.JogoException;
 import com.jogo.inventario.ModuloCura;
 import com.jogo.inventario.ModuloEnergia;
+import com.jogo.itens.Arma;
+import com.jogo.itens.CatalogoArmas;
 import com.jogo.niveis.CarregadorDeNiveis;
 import com.jogo.niveis.DadosInimigo;
 import com.jogo.niveis.DadosItem;
@@ -36,7 +38,7 @@ class JogadorSalaIntegracaoTest {
     }
 
     @Test
-    @DisplayName("Sala 4: coleta, sobe de nível com o XP dos inimigos e usa os módulos")
+    @DisplayName("Sala 4: coleta (módulos e o rifle), sobe de nível com o XP dos inimigos e usa os módulos")
     void percorrerSala() throws JogoException {
         DadosNivel sala = CarregadorDeNiveis.carregar("/assets/levels/nivel4.json");
         ComponenteJogador jogador = new ComponenteJogador(sala.jogador.nome, sala.jogador.vidaMaxima,
@@ -44,14 +46,20 @@ class JogadorSalaIntegracaoTest {
 
         //Itens do chão viram objetos do inventário (como no ControleJogo)
         for (DadosItem item : sala.itens) {
-            if ("energia".equals(item.tipo)) {
+            if ("arma".equals(item.tipo)) {
+                jogador.coletarItem(CatalogoArmas.criar(item.arma));
+            } else if ("energia".equals(item.tipo)) {
                 jogador.coletarItem(new ModuloEnergia(item.quantidade));
             } else {
                 jogador.coletarItem(new ModuloCura(item.quantidade));
             }
         }
         assertEquals(2, jogador.getInventario().quantidadeDe(ControleJogo.ID_MODULO_CURA));
-        assertEquals(1, jogador.getInventario().quantidadeDe(ControleJogo.ID_MODULO_ENERGIA));
+        assertEquals(2, jogador.getInventario().quantidadeDe(ControleJogo.ID_MODULO_ENERGIA));
+        //A arma do chão da sala 4 é o rifle
+        List<Arma> armas = jogador.getInventario().listarDoTipo(Arma.class);
+        assertEquals(1, armas.size());
+        assertEquals("rifle", CatalogoArmas.nomeDe(armas.get(0)));
 
         //Derrota todos: soma o XP de cada tipo (polimorfismo)
         List<ComponenteInimigo> inimigos = new ArrayList<>();
@@ -78,6 +86,8 @@ class JogadorSalaIntegracaoTest {
 
         //Acabaram: a terceira cura lança a exceção do modelo
         assertThrows(ItemNaoEncontradoException.class, () -> jogador.usarItem(ControleJogo.ID_MODULO_CURA));
-        assertTrue(jogador.getInventario().inventarioVazio());
+        //Sobram o segundo Módulo de Energia e o rifle
+        assertEquals(1, jogador.getInventario().quantidadeDe(ControleJogo.ID_MODULO_ENERGIA));
+        assertFalse(jogador.getInventario().inventarioVazio());
     }
 }

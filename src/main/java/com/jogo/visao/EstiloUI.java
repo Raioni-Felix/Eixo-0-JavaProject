@@ -84,7 +84,7 @@ public final class EstiloUI {
     //Item de menu estilo HUD: quadradinho indicador + label + tecla de
     //atalho à direita, com destaque pro item primário (PLAY) e hover que
     //clareia o fundo. action=null deixa o item só visual (é o caso de
-    //"OPTIONS", que ainda não tem tela própria).
+    //"OPTIONS" antes de existir a tela de Opções).
     public static Region linhaMenu(String label, String hotkey, boolean primary, Runnable action) {
         Rectangle indicator = new Rectangle(8, 8, Color.web(primary ? "#4de8d4" : "#1c5f74"));
         if (primary) {

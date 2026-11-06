@@ -31,3 +31,7 @@ Criados para este projeto (Eixo 0):
 
 robo-melee/, robo-atirador/
   Desenhados para este projeto (Eixo 0), na paleta do Warped City.
+
+itens/
+  Ícones dos itens do chão e do inventário (armas e módulos), 24x24,
+  desenhados para este projeto (Eixo 0).

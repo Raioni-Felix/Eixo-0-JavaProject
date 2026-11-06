@@ -34,6 +34,8 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.paint.ImagePattern;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
+import javafx.animation.TranslateTransition;
 import javafx.scene.shape.Rectangle;
 import com.almasb.fxgl.dsl.components.ExpireCleanComponent;
 import javafx.util.Duration;
@@ -494,16 +496,28 @@ public class FabricaEntidades implements EntityFactory {
     //cura, azul = energia.
     @Spawns("item")
     public Entity spawnItem(SpawnData data) {
-        String tipoItem = data.get("tipoItem"); //"cura" ou "energia"
+        String tipoItem = data.get("tipoItem"); //"cura", "energia" ou "arma"
         int quantidade = data.get("quantidade");
+        String arma = data.get("arma");
         String idColeta = data.get("idColeta");
 
-        double tamanho = 16;
-        Color cor = "energia".equals(tipoItem) ? Color.DEEPSKYBLUE : Color.LIMEGREEN;
-
-        Rectangle visual = new Rectangle(tamanho, tamanho, cor);
-        visual.setStroke(Color.WHITE);
-        visual.setStrokeWidth(2);
+        //Ícone do item (sprites/itens) flutuando devagar sobre um brilho,
+        //pra se destacar do cenário
+        double tamanho = 24;
+        String icone = "arma".equals(tipoItem) ? arma
+                : "energia".equals(tipoItem) ? "modulo_energia" : "modulo_cura";
+        Color corBrilho = "arma".equals(tipoItem) ? Color.web("#ffd800")
+                : "energia".equals(tipoItem) ? Color.web("#00fff0") : Color.web("#50e678");
+        ImageView imagem = new ImageView(Sprites.quadros("itens", icone, 1, 1).get(0));
+        Circle brilho = new Circle(tamanho / 2, tamanho / 2, tamanho * 0.7, corBrilho.deriveColor(0, 1, 1, 0.25));
+        brilho.setEffect(new javafx.scene.effect.GaussianBlur(8));
+        Group visual = new Group(brilho, imagem);
+        TranslateTransition flutuar = new TranslateTransition(Duration.seconds(0.9), visual);
+        flutuar.setFromY(0);
+        flutuar.setToY(-5);
+        flutuar.setAutoReverse(true);
+        flutuar.setCycleCount(TranslateTransition.INDEFINITE);
+        flutuar.play();
 
         Entity item = entityBuilder(data)
                 .type(TipoEntidade.ITEM)
@@ -516,6 +530,7 @@ public class FabricaEntidades implements EntityFactory {
         //CollisionHandler ler na hora do toque.
         item.setProperty("tipoItem", tipoItem);
         item.setProperty("quantidade", quantidade);
+        item.setProperty("arma", arma);
         item.setProperty("idColeta", idColeta);
         return item;
     }

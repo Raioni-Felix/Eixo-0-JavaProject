@@ -65,7 +65,9 @@
     }
   ],
   "items": [
-    { "type": "energia", "x": 968, "y": 500, "amount": 20 },
-    { "type": "cura", "x": 2168, "y": 480, "amount": 30 }
+    {"type": "energia", "x": 968, "y": 500, "amount": 20},
+    {"type": "cura", "x": 2168, "y": 480, "amount": 30},
+    {"type": "arma", "weapon": "shotgun", "x": 1300, "y": 650, "amount": 0},
+    {"type": "energia", "x": 2800, "y": 650, "amount": 20}
   ]
 }

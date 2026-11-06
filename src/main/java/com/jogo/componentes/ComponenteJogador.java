@@ -306,8 +306,22 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
             return;
         }
 
-        super.tomarDano(quant);
+        super.tomarDano(dificuldade.aplicar(quant));
         timerInvencibilidade = duracaoInvencibilidade;
+    }
+
+    //Opções > Dificuldade (o controle repassa pra cá)
+    private Dificuldade dificuldade = Dificuldade.NORMAL;
+
+    public void setDificuldade(Dificuldade dificuldade) {
+        if (dificuldade == null) {
+            throw new IllegalArgumentException("Dificuldade não pode ser nula");
+        }
+        this.dificuldade = dificuldade;
+    }
+
+    public Dificuldade getDificuldade() {
+        return dificuldade;
     }
 
     public boolean estaInvencivel() {

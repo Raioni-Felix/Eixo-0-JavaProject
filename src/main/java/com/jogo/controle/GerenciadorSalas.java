@@ -193,6 +193,7 @@ public class GerenciadorSalas {
             spawn("item", new SpawnData(dadosItem.x, dadosItem.y)
                     .put("tipoItem", dadosItem.tipo)
                     .put("quantidade", dadosItem.quantidade)
+                    .put("arma", dadosItem.arma == null ? "" : dadosItem.arma)
                     .put("idColeta", idColeta));
         }
     }
