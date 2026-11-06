@@ -2,7 +2,6 @@ package com.jogo.itens;
 
 import com.almasb.fxgl.entity.Entity;
 import com.jogo.inventario.Categoria;
-import javafx.scene.Node;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -25,8 +24,8 @@ class ArmaTest {
         }
 
         @Override
-        public Node criarVisual() {
-            return null;
+        public String getEmpunhadura() {
+            return "espada";
         }
 
         @Override

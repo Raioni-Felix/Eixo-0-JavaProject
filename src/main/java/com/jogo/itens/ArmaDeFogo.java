@@ -2,9 +2,7 @@ package com.jogo.itens;
 
 import com.almasb.fxgl.entity.Entity;
 import com.almasb.fxgl.entity.SpawnData;
-import javafx.scene.Node;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.Rectangle;
 
 import static com.almasb.fxgl.dsl.FXGL.spawn;
 
@@ -67,9 +65,11 @@ public class ArmaDeFogo extends Arma {
         return Color.GOLD;
     }
 
+    //Todas as armas de fogo são seguradas igual: Shotgun, Pistola e
+    //Rifle herdam este
     @Override
-    public Node criarVisual() {
-        return new Rectangle(20, 6, Color.DIMGRAY);
+    public String getEmpunhadura() {
+        return "arma";
     }
 
     @Override

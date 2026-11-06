@@ -21,9 +21,7 @@ namespace componentes {
   class ComponenteArma {
     -armaEquipada : Arma
     -jogador : ComponenteJogador
-    -visualArma : Node
     +onAdded()
-    +onUpdate(double)
     +equiparArma(String)
     +trocarArma()
     +atacar() boolean
@@ -169,12 +167,14 @@ namespace componentes_visual {
     +onUpdate(double)
   }
   class ComponenteAnimado {
+    -conjunto : Supplier~String~
     -larguraQuadro : double
     -escala : double
     -centroX : double
     -peY : double
     -olhandoDireita : BooleanSupplier
     -textura : AnimatedTexture
+    -conjuntoAtual : String
     +onAdded()
     +onUpdate(double)
   }
@@ -343,6 +343,9 @@ namespace inventario {
   }
 }
 namespace itens {
+  class AdagaDupla {
+    #executarAtaque(Entity, double)
+  }
   class Arma {
     <<abstract>>
     -contadorInstancias : int$
@@ -357,18 +360,16 @@ namespace itens {
     +podeAtacar() boolean
     +atacar(Entity, double) boolean
     #executarAtaque(Entity, double)*
-    +criarVisual()* Node
+    +getEmpunhadura()* String
     +getDescricaoCombate()* String
     +multiplicarDano(double)
   }
   class ArmaDeFogo {
     #executarAtaque(Entity, double)
     #dispararProjetil(Entity, double, double)
-    +criarVisual() Node
   }
   class Espada {
     #executarAtaque(Entity, double)
-    +criarVisual() Node
   }
   class Perfurante {
     <<interface>>
@@ -376,16 +377,13 @@ namespace itens {
   }
   class PistolaDuplaDePlasma {
     #executarAtaque(Entity, double)
-    +criarVisual() Node
   }
   class RifleSniper {
     -alvosAtravessados : int
-    +criarVisual() Node
   }
   class Shotgun {
     -quantidadeBalins : int
     #executarAtaque(Entity, double)
-    +criarVisual() Node
   }
 }
 namespace jogo {
@@ -553,6 +551,7 @@ Perfurante <|.. RifleSniper
 ArmaDeFogo <|-- PistolaDuplaDePlasma
 Arma <|-- Espada
 Arma <|-- ArmaDeFogo
+Espada <|-- AdagaDupla
 Inventariavel <|.. Arma
 ArmaDeFogo <|-- Shotgun
 Habilidade <|-- GolpeDeEnergia

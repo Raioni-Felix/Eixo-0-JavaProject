@@ -1,9 +1,7 @@
 package com.jogo.itens;
 
 import com.almasb.fxgl.entity.Entity;
-import javafx.scene.Node;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.Rectangle;
 import javafx.util.Duration;
 
 import static com.almasb.fxgl.dsl.FXGL.runOnce;
@@ -37,11 +35,6 @@ public class PistolaDuplaDePlasma extends ArmaDeFogo {
     @Override
     protected Color getCorProjetil() {
         return Color.MAGENTA;
-    }
-
-    @Override
-    public Node criarVisual() {
-        return new Rectangle(18, 6, Color.MEDIUMPURPLE);
     }
 
     @Override

@@ -28,7 +28,7 @@ class ComponenteAnimadoTest {
         assertEquals(EstadoAnimacao.CAINDO, ComponenteAnimado.escolherEstado(false, false, false, 200, 300));
         assertEquals(EstadoAnimacao.ATACANDO, ComponenteAnimado.escolherEstado(false, true, true, 0, 0));
         assertEquals(EstadoAnimacao.ATACANDO_ANDANDO, ComponenteAnimado.escolherEstado(false, true, true, 200, 0));
-        assertEquals(EstadoAnimacao.ATACANDO, ComponenteAnimado.escolherEstado(false, true, false, 200, 0));
+        assertEquals(EstadoAnimacao.ATACANDO_NO_AR, ComponenteAnimado.escolherEstado(false, true, false, 200, 0));
     }
 
     @Test
@@ -46,6 +46,7 @@ class ComponenteAnimadoTest {
         assertEquals(EstadoAnimacao.PARADO, ComponenteAnimado.animacaoDisponivel(EstadoAnimacao.ATACANDO, drone));
         Set<EstadoAnimacao> robo = EnumSet.of(EstadoAnimacao.PARADO, EstadoAnimacao.ATACANDO);
         assertEquals(EstadoAnimacao.ATACANDO, ComponenteAnimado.animacaoDisponivel(EstadoAnimacao.ATACANDO_ANDANDO, robo));
+        assertEquals(EstadoAnimacao.ATACANDO, ComponenteAnimado.animacaoDisponivel(EstadoAnimacao.ATACANDO_NO_AR, robo));
     }
 
     @Test
@@ -58,7 +59,11 @@ class ComponenteAnimadoTest {
     @Test
     @DisplayName("Todos os quadros dos sprites existem e carregam")
     void quadrosExistem() {
-        assertEquals(8, Sprites.quadros("jogador", "correr", 8, 1).size());
+        for (String emp : new String[]{"espada", "adagas", "arma"}) {
+            assertEquals(4, Sprites.quadros("jogador", emp + "-parado", 4, 1).size());
+            assertEquals(6, Sprites.quadros("jogador", emp + "-correr", 6, 1).size());
+        }
+        assertEquals(6, Sprites.quadros("jogador", "arma-atirar-correndo", 6, 1).size());
         assertEquals(4, Sprites.quadros("drone", "voar", 4, 1).size());
         assertEquals(6, Sprites.quadros("robo-melee", "andar", 6, 1).size());
         assertEquals(3, Sprites.quadros("robo-atirador", "tiro", 3, 1).size());

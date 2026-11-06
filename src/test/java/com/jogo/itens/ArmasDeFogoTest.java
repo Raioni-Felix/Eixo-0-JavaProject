@@ -45,6 +45,18 @@ class ArmasDeFogoTest {
     }
 
     @Test
+    @DisplayName("Empunhadura: as de fogo herdam \"arma\"; adagas sobrescrevem a da espada")
+    void empunhadura() {
+        assertEquals("arma", shotgun.getEmpunhadura());
+        assertEquals("arma", rifle.getEmpunhadura());
+        assertEquals("espada", new Espada("e", "Espada", "", 20, 0.5, 40).getEmpunhadura());
+        AdagaDupla adagas = new AdagaDupla("a", "Adagas", "", 8, 0.3, 30);
+        assertEquals("adagas", adagas.getEmpunhadura());
+        assertInstanceOf(Espada.class, adagas);
+        assertEquals("2 cortes de 8", adagas.getDescricaoCombate());
+    }
+
+    @Test
     @DisplayName("Coleção polimórfica: mesma chamada, descrição diferente")
     void descricoes() {
         List<Arma> arsenal = List.of(new Espada("e", "Espada", "", 20, 0.5, 40), shotgun, pistola, rifle);

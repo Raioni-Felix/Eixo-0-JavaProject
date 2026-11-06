@@ -555,7 +555,7 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
     //ANIMAÇÃO: o componente de animação (componentes.visual) só lê estes
 
     //Quanto tempo a pose de ataque fica na tela depois de cada golpe
-    private static final double DURACAO_POSE_ATAQUE = 0.25;
+    private static final double DURACAO_POSE_ATAQUE = 0.35;
     private long instanteUltimoAtaque = 0;
 
     private void marcarAtaque() {

@@ -135,16 +135,17 @@ public class FabricaEntidades implements EntityFactory {
 
         var jogador = new ComponenteJogador(nome, vidaMaxima, velocidade, energiaMaxima);
 
-        //Sprites do Warped City (ver assets/textures/sprites/CREDITOS.txt)
-        var animacao = new ComponenteAnimado(Map.of(
-                EstadoAnimacao.PARADO, Sprites.animacao("jogador", "parado", 4, 0.6, ESCALA_SPRITES),
-                EstadoAnimacao.ANDANDO, Sprites.animacao("jogador", "correr", 8, 0.7, ESCALA_SPRITES),
-                EstadoAnimacao.PULANDO, Sprites.animacao("jogador", "pular", 4, 0.4, ESCALA_SPRITES),
-                EstadoAnimacao.CAINDO, Sprites.animacao("jogador", "cair", 1, 0.2, ESCALA_SPRITES),
-                EstadoAnimacao.ATACANDO, Sprites.animacao("jogador", "atirar", 1, 0.25, ESCALA_SPRITES),
-                EstadoAnimacao.ATACANDO_ANDANDO, Sprites.animacao("jogador", "correr-atirando", 8, 0.7, ESCALA_SPRITES),
-                EstadoAnimacao.MACHUCADO, Sprites.animacao("jogador", "dano", 1, 0.2, ESCALA_SPRITES)),
-                71, 38, 67, ESCALA_SPRITES,
+        var arma = new ComponenteArma();
+
+        //Um conjunto de animações por empunhadura (Arma.getEmpunhadura()):
+        //trocar de arma troca os sprites. Ver sprites/CREDITOS.txt
+        Map<String, Map<EstadoAnimacao, com.almasb.fxgl.texture.AnimationChannel>> conjuntos = Map.of(
+                "espada", animacoesJogadora("espada", 6, 2, 5, 6, 3),
+                "adagas", animacoesJogadora("adagas", 6, 3, 4, 6, 3),
+                "arma", animacoesJogadora("arma", 6, 2, 3, 6, 3));
+        var animacao = new ComponenteAnimado(conjuntos,
+                () -> arma.getArmaEquipada() == null ? "espada" : arma.getArmaEquipada().getEmpunhadura(),
+                130, 65, 80, ESCALA_SPRITES,
                 () -> ComponenteAnimado.escolherEstado(jogador.estaAtordoado(), jogador.estaAtacando(),
                         jogador.estaNoChao(), jogador.getVelocidadeX(), jogador.getVelocidadeY()),
                 jogador::estaOlhandoDireita);
@@ -157,7 +158,7 @@ public class FabricaEntidades implements EntityFactory {
                 .with(fisica)
                 .with(jogador)
                 .with(animacao)
-                .with(new ComponenteArma())
+                .with(arma)
                 .build();
     }
     // Construtor da Hitbox do Ataque Corpo a Corpo
@@ -329,6 +330,25 @@ public class FabricaEntidades implements EntityFactory {
     //comentário lá em cima da classe: tira o jogador do maskBits do
     //fixture sólido e adiciona um sensor extra (mesmo tamanho) que
     //chama serAtingido() no ComponenteJogador a cada frame de contato.
+    //Animações da jogadora com uma empunhadura. Os arquivos seguem o
+    //padrão "<empunhadura>-<ação>-<n>.png"; os números são quantos
+    //quadros cada ação tem. O ataque da arma de fogo se chama "atirar".
+    private Map<EstadoAnimacao, com.almasb.fxgl.texture.AnimationChannel> animacoesJogadora(String emp,
+            int correr, int pular, int ataque, int ataqueCorrendo, int ataqueNoAr) {
+        String atacar = emp.equals("arma") ? "atirar" : "ataque";
+        String atacarCorrendo = emp.equals("arma") ? "atirar-correndo" : "ataque-correndo";
+        String atacarNoAr = emp.equals("arma") ? "atirar-ar" : "ataque-ar";
+        return Map.of(
+                EstadoAnimacao.PARADO, Sprites.animacao("jogador", emp + "-parado", 4, 0.9, ESCALA_SPRITES),
+                EstadoAnimacao.ANDANDO, Sprites.animacao("jogador", emp + "-correr", correr, 0.6, ESCALA_SPRITES),
+                EstadoAnimacao.PULANDO, Sprites.animacao("jogador", emp + "-pular", pular, 0.3, ESCALA_SPRITES),
+                EstadoAnimacao.CAINDO, Sprites.animacao("jogador", emp + "-cair", 1, 0.2, ESCALA_SPRITES),
+                EstadoAnimacao.ATACANDO, Sprites.animacao("jogador", emp + "-" + atacar, ataque, 0.3, ESCALA_SPRITES),
+                EstadoAnimacao.ATACANDO_ANDANDO, Sprites.animacao("jogador", emp + "-" + atacarCorrendo, ataqueCorrendo, 0.45, ESCALA_SPRITES),
+                EstadoAnimacao.ATACANDO_NO_AR, Sprites.animacao("jogador", emp + "-" + atacarNoAr, ataqueNoAr, 0.3, ESCALA_SPRITES),
+                EstadoAnimacao.MACHUCADO, Sprites.animacao("jogador", "dano", 1, 0.2, ESCALA_SPRITES));
+    }
+
     //Animação de qualquer inimigo: mesma regra de estado do jogador,
     //lendo o ComponenteInimigo
     private ComponenteAnimado animacaoInimigo(ComponenteInimigo inimigo, Map<EstadoAnimacao, com.almasb.fxgl.texture.AnimationChannel> animacoes,

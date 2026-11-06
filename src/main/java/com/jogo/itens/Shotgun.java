@@ -1,9 +1,6 @@
 package com.jogo.itens;
 
 import com.almasb.fxgl.entity.Entity;
-import javafx.scene.Node;
-import javafx.scene.paint.Color;
-import javafx.scene.shape.Rectangle;
 
 //Trazida do barebones: vários balins por disparo, abertos em leque.
 //O dano é por balim, então de perto (todos acertam) bate forte, e de
@@ -35,11 +32,6 @@ public class Shotgun extends ArmaDeFogo {
     @Override
     protected double getTamanhoProjetil() {
         return 6;
-    }
-
-    @Override
-    public Node criarVisual() {
-        return new Rectangle(24, 8, Color.SADDLEBROWN);
     }
 
     @Override

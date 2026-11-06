@@ -5,7 +5,6 @@ import com.jogo.excecoes.ItemIncompativelException;
 import com.jogo.excecoes.ItemNaoEncontradoException;
 import com.jogo.inventario.Inventariavel;
 import com.jogo.itens.Arma;
-import javafx.scene.Node;
 
 import java.util.List;
 
@@ -33,29 +32,9 @@ public class ComponenteArma extends Component {
     private Arma armaEquipada;
     private ComponenteJogador jogador;
 
-    //Desenho da arma equipada, grudado no jogador (filho do
-    //ViewComponent dele). Só visual: quem aplica dano é o ataque que a
-    //arma cria. Cada arma diz como é desenhada (Arma.criarVisual()).
-    private Node visualArma;
-
     @Override
     public void onAdded() {
         jogador = entity.getComponent(ComponenteJogador.class);
-    }
-
-    @Override
-    public void onUpdate(double tpf) {
-        if (visualArma == null) {
-            return;
-        }
-
-        //Espelha e reposiciona a arma conforme o jogador vira. scaleX
-        //negativo espelha o desenho, sem precisar de uma segunda imagem
-        //"virada pra esquerda".
-        double largura = visualArma.getBoundsInLocal().getWidth();
-        boolean olhandoDireita = jogador.estaOlhandoDireita();
-        visualArma.setTranslateX(olhandoDireita ? entity.getWidth() : -largura);
-        visualArma.setScaleX(olhandoDireita ? 1 : -1);
     }
 
     //Igual ao equiparArma(idArma) do Jogador do barebones: só equipa
@@ -72,9 +51,10 @@ public class ComponenteArma extends Component {
         equipar(armaEncontrada);
     }
 
+    //A arma aparece na mão da jogadora pelo próprio sprite (cada
+    //empunhadura tem as suas animações, ver ComponenteAnimado)
     private void equipar(Arma arma) {
         this.armaEquipada = arma;
-        trocarVisual();
     }
 
     //Todas as armas do inventário, na ordem em que foram pegas. A lista
@@ -113,15 +93,5 @@ public class ComponenteArma extends Component {
             return false; // atordoado ou sem arma
         }
         return armaEquipada.atacar(entity, jogador.estaOlhandoDireita() ? 1 : -1);
-    }
-
-    private void trocarVisual() {
-        if (visualArma != null) {
-            entity.getViewComponent().removeChild(visualArma);
-        }
-        visualArma = armaEquipada.criarVisual();
-        //Encosta a arma na altura do meio do jogador
-        visualArma.setTranslateY(entity.getHeight() / 2 - visualArma.getBoundsInLocal().getHeight() / 2);
-        entity.getViewComponent().addChild(visualArma);
     }
 }

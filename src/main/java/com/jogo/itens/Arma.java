@@ -3,7 +3,6 @@ package com.jogo.itens;
 import com.almasb.fxgl.entity.Entity;
 import com.jogo.inventario.Categoria;
 import com.jogo.inventario.Inventariavel;
-import javafx.scene.Node;
 
 //Igual ao barebones: a arma é Inventariavel, então vai pro inventário
 //do jogador junto com os módulos. Categoria ARMA não empilha, por isso
@@ -74,9 +73,10 @@ public abstract class Arma implements Inventariavel {
     //Cada arma decide do jeito que quiser
     protected abstract void executarAtaque(Entity portador, double direcaoX);
 
-    //O desenho da arma na mão do jogador (ver ComponenteArma). Abstrato
-    //pelo mesmo motivo: espada é uma imagem, arma de fogo é um retângulo
-    public abstract Node criarVisual();
+    //Como a jogadora segura a arma: "espada", "adagas" ou "arma" (de
+    //fogo). A animação usa isso pra escolher os sprites (ver
+    //FabricaEntidades); o modelo não sabe nada de imagem.
+    public abstract String getEmpunhadura();
 
     //Uma linha explicando como a arma ataca (usada no HUD). Cada filha
     //sobrescreve com os números dela

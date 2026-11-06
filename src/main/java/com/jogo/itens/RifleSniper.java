@@ -1,8 +1,6 @@
 package com.jogo.itens;
 
-import javafx.scene.Node;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.Rectangle;
 
 //Trazida do barebones: arma de precisão, um disparo de dano alto que
 //atravessa inimigos (Perfurante). Não precisa reescrever o ataque:
@@ -36,11 +34,6 @@ public class RifleSniper extends ArmaDeFogo implements Perfurante {
     @Override
     protected Color getCorProjetil() {
         return Color.WHITE;
-    }
-
-    @Override
-    public Node criarVisual() {
-        return new Rectangle(30, 5, Color.DARKOLIVEGREEN);
     }
 
     @Override

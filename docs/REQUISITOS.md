@@ -10,8 +10,8 @@ Status: ✅ feito · 🧪 com teste automático · 🎮 testado jogando (depende
 |---|---|---|---|
 | RF01 | Menu principal com Jogar e Sair | `visao.TelaMenuPrincipal`, `ControleJogo.iniciarJogo` | 🎮 |
 | RF02 | Mover para os lados, pular (com pulo duplo) e dash (Shift) | `ComponenteJogador`, `ControleEntrada` | 🎮 |
-| RF03 | Atacar com a arma equipada (Z) e trocar de arma (Q) entre Espada, Shotgun, Pistola Dupla de Plasma e Rifle Sniper | `ComponenteArma`, pacote `itens` | 🧪 `ArmaTest`, `ArmasDeFogoTest` · 🎮 |
-| RF04 | Cada arma ataca do seu jeito: corte, 5 balins em leque, 2 tiros, tiro que atravessa 3 inimigos | `Espada`, `Shotgun`, `PistolaDuplaDePlasma`, `RifleSniper` | 🧪 `ArmasDeFogoTest` · 🎮 |
+| RF03 | Atacar com a arma equipada (Z) e trocar de arma (Q) entre Espada, Adagas Duplas, Shotgun, Pistola Dupla de Plasma e Rifle Sniper | `ComponenteArma`, pacote `itens` | 🧪 `ArmaTest`, `ArmasDeFogoTest` · 🎮 |
+| RF04 | Cada arma ataca do seu jeito: corte, 2 cortes rápidos, 5 balins em leque, 2 tiros, tiro que atravessa 3 inimigos | `Espada`, `AdagaDupla`, `Shotgun`, `PistolaDuplaDePlasma`, `RifleSniper` | 🧪 `ArmasDeFogoTest` · 🎮 |
 | RF05 | Toda arma tem tempo de espera entre ataques | `Arma.atacar` | 🧪 `ArmaTest` |
 | RF06 | Golpe de Energia (X, Bola de Fogo) e Apara (C) com custo de energia e cooldown | pacote `habilidades` | 🧪 `HabilidadeTest` · 🎮 |
 | RF07 | Barra de vida e de energia sempre de acordo com o valor atual e o máximo | `visao.HudJogo` | 🎮 |
@@ -25,7 +25,7 @@ Status: ✅ feito · 🧪 com teste automático · 🎮 testado jogando (depende
 | RF15 | Câmera segue o jogador dentro dos limites da sala | `GerenciadorSalas.atualizarCamera` | 🎮 |
 | RF16 | Pausa (ESC) com Continuar e Menu | `visao.TelaPausa`, `ControleJogo` | 🎮 |
 | RF17 | Game Over com Reiniciar (volta direto pro jogo) e Menu Principal | `visao.TelaGameOver`, `ControleJogo` | 🎮 |
-| RF18 | Personagens animados: parado, andar, pular/cair, atacar, dano; inimigos explodem ao morrer; voador é um drone, os outros dois são robôs | `componentes.visual.ComponenteAnimado`, `Sprites` | 🧪 `ComponenteAnimadoTest` · 🎮 |
+| RF18 | Personagens animados: parado, andar, pular/cair, atacar (parado, correndo, no ar), dano; a jogadora aparece com a arma equipada; inimigos explodem ao morrer; voador é um drone, os outros dois são robôs | `componentes.visual.ComponenteAnimado`, `Sprites` | 🧪 `ComponenteAnimadoTest` · 🎮 |
 
 ## Tratamento de erros
 
@@ -43,7 +43,7 @@ Status: ✅ feito · 🧪 com teste automático · 🎮 testado jogando (depende
 | RNF01 | Java 17, FXGL 17.3, Gson, Maven | `pom.xml` |
 | RNF02 | Separação MVC | modelo (`componentes`, `itens`, `habilidades`, `inventario`, `niveis`, `entidades`, `factories`, `excecoes`), visão (`visao`, `componentes.visual`), controle (`controle`); `Main` só repassa as etapas do FXGL |
 | RNF03 | Balanceamento fora do código | vida, dano, velocidade, inimigos e itens de cada sala nos JSON de `assets/levels` |
-| RNF04 | Testes automatizados | 59 testes JUnit 5 (`mvn test`), unidade e integração |
+| RNF04 | Testes automatizados | 60 testes JUnit 5 (`mvn test`), unidade e integração |
 | RNF05 | Cobertura | JaCoCo: `inventario` 96%, `niveis` 95%, `excecoes` 100%; total ≈ 20%, porque visão/controle precisam do motor rodando |
 | RNF06 | 60 FPS, janela 1280×720 com tela cheia opcional (F11) | `Main.initSettings` |
 | RNF07 | Não acelerar depois de despausar | `componentes.RelogioJogo` |

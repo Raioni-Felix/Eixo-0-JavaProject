@@ -11,6 +11,7 @@ import com.jogo.excecoes.JogoException;
 import com.jogo.factories.FabricaEntidades;
 import com.jogo.inventario.ModuloCura;
 import com.jogo.inventario.ModuloEnergia;
+import com.jogo.itens.AdagaDupla;
 import com.jogo.itens.Arma;
 import com.jogo.itens.Espada;
 import com.jogo.itens.PistolaDuplaDePlasma;
@@ -253,6 +254,7 @@ public class ControleJogo {
     private void prepararArsenal() {
         List<Arma> armasIniciais = List.of(
                 new Espada("espada", "Espada", "Arma inicial do jogador", 20, 0.5, 40),
+                new AdagaDupla("adagas", "Adagas Duplas", "Dois cortes rápidos, de perto", 8, 0.3, 30),
                 new Shotgun("shotgun", "Shotgun", "Balins em leque, forte de perto", 8, 5, 0.9, 220),
                 new PistolaDuplaDePlasma("pistola", "Pistola Dupla de Plasma", "Dois tiros por ataque", 9, 0.45, 450),
                 new RifleSniper("rifle", "Rifle Sniper", "Tiro que atravessa inimigos", 30, 1.4, 900, 3));

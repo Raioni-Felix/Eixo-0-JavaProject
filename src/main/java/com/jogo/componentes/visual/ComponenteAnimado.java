@@ -6,6 +6,7 @@ import com.almasb.fxgl.texture.AnimationChannel;
 
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
@@ -14,6 +15,9 @@ import java.util.function.Supplier;
 /**
  * Componente de animação (visão): mostra o sprite certo pro estado do
  * personagem.
+ *
+ * A jogadora tem um conjunto de animações por arma (espada, adagas,
+ * arma de fogo) e o conjunto troca junto com a arma equipada.
  *
  * Separado dos componentes de gameplay de propósito: ele nunca mexe em
  * vida, dano ou XP, só LÊ o modelo. Quem cria (FabricaEntidades) passa:
@@ -37,17 +41,23 @@ public class ComponenteAnimado extends Component {
         CAINDO,
         ATACANDO,
         ATACANDO_ANDANDO,
+        ATACANDO_NO_AR,
         MACHUCADO
     }
 
     //Estes tocam uma vez e param no último quadro; os outros repetem
     private static final Set<EstadoAnimacao> TOCAM_UMA_VEZ =
-            EnumSet.of(EstadoAnimacao.PULANDO, EstadoAnimacao.ATACANDO, EstadoAnimacao.MACHUCADO);
+            EnumSet.of(EstadoAnimacao.PULANDO, EstadoAnimacao.ATACANDO, EstadoAnimacao.ATACANDO_NO_AR,
+                    EstadoAnimacao.MACHUCADO);
 
     //Velocidade horizontal a partir da qual o personagem está "andando"
     private static final double VELOCIDADE_MINIMA_ANDANDO = 10;
 
-    private final Map<EstadoAnimacao, AnimationChannel> animacoes;
+    //Conjuntos de animações por nome. A jogadora tem um por arma
+    //("espada", "adagas", "arma"); os inimigos têm um só
+    private static final String CONJUNTO_UNICO = "padrao";
+    private final Map<String, Map<EstadoAnimacao, AnimationChannel>> conjuntos;
+    private final Supplier<String> conjunto;
     private final double larguraQuadro;
     private final double escala;
     private final double centroX;
@@ -57,17 +67,36 @@ public class ComponenteAnimado extends Component {
 
     private AnimatedTexture textura;
     private EstadoAnimacao estadoAtual = EstadoAnimacao.PARADO;
+    private String conjuntoAtual;
 
+    //Personagem com um conjunto só de animações (os inimigos)
     public ComponenteAnimado(Map<EstadoAnimacao, AnimationChannel> animacoes, double larguraQuadro,
             double centroX, double peY, double escala,
             Supplier<EstadoAnimacao> estado, BooleanSupplier olhandoDireita) {
-        if (!animacoes.containsKey(EstadoAnimacao.PARADO)) {
-            throw new IllegalArgumentException("Todo personagem precisa da animação PARADO");
+        this(Map.of(CONJUNTO_UNICO, animacoes), () -> CONJUNTO_UNICO, larguraQuadro, centroX, peY, escala,
+                estado, olhandoDireita);
+    }
+
+    //Personagem que troca de conjunto (a jogadora troca ao trocar de arma).
+    //Todos os quadros de todos os conjuntos têm o mesmo tamanho e o
+    //personagem no mesmo ponto (centroX, peY).
+    public ComponenteAnimado(Map<String, Map<EstadoAnimacao, AnimationChannel>> conjuntos,
+            Supplier<String> conjunto, double larguraQuadro, double centroX, double peY, double escala,
+            Supplier<EstadoAnimacao> estado, BooleanSupplier olhandoDireita) {
+        if (conjuntos.isEmpty()) {
+            throw new IllegalArgumentException("Nenhuma animação");
+        }
+        for (Map<EstadoAnimacao, AnimationChannel> animacoes : conjuntos.values()) {
+            if (!animacoes.containsKey(EstadoAnimacao.PARADO)) {
+                throw new IllegalArgumentException("Todo personagem precisa da animação PARADO");
+            }
         }
         if (escala <= 0) {
             throw new IllegalArgumentException("Escala precisa ser positiva");
         }
-        this.animacoes = new EnumMap<>(animacoes);
+        this.conjuntos = new HashMap<>();
+        conjuntos.forEach((nome, animacoes) -> this.conjuntos.put(nome, new EnumMap<>(animacoes)));
+        this.conjunto = conjunto;
         this.larguraQuadro = larguraQuadro;
         this.escala = escala;
         this.centroX = centroX;
@@ -78,7 +107,8 @@ public class ComponenteAnimado extends Component {
 
     @Override
     public void onAdded() {
-        textura = new AnimatedTexture(animacoes.get(EstadoAnimacao.PARADO));
+        conjuntoAtual = conjuntoValido();
+        textura = new AnimatedTexture(conjuntos.get(conjuntoAtual).get(EstadoAnimacao.PARADO));
         textura.loop();
         entity.getViewComponent().addChild(textura);
         posicionar();
@@ -86,9 +116,12 @@ public class ComponenteAnimado extends Component {
 
     @Override
     public void onUpdate(double tpf) {
+        String nomeConjunto = conjuntoValido();
+        Map<EstadoAnimacao, AnimationChannel> animacoes = conjuntos.get(nomeConjunto);
         EstadoAnimacao novo = animacaoDisponivel(estado.get(), animacoes.keySet());
-        if (novo != estadoAtual) {
+        if (novo != estadoAtual || !nomeConjunto.equals(conjuntoAtual)) {
             estadoAtual = novo;
+            conjuntoAtual = nomeConjunto;
             if (TOCAM_UMA_VEZ.contains(novo)) {
                 textura.playAnimationChannel(animacoes.get(novo));
             } else {
@@ -96,6 +129,12 @@ public class ComponenteAnimado extends Component {
             }
         }
         posicionar();
+    }
+
+    //Conjunto pedido, ou um qualquer se o pedido não existir
+    private String conjuntoValido() {
+        String pedido = conjunto.get();
+        return conjuntos.containsKey(pedido) ? pedido : conjuntos.keySet().iterator().next();
     }
 
     public EstadoAnimacao getEstado() {
@@ -123,7 +162,10 @@ public class ComponenteAnimado extends Component {
             return EstadoAnimacao.MACHUCADO;
         }
         if (atacando) {
-            return andando && noChao ? EstadoAnimacao.ATACANDO_ANDANDO : EstadoAnimacao.ATACANDO;
+            if (!noChao) {
+                return EstadoAnimacao.ATACANDO_NO_AR;
+            }
+            return andando ? EstadoAnimacao.ATACANDO_ANDANDO : EstadoAnimacao.ATACANDO;
         }
         if (!noChao) {
             //y cresce pra baixo: negativo = subindo
@@ -138,7 +180,7 @@ public class ComponenteAnimado extends Component {
         if (existentes.contains(pedido)) {
             return pedido;
         }
-        if (pedido == EstadoAnimacao.ATACANDO_ANDANDO) {
+        if (pedido == EstadoAnimacao.ATACANDO_ANDANDO || pedido == EstadoAnimacao.ATACANDO_NO_AR) {
             return animacaoDisponivel(EstadoAnimacao.ATACANDO, existentes);
         }
         if (pedido == EstadoAnimacao.CAINDO) {

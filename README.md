@@ -80,7 +80,7 @@ O código fica em `src/main/java/com/jogo`, dividido em pacotes por responsabili
 
 `inventario` guarda o inventário do jogador e os itens que vão nele, também trazidos do barebones: `Inventario`, `Item` (abstrata), as interfaces `Inventariavel` e `Consumivel`, o enum `Categoria` e os itens `ModuloCura` e `ModuloEnergia`.
 
-`itens` guarda as armas, com a mesma hierarquia da versão barebones: `Arma` (abstrata, implementa `Inventariavel`), `Espada`, `ArmaDeFogo` e as filhas dela `Shotgun`, `PistolaDuplaDePlasma` e `RifleSniper`, além da interface `Perfurante`. Ver "Armas, interfaces de combate e polimorfismo".
+`itens` guarda as armas, com a mesma hierarquia da versão barebones: `Arma` (abstrata, implementa `Inventariavel`), `Espada` e a filha `AdagaDupla`, `ArmaDeFogo` e as filhas dela `Shotgun`, `PistolaDuplaDePlasma` e `RifleSniper`, além da interface `Perfurante`. Ver "Armas, interfaces de combate e polimorfismo".
 
 `niveis` guarda as classes que espelham a estrutura dos arquivos JSON de nível, usadas pelo Gson pra desserializar os dados de cada sala.
 
@@ -148,7 +148,7 @@ Quando um inimigo atinge o jogador, o dano é aplicado de um jeito um pouco dife
 | Espaço ou ↑ | pular (com pulo duplo no ar) |
 | Shift | dash |
 | Z | ataque com a arma equipada |
-| Q | trocar de arma (Espada → Shotgun → Pistola Dupla de Plasma → Rifle Sniper) |
+| Q | trocar de arma (Espada → Adagas Duplas → Shotgun → Pistola Dupla de Plasma → Rifle Sniper) |
 | X | Golpe de Energia (Bola de Fogo) |
 | C | Apara (parry) |
 | 1 | usar Módulo de Cura |
@@ -171,7 +171,7 @@ Cada `Habilidade` controla o próprio tempo de espera: o `ComponenteJogador` cha
 
 O `Inventario` é o mesmo do barebones e guarda tanto os módulos quanto as armas. Ele usa duas tabelas hash (`LinkedHashMap`): uma com os objetos e outra com as quantidades. Itens de categoria empilhável (como `CONSUMIVEL`) com o mesmo id são somados numa entrada só, com contador. Itens não empilháveis (como `ARMA`) ganham um id único na criação (`espada-1`, `espada-2`...), então cada um ocupa sua própria entrada.
 
-A `Arma` implementa `Inventariavel` com categoria `ARMA`, igual no barebones. As quatro armas iniciais são criadas em `ControleJogo.prepararArsenal()`, entram no inventário de uma vez com `coletarItem(lista)` (sobrecarga do `coletarItem(item)`) e a espada é equipada com `ComponenteArma.equiparArma(idArma)`, que busca a arma pelo id no inventário e recusa qualquer coisa que não seja `Arma`. Uma arma nova (loot, upgrade) segue o mesmo caminho. Os módulos ficam espalhados pelas salas, na lista `"items"` do JSON de cada uma (`"type"` vale `"cura"` ou `"energia"`, e `"amount"` é quanto ele devolve). No mapa, o quadradinho verde é cura e o azul é energia. Ao encostar, o `CollisionHandler(JOGADOR, ITEM)` em `ControleJogo.registrarColisoes()` cria o `ModuloCura` ou `ModuloEnergia` (com o construtor curto, que só recebe a quantidade) e coloca no inventário. As teclas 1 e 2 chamam `usarItem(id)`, que só funciona com `Consumivel`: chama `efeito()` e tira um do inventário. Se não tiver o módulo, `usarItem` lança `ItemNaoEncontradoException`, e o controle mostra a mensagem em vermelho no HUD (ver "Exceções"). O texto embaixo das barras mostra quantos de cada tem. `GerenciadorSalas` guarda quais itens já foram pegos (`itensColetados`), pra eles não reaparecerem quando o jogador volta pra uma sala; essa lista zera em "Reiniciar" e "Menu Principal".
+A `Arma` implementa `Inventariavel` com categoria `ARMA`, igual no barebones. As cinco armas iniciais são criadas em `ControleJogo.prepararArsenal()`, entram no inventário de uma vez com `coletarItem(lista)` (sobrecarga do `coletarItem(item)`) e a espada é equipada com `ComponenteArma.equiparArma(idArma)`, que busca a arma pelo id no inventário e recusa qualquer coisa que não seja `Arma`. Uma arma nova (loot, upgrade) segue o mesmo caminho. Os módulos ficam espalhados pelas salas, na lista `"items"` do JSON de cada uma (`"type"` vale `"cura"` ou `"energia"`, e `"amount"` é quanto ele devolve). No mapa, o quadradinho verde é cura e o azul é energia. Ao encostar, o `CollisionHandler(JOGADOR, ITEM)` em `ControleJogo.registrarColisoes()` cria o `ModuloCura` ou `ModuloEnergia` (com o construtor curto, que só recebe a quantidade) e coloca no inventário. As teclas 1 e 2 chamam `usarItem(id)`, que só funciona com `Consumivel`: chama `efeito()` e tira um do inventário. Se não tiver o módulo, `usarItem` lança `ItemNaoEncontradoException`, e o controle mostra a mensagem em vermelho no HUD (ver "Exceções"). O texto embaixo das barras mostra quantos de cada tem. `GerenciadorSalas` guarda quais itens já foram pegos (`itensColetados`), pra eles não reaparecerem quando o jogador volta pra uma sala; essa lista zera em "Reiniciar" e "Menu Principal".
 
 ## Armas, interfaces de combate e polimorfismo
 
@@ -180,6 +180,7 @@ As armas seguem a mesma hierarquia da versão barebones:
 ```
 Arma (abstrata, implementa Inventariavel)
 ├── Espada
+│   └── AdagaDupla
 └── ArmaDeFogo
     ├── Shotgun
     ├── PistolaDuplaDePlasma
@@ -189,14 +190,15 @@ Arma (abstrata, implementa Inventariavel)
 Antes existia uma classe `Arma` só, com um enum `TipoArma` (`MELEE`, `DISTANCIA`, `MAGIA`), e o `ComponenteArma` decidia o ataque num `switch`. Agora quem decide é a própria arma: `Arma.atacar(portador, direcaoX)` é `final` (a regra do cooldown é igual pra todas) e chama `executarAtaque()`, que é abstrato e cada subclasse escreve do seu jeito. O `ComponenteArma` só chama `armaEquipada.atacar(...)`, sem saber que arma é. Uma arma nova é uma classe nova, sem mexer no `ComponenteArma`.
 
 - `Espada`: cria a hitbox `"ataque_jogador"` na frente do jogador (o antigo `case MELEE`). Corte de 20.
+- `AdagaDupla`: filha da `Espada`; sobrescreve `executarAtaque()` chamando `super.executarAtaque()` duas vezes (uma lâmina em cada mão). 2 cortes de 8, alcance curto (30), rápida (0,3 s).
 - `ArmaDeFogo`: um projétil reto (`"disparo_jogador"`, movido pelo `ComponenteDisparoJogador`) que some quando percorre o alcance da arma. Ela tem métodos-gancho que as filhas podem sobrescrever: quantos alvos o projétil acerta, velocidade, tamanho e cor.
 - `Shotgun`: sobrescreve `executarAtaque()` e chama `super.executarAtaque()` pro balim do meio; os outros saem em leque, 9 graus acima e abaixo. 5 balins de 8, alcance curto (220).
 - `PistolaDuplaDePlasma`: sobrescreve `executarAtaque()` chamando `super.executarAtaque()` duas vezes, a segunda 0,12 segundo depois (timer `runOnce` do FXGL). 2 tiros de 9, magenta.
 - `RifleSniper`: implementa `Perfurante` e sobrescreve só o gancho de quantos alvos o tiro acerta, devolvendo `getAlvosAtravessados()`. O projétil guarda quais inimigos já acertou e só some depois de 3. Tiro de 30, rápido e de longo alcance.
 
-Cada arma também diz como é desenhada na mão do jogador (`criarVisual()`) e descreve o próprio ataque (`getDescricaoCombate()`), mostrado no HUD.
+Cada arma também diz como a jogadora a segura (`getEmpunhadura()`, que escolhe as animações; ver "Sprites e animações") e descreve o próprio ataque (`getDescricaoCombate()`), mostrado no HUD.
 
-**Coleção polimórfica:** as quatro armas ficam no inventário, e o `ComponenteArma.getArsenal()` devolve todas numa `List<Arma>`, apesar de cada uma ser de uma classe diferente. A tecla Q passa pra próxima arma da lista, e a tecla Z faz sempre a mesma chamada (`atacar`), que dá um resultado diferente pra cada arma. Ao começar o jogo, o `ControleJogo` percorre essa lista e imprime no console a `getDescricaoCombate()` de cada arma: mesma chamada, resposta diferente pra cada classe, o equivalente ao `foreach` de `atacar()` da atividade de RPG. A lista vem de `Inventario.listarDoTipo(Arma.class)`, um método genérico (`<T> List<T> listarDoTipo(Class<T> tipo)`) que já devolve a lista no tipo pedido, sem cast.
+**Coleção polimórfica:** as cinco armas ficam no inventário, e o `ComponenteArma.getArsenal()` devolve todas numa `List<Arma>`, apesar de cada uma ser de uma classe diferente. A tecla Q passa pra próxima arma da lista, e a tecla Z faz sempre a mesma chamada (`atacar`), que dá um resultado diferente pra cada arma. Ao começar o jogo, o `ControleJogo` percorre essa lista e imprime no console a `getDescricaoCombate()` de cada arma: mesma chamada, resposta diferente pra cada classe, o equivalente ao `foreach` de `atacar()` da atividade de RPG. A lista vem de `Inventario.listarDoTipo(Arma.class)`, um método genérico (`<T> List<T> listarDoTipo(Class<T> tipo)`) que já devolve a lista no tipo pedido, sem cast.
 
 **Uso de `super`:** além do `super(...)` nos construtores, o projeto chama a versão da classe mãe dentro de métodos sobrescritos em quatro lugares: `ComponenteInimigoVoador.iniciarAtaque()`, `ComponenteInimigo.tomarDano()`, `Shotgun.executarAtaque()` e `PistolaDuplaDePlasma.executarAtaque()` (este último também dentro de uma lambda). Nos quatro casos a subclasse reaproveita o comportamento da mãe e acrescenta o dela, como o `parent::atacar()` do Paladino na atividade de RPG.
 
@@ -268,7 +270,7 @@ São "checked" (herdam de `Exception`): quem chama é obrigado a tratar ou repas
 
 ## Testes
 
-59 testes JUnit 5 em `src/test/java`, todos passando. Rodam com `mvn test`.
+60 testes JUnit 5 em `src/test/java`, todos passando. Rodam com `mvn test`.
 
 - Unitários: `ComponenteAnimadoTest` (qual animação mostrar em cada situação, ampliação dos sprites), `ComponenteJogadorTest` (energia, cura, invencibilidade, subir de nível, usar módulos), `ComponenteInimigoTest` (XP de cada tipo, interfaces), `ArmaTest` (cooldown do `atacar()` com uma arma de teste, `multiplicarDano`, ids únicos), `ArmasDeFogoTest` (ganchos de cada arma, `Perfurante`, coleção polimórfica), `HabilidadeTest`, `InventarioTest` (pilha, duplicata, `listarDoTipo` genérico, sobrecargas), `ComponenteAuxiliaresTest`.
 - Casos de sucesso e de falha: cada classe testa o caminho certo e os errados (sem energia, em cooldown, item que não existe, valores inválidos no construtor).
@@ -281,16 +283,19 @@ Cobertura (JaCoCo): `inventario` 96% das linhas, `niveis` 95%, `excecoes` 100%. 
 
 Os sprites ficam em `src/main/resources/assets/textures/sprites`, uma pasta por personagem, com os quadros numerados (`correr-1.png`, `correr-2.png`...). A origem e a licença de cada um estão em `CREDITOS.txt` nessa pasta:
 
-- `jogador`, `drone` (o inimigo voador) e `explosao`: do pacote Warped City, de ansimuz, CC0 (domínio público).
+- `drone` (o inimigo voador), `explosao` e o quadro de dano da jogadora: do pacote Warped City, de ansimuz, CC0 (domínio público).
+- `jogador`: extraídos das folhas de sprite da personagem com espada, adagas duplas e arma que a equipe forneceu; os quadros de "parado", "cair" e "atirar correndo" foram montados a partir delas.
 - `robo-melee` e `robo-atirador`: desenhados para este projeto, na paleta do Warped City.
 
 | Personagem | Animações |
 |---|---|
-| Jogadora | parado, correr, pular (mortal), cair, atirar, correr atirando, dano |
+| Jogadora (um conjunto por arma: espada, adagas, arma de fogo) | parado, correr, pular, cair, atacar parado, atacar correndo, atacar no ar, dano |
 | Robô melee | parado, andar, ataque com a garra, dano |
 | Robô atirador | parado, andar na esteira, tiro com recuo, dano |
 | Drone | voar (vale pra parado e andando), dano |
 | Todo inimigo | explode ao morrer |
+
+A jogadora segura a arma equipada no próprio sprite: cada arma diz como é segurada em `Arma.getEmpunhadura()` (`"espada"`, `"adagas"` ou `"arma"`; Shotgun, Pistola e Rifle herdam `"arma"` da `ArmaDeFogo`), e trocar de arma com Q troca o conjunto de animações. Por isso as armas não desenham mais um retângulo/imagem por cima da jogadora (o antigo `criarVisual()`).
 
 Quem escolhe a animação é o `ComponenteAnimado` (`componentes/visual`), que só lê o estado do personagem: está machucado? atacando? no chão? subindo ou caindo? andando? A regra de prioridade está em `escolherEstado()` (dano vence ataque, ataque vence pulo, pulo vence andar) e é testada sozinha. Se um personagem não tem a animação pedida, `animacaoDisponivel()` usa a mais parecida (o drone não tem "pular", então usa "voar"). Olhar pra esquerda é o mesmo desenho espelhado.
 

@@ -2,10 +2,8 @@ package com.jogo.itens;
 
 import com.almasb.fxgl.entity.Entity;
 import com.almasb.fxgl.entity.SpawnData;
-import javafx.scene.Node;
 
 import static com.almasb.fxgl.dsl.FXGL.spawn;
-import static com.almasb.fxgl.dsl.FXGL.texture;
 
 //Arma corpo a corpo. É o antigo "case MELEE" do ComponenteArma, que
 //veio pra cá: cria a hitbox "ataque_jogador" na frente do portador,
@@ -37,8 +35,8 @@ public class Espada extends Arma {
     }
 
     @Override
-    public Node criarVisual() {
-        return texture("sword.png");
+    public String getEmpunhadura() {
+        return "espada";
     }
 
     @Override
