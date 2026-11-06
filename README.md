@@ -24,6 +24,26 @@ mvn test
 
 que executa os testes JUnit 5 de `src/test/java` e gera o relatório de cobertura (JaCoCo) em `target/site/jacoco/index.html`. Ver "Testes".
 
+## Executável
+
+```
+mvn clean package
+java -jar target/Eixo0.jar
+```
+
+`mvn package` gera `target/Eixo0.jar` com tudo dentro (FXGL, JavaFX, Gson e as imagens), que roda com `java -jar` ou com dois cliques. Precisa de Java 17 ou mais novo instalado. O JavaFX que vai pro .jar é o do sistema de quem compilou: o .jar gerado no Linux roda no Linux, o gerado no Windows roda no Windows. A classe de entrada do .jar é `com.jogo.Lancador`, que só chama o `Main` (um .jar com o JavaFX dentro não abre direto uma classe que estende `GameApplication`).
+
+Para um executável que não precisa de Java instalado (leva o próprio Java junto), use o `jpackage` do JDK depois do `mvn package`:
+
+```
+mkdir -p target/entrada && cp target/Eixo0.jar target/entrada/
+jpackage --type app-image --name Eixo0 --input target/entrada --main-jar Eixo0.jar \
+  --main-class com.jogo.Lancador --dest target/executavel \
+  --add-modules java.base,java.desktop,java.scripting,java.sql,jdk.jfr,jdk.unsupported,java.logging,java.xml,java.naming,java.net.http,jdk.crypto.ec,java.management
+```
+
+O jogo fica em `target/executavel/Eixo0/bin/Eixo0` (no Windows, `Eixo0.exe`).
+
 ## Documentação
 
 - [`docs/REQUISITOS.md`](docs/REQUISITOS.md): requisitos funcionais e não funcionais, com onde cada um está no código e qual teste cobre.
