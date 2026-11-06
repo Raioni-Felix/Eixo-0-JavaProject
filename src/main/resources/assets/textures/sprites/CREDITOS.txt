@@ -26,6 +26,8 @@ cenario/, magias/impacto-*.png, ../cidade/ (fundo animado das salas 2 a 4)
 Criados para este projeto (Eixo 0):
   - jogador/*-dash: corrida com rastro ciano e linhas de velocidade;
   - jogador/*-magia: pose parada com aura e orbe de fogo na mão;
+  - magias/gelo (cristal com flocos) e magias/buraco-negro (disco com
+    anel em espiral);
   - magias/bola-de-fogo, magias/energia (orbe com rastro) e magias/escudo
     (hexágono da Apara).
 

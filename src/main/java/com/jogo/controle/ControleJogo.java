@@ -68,6 +68,8 @@ public class ControleJogo {
     private TelaSobreposta telaAntesDasOpcoes;
     //Instantes (System.nanoTime) do último toque no inventário e de
     //quando ele fechou, pra filtrar a mesma tecla chegando duas vezes
+    //Último nível já anunciado no HUD (ver avisarMagiasNovas)
+    private int nivelAvisado = 1;
     private long ultimoToqueInventario = System.nanoTime() - 1_000_000_000L;
     private long fechouInventarioEm = ultimoToqueInventario;
 
@@ -99,6 +101,7 @@ public class ControleJogo {
                         ? sala.jogador.energiaMaxima
                         : ENERGIA_MAXIMA_PADRAO));
 
+        nivelAvisado = 1;
         getComponenteJogador().setDificuldade(dificuldade);
         prepararArsenal();
 
@@ -189,6 +192,7 @@ public class ControleJogo {
 
         if (jogador.isActive()) {
             hud.atualizarStatus(); //o XP muda quando um inimigo morre, sem avisar o controle
+            avisarMagiasNovas();
             return;
         }
 
@@ -197,6 +201,22 @@ public class ControleJogo {
             gameOverExibido = true;
             gameOver.mostrar();
             getGameController().pauseEngine();
+        }
+    }
+
+    //Subiu de nível (XP de inimigo morto): avisa se liberou magia nova
+    private void avisarMagiasNovas() {
+        int nivel = getComponenteJogador().getNivel();
+        if (nivel == nivelAvisado) {
+            return;
+        }
+        nivelAvisado = nivel;
+        if (nivel == ComponenteJogador.NIVEL_GELO) {
+            hud.mostrarMensagem("Nível " + nivel + "! Nova magia: Raio de Gelo [V]");
+        } else if (nivel == ComponenteJogador.NIVEL_BURACO_NEGRO) {
+            hud.mostrarMensagem("Nível " + nivel + "! Nova magia: Buraco Negro [B] (energia cheia)");
+        } else {
+            hud.mostrarMensagem("Nível " + nivel + "!");
         }
     }
 

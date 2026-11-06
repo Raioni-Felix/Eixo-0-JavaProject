@@ -29,6 +29,7 @@ Status: ✅ feito · 🧪 com teste automático · 🎮 testado jogando (depende
 | RF19 | Cenário com arte: plataformas e chão do tileset, fundo animado (laboratório na sala 1, cidade nas salas 2 a 4); dash, magia, escudo e acertos com efeito visual | `FabricaEntidades`, `visao.RecursosVisuais` | 🧪 `ComponenteAnimadoTest` · 🎮 |
 | RF20 | Inventário (I/TAB): pausa e mostra status, as 5 armas (não pegas apagadas, equipada destacada) e os módulos; clicar equipa a arma ou usa o módulo | `visao.TelaInventario`, `ControleJogo.alternarInventario` | 🎮 |
 | RF21 | Opções (menu principal e pausa): tela cheia (também F11), dificuldade Fácil/Normal/Difícil (multiplica o dano recebido) e lista de controles | `visao.TelaOpcoes`, `componentes.Dificuldade`, `controle.Controles` | 🧪 `DificuldadeTest` · 🎮 |
+| RF22 | Magias por nível: Raio de Gelo (V, nível 2) congela o inimigo atingido por 3 s; Buraco Negro (B, nível 3) gasta toda a energia, puxa e destrói todos os inimigos da sala | `RaioDeGelo`, `BuracoNegro`, `ComponenteBuracoNegro`, `ComponenteInimigo.congelar` | 🧪 `HabilidadeTest`, `ComponenteInimigoTest` · 🎮 |
 
 ## Tratamento de erros
 
@@ -46,7 +47,7 @@ Status: ✅ feito · 🧪 com teste automático · 🎮 testado jogando (depende
 | RNF01 | Java 17, FXGL 17.3, Gson, Maven | `pom.xml` |
 | RNF02 | Separação MVC | modelo (`componentes`, `itens`, `habilidades`, `inventario`, `niveis`, `entidades`, `factories`, `excecoes`), visão (`visao`, `componentes.visual`), controle (`controle`); `Main` só repassa as etapas do FXGL |
 | RNF03 | Balanceamento fora do código | vida, dano, velocidade, inimigos e itens de cada sala nos JSON de `assets/levels` |
-| RNF04 | Testes automatizados | 70 testes JUnit 5 (`mvn test`), unidade e integração |
+| RNF04 | Testes automatizados | 74 testes JUnit 5 (`mvn test`), unidade e integração |
 | RNF05 | Cobertura | JaCoCo: `inventario` 96%, `niveis` 95%, `excecoes` 100%; total ≈ 20%, porque visão/controle precisam do motor rodando |
 | RNF06 | 60 FPS, janela 1280×720 com tela cheia opcional (F11) | `Main.initSettings` |
 | RNF07 | Não acelerar depois de despausar | `componentes.RelogioJogo` |

@@ -36,7 +36,13 @@ public abstract class Habilidade {
     }
 
     public boolean podeUsar(ComponenteJogador jogador) {
-        return aprendida && estaDisponivel() && jogador.energiaSuficiente(custoEnergia);
+        return aprendida && estaDisponivel() && jogador.energiaSuficiente(custoPara(jogador));
+    }
+
+    //Quanto essa habilidade gasta agora. Padrão: o custo fixo do
+    //construtor. O BuracoNegro sobrescreve (gasta toda a energia máxima).
+    public int custoPara(ComponenteJogador jogador) {
+        return custoEnergia;
     }
 
     //final: nenhuma filha pode mudar a ordem "confere, gasta energia,
@@ -46,7 +52,7 @@ public abstract class Habilidade {
         if (!podeUsar(jogador)) {
             return false;
         }
-        jogador.consumirEnergia(custoEnergia);
+        jogador.consumirEnergia(custoPara(jogador));
         executar(jogador);
         tempoRestante = tempoEspera;
         return true;

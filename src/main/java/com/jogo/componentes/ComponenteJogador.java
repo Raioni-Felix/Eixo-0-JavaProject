@@ -11,6 +11,8 @@ import com.jogo.excecoes.ItemNaoEncontradoException;
 import com.jogo.componentes.visual.Sprites;
 import com.jogo.habilidades.Apara;
 import com.jogo.habilidades.BolaDeFogo;
+import com.jogo.habilidades.BuracoNegro;
+import com.jogo.habilidades.RaioDeGelo;
 import com.jogo.habilidades.GolpeDeEnergia;
 import com.jogo.inventario.Consumivel;
 import com.jogo.inventario.Inventariavel;
@@ -126,6 +128,14 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
     private final GolpeDeEnergia golpe = new BolaDeFogo(true, 2.0, 15, 0.0, 20);
     private final Apara apara = new Apara(true, 1.5, 5, 0.3);
 
+    //Magias liberadas por nível (nascem não aprendidas; subirNivel()
+    //libera). Gelo: 20 de energia, dano 8 e congela 3 s. Buraco Negro:
+    //toda a energia, 1,6 s puxando, cooldown de 20 s.
+    public static final int NIVEL_GELO = 2;
+    public static final int NIVEL_BURACO_NEGRO = 3;
+    private final RaioDeGelo gelo = new RaioDeGelo(false, 3.0, 20, 8, 3.0);
+    private final BuracoNegro buracoNegro = new BuracoNegro(false, 20.0, 1.6);
+
     //Janela da Apara: enquanto > 0, serAtingido() ignora dano e
     //empurrão. O escudo é só o contorno visual dessa janela.
     private double timerApara = 0;
@@ -228,6 +238,8 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
         //Cooldown das habilidades: cada uma conta o próprio tempo.
         golpe.atualizar(tpf);
         apara.atualizar(tpf);
+        gelo.atualizar(tpf);
+        buracoNegro.atualizar(tpf);
 
         if (timerApara > 0) {
             timerApara -= tpf;
@@ -497,6 +509,17 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
 
         velocidade += 5;
         xpProximoNivel = 100 + (nivel - 1) * 50;
+        liberarMagias();
+    }
+
+    //Libera as magias do nível atual (e das anteriores)
+    private void liberarMagias() {
+        if (nivel >= NIVEL_GELO) {
+            gelo.setAprendida(true);
+        }
+        if (nivel >= NIVEL_BURACO_NEGRO) {
+            buracoNegro.setAprendida(true);
+        }
     }
 
     public int getNivel() {
@@ -618,6 +641,28 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
         return usou;
     }
 
+    //Tecla V: Raio de Gelo (a partir do nível 2)
+    public boolean usarGelo() {
+        return conjurar(gelo);
+    }
+
+    //Tecla B: Buraco Negro (a partir do nível 3, com a energia cheia)
+    public boolean usarBuracoNegro() {
+        return conjurar(buracoNegro);
+    }
+
+    //Mesmo caminho do Golpe de Energia: barra o hit-stun, usa e faz a pose
+    private boolean conjurar(com.jogo.habilidades.Habilidade magia) {
+        if (estaAtordoado()) {
+            return false;
+        }
+        boolean usou = magia.usar(this);
+        if (usou) {
+            instanteUltimaMagia = System.nanoTime();
+        }
+        return usou;
+    }
+
     //Tecla C (ver controle.ControleEntrada).
     public boolean usarApara() {
         if (estaAtordoado()) {
@@ -643,6 +688,14 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
 
     public Apara getApara() {
         return apara;
+    }
+
+    public RaioDeGelo getGelo() {
+        return gelo;
+    }
+
+    public BuracoNegro getBuracoNegro() {
+        return buracoNegro;
     }
 
     //INVENTÁRIO

@@ -41,6 +41,12 @@ public abstract class GolpeDeEnergia extends Habilidade {
         return "energia";
     }
 
+    //Quantos segundos o inimigo atingido fica congelado. Padrão: nada.
+    //O RaioDeGelo sobrescreve, sem mexer no executar()
+    public double getCongelamento() {
+        return 0.0;
+    }
+
     @Override
     protected void executar(ComponenteJogador usuario) {
         Entity corpo = usuario.getEntity();
@@ -59,6 +65,7 @@ public abstract class GolpeDeEnergia extends Habilidade {
                 .put("alvosMaximos", 1)
                 .put("tamanho", TAMANHO_DISPARO)
                 .put("cor", getCor())
-                .put("sprite", getSprite()));
+                .put("sprite", getSprite())
+                .put("congelamento", getCongelamento()));
     }
 }

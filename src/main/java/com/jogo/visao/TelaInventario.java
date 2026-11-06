@@ -126,6 +126,10 @@ public class TelaInventario extends TelaSobreposta {
                 rotulo("HABILIDADES"),
                 texto("[X] Bola de Fogo   custo " + jogador.getGolpe().getCustoEnergia(), 14, TEXTO, false),
                 texto("[C] Apara          custo " + jogador.getApara().getCustoEnergia(), 14, TEXTO, false),
+                magia("[V] Raio de Gelo", "custo " + jogador.getGelo().getCustoEnergia(),
+                        jogador.getGelo().isAprendida(), ComponenteJogador.NIVEL_GELO),
+                magia("[B] Buraco Negro", "toda a energia",
+                        jogador.getBuracoNegro().isAprendida(), ComponenteJogador.NIVEL_BURACO_NEGRO),
                 texto("[Shift] Dash", 14, TEXTO, false),
                 espaco(8),
                 texto("Dificuldade: " + jogador.getDificuldade().getNome(), 13, TEXTO_FRACO, false));
@@ -222,6 +226,14 @@ public class TelaInventario extends TelaSobreposta {
         }
         comCantos.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
         return comCantos;
+    }
+
+    //Magia liberada por nível: normal se já aprendeu, apagada com o nível
+    //que libera se ainda não
+    private static Text magia(String nome, String custo, boolean aprendida, int nivel) {
+        return aprendida
+                ? texto(nome + "   " + custo, 14, TEXTO, false)
+                : texto(nome + "   bloqueada (nível " + nivel + ")", 14, TEXTO_FRACO, false);
     }
 
     static Text rotulo(String texto) {

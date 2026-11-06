@@ -30,6 +30,8 @@ public class ComponenteDisparoJogador extends Component {
     private final double velocidade;
     private final double tempoVidaMaximo;
     private final int alvosMaximos;
+    //Segundos de congelamento no inimigo atingido (RaioDeGelo); 0 = nenhum
+    private final double congelamento;
     private double tempoDeVida = 0;
 
     //Inimigos que este projétil já acertou. Sem isso, um tiro que
@@ -39,6 +41,12 @@ public class ComponenteDisparoJogador extends Component {
 
     public ComponenteDisparoJogador(int dano, double direcaoX, double direcaoY, double velocidade,
                                     double tempoVidaMaximo, int alvosMaximos) {
+        this(dano, direcaoX, direcaoY, velocidade, tempoVidaMaximo, alvosMaximos, 0.0);
+    }
+
+    public ComponenteDisparoJogador(int dano, double direcaoX, double direcaoY, double velocidade,
+                                    double tempoVidaMaximo, int alvosMaximos, double congelamento) {
+        this.congelamento = congelamento;
         this.dano = dano;
         this.direcaoX = direcaoX;
         this.direcaoY = direcaoY;
@@ -69,6 +77,9 @@ public class ComponenteDisparoJogador extends Component {
                 ComponenteInimigo componente = ComponenteInimigo.obterDe(inimigo);
                 if (componente != null) {
                     componente.tomarDano(dano);
+                    if (congelamento > 0 && !componente.estaMorto()) {
+                        componente.congelar(congelamento);
+                    }
                 }
                 //Faísca no ponto do acerto (só visual, ver FabricaEntidades)
                 spawn("impacto", entity.getCenter().getX(), entity.getCenter().getY());

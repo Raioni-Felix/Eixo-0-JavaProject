@@ -31,6 +31,14 @@ namespace componentes {
     +getArmaEquipada() Arma
     +atacar() boolean
   }
+  class ComponenteBuracoNegro {
+    -duracao : double
+    -tempo : double
+    +ComponenteBuracoNegro(double)
+    +onUpdate(double)
+    -inimigosDaSala()$ List~ComponenteInimigo~
+    +getDuracao() double
+  }
   class ComponenteDisparoJogador {
     -dano : int
     -direcaoX : double
@@ -38,9 +46,11 @@ namespace componentes {
     -velocidade : double
     -tempoVidaMaximo : double
     -alvosMaximos : int
+    -congelamento : double
     -tempoDeVida : double
     -atingidos : Set~Entity~
     +ComponenteDisparoJogador(int, double, double, double, double, int)
+    +ComponenteDisparoJogador(int, double, double, double, double, int, double)
     +onUpdate(double)
   }
   class ComponenteInimigo {
@@ -58,6 +68,7 @@ namespace componentes {
     -instanteUltimoAtaque : long
     -instanteUltimoDano : long
     #olhandoDireita : boolean
+    -tempoCongelado : double
     +ComponenteInimigo(String, int, double, int, double, double, boolean, boolean, boolean)
     +onAdded()
     +definirAlvo(Entity)
@@ -67,6 +78,10 @@ namespace componentes {
     -concederExperienciaAoAlvo()
     #aplicarDanoDireto(Entity)
     +obterDe(Entity)$ ComponenteInimigo
+    +congelar(double)
+    +estaCongelado() boolean
+    #atualizarCongelamento(double) boolean
+    +puxarPara(Point2D, double)
     +onUpdate(double)
     #perseguirAlvo(double, double)
     +estaAtacando() boolean
@@ -115,6 +130,8 @@ namespace componentes {
     -inventario : Inventario
     -golpe : GolpeDeEnergia
     -apara : Apara
+    -gelo : RaioDeGelo
+    -buracoNegro : BuracoNegro
     -timerApara : double
     -escudo : AnimatedTexture
     -olhandoDireita : boolean
@@ -146,6 +163,7 @@ namespace componentes {
     +pararHorizontal()
     +adicionarXp(int)
     -subirNivel()
+    -liberarMagias()
     +getNivel() int
     +getXp() int
     +getXpProximoNivel() int
@@ -164,11 +182,16 @@ namespace componentes {
     +getVelocidadeX() double
     +getVelocidadeY() double
     +usarGolpeDeEnergia() boolean
+    +usarGelo() boolean
+    +usarBuracoNegro() boolean
+    -conjurar(Habilidade) boolean
     +usarApara() boolean
     +iniciarApara(double)
     +estaAparando() boolean
     +getGolpe() GolpeDeEnergia
     +getApara() Apara
+    +getGelo() RaioDeGelo
+    +getBuracoNegro() BuracoNegro
     +coletarItem(Inventariavel) boolean
     +coletarItem(List~Inventariavel~) int
     +usarItem(String)
@@ -233,8 +256,12 @@ namespace componentes_visual {
     -peY : double
     -olhandoDireita : BooleanSupplier
     -textura : AnimatedTexture
+    -congelado : BooleanSupplier
+    -mostrandoCongelado : boolean
     -conjuntoAtual : String
     +onAdded()
+    +comCongelamento(BooleanSupplier) ComponenteAnimado
+    -criarLuzGelo()$ Lighting
     +onUpdate(double)
     -conjuntoValido() String
     -posicionar()
@@ -280,6 +307,7 @@ namespace controle {
     -cortina : CortinaTransicao
     -dificuldade : Dificuldade
     -telaAntesDasOpcoes : TelaSobreposta
+    -nivelAvisado : int
     -ultimoToqueInventario : long
     -fechouInventarioEm : long
     -gameOverExibido : boolean
@@ -289,6 +317,7 @@ namespace controle {
     +registrarColisoes()
     +montarInterface()
     +atualizar(double)
+    -avisarMagiasNovas()
     +podePausar() boolean
     +alternarInventario()
     +fecharInventario()
@@ -370,6 +399,7 @@ namespace factories {
     -configurarContatoComJogador(PhysicsComponent, Entity, double, double)
     +spawnProjetil(SpawnData) Entity
     +spawnDisparoJogador(SpawnData) Entity
+    +spawnBuracoNegro(SpawnData) Entity
     +spawnItem(SpawnData) Entity
     +spawnImpacto(SpawnData) Entity
     +spawnPlataforma(SpawnData) Entity
@@ -388,6 +418,11 @@ namespace habilidades {
     +getCor() Color
     +getSprite() String
   }
+  class BuracoNegro {
+    +BuracoNegro(boolean, double, double)
+    +custoPara(ComponenteJogador) int
+    #executar(ComponenteJogador)
+  }
   class GolpeDeEnergia {
     <<abstract>>
     -dano : int
@@ -395,6 +430,7 @@ namespace habilidades {
     +getDano() int
     +getCor() Color
     +getSprite() String
+    +getCongelamento() double
     #executar(ComponenteJogador)
   }
   class Habilidade {
@@ -408,6 +444,7 @@ namespace habilidades {
     +atualizar(double)
     +estaDisponivel() boolean
     +podeUsar(ComponenteJogador) boolean
+    +custoPara(ComponenteJogador) int
     +usar(ComponenteJogador) boolean
     #executar(ComponenteJogador)*
     +getTempoEspera() double
@@ -416,6 +453,13 @@ namespace habilidades {
     +getCustoEnergia() int
     +isAprendida() boolean
     +setAprendida(boolean)
+  }
+  class RaioDeGelo {
+    -segundosCongelado : double
+    +RaioDeGelo(boolean, double, int, int, double)
+    +getCor() Color
+    +getSprite() String
+    +getCongelamento() double
   }
 }
 namespace inventario {
@@ -700,6 +744,7 @@ namespace visao {
     -slot(String, String, boolean, boolean, Runnable, String, String) Node
     -barra(String, int, int, String) Node
     ~painel(Node)$ Node
+    -magia(String, String, boolean, int)$ Text
     ~rotulo(String)$ Text
     ~texto(String, double, String, boolean)$ Text
     -espaco(double)$ Region
@@ -751,6 +796,8 @@ ComponenteArma ..> ItemIncompativelException : lança
 ComponenteJogador --> "1" Inventario : inventario
 ComponenteJogador --> "1" GolpeDeEnergia : golpe
 ComponenteJogador --> "1" Apara : apara
+ComponenteJogador --> "1" RaioDeGelo : gelo
+ComponenteJogador --> "1" BuracoNegro : buracoNegro
 ComponenteJogador --> "1" Dificuldade : dificuldade
 ComponenteJogador ..> ItemNaoEncontradoException : lança
 ComponenteJogador ..> ItemIncompativelException : lança
@@ -796,8 +843,10 @@ Arma <|-- ArmaDeFogo
 Espada <|-- AdagaDupla
 Inventariavel <|.. Arma
 ArmaDeFogo <|-- Shotgun
+Habilidade <|-- BuracoNegro
 Habilidade <|-- GolpeDeEnergia
 GolpeDeEnergia <|-- BolaDeFogo
+GolpeDeEnergia <|-- RaioDeGelo
 Habilidade <|-- Apara
 Item <|-- ModuloEnergia
 Consumivel <|.. ModuloEnergia
@@ -814,6 +863,7 @@ Component <|-- ComponenteDisparoJogador
 ComponentePersonagem <|-- ComponenteJogador
 Atacante <|.. ComponenteJogador
 ComponenteInimigo <|-- ComponenteInimigoMelee
+Component <|-- ComponenteBuracoNegro
 ComponentePersonagem <|-- ComponenteInimigo
 Atacante <|.. ComponenteInimigo
 ConcedeExperiencia <|.. ComponenteInimigo

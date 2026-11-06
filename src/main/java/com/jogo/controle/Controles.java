@@ -15,6 +15,8 @@ public final class Controles {
             new String[]{"Q", "trocar de arma"},
             new String[]{"X", "Bola de Fogo (gasta energia)"},
             new String[]{"C", "Apara: bloqueia o próximo golpe"},
+            new String[]{"V", "Raio de Gelo: congela o inimigo (nível 2)"},
+            new String[]{"B", "Buraco Negro: toda a energia, destrói a sala (nível 3)"},
             new String[]{"1 / 2", "usar Módulo de Cura / Energia"},
             new String[]{"I / TAB", "inventário"},
             new String[]{"ESC", "pausa"},

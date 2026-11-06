@@ -13,6 +13,7 @@ import com.almasb.fxgl.physics.box2d.dynamics.BodyType;
 import com.almasb.fxgl.physics.box2d.dynamics.FixtureDef;
 import com.almasb.fxgl.physics.box2d.dynamics.Fixture;
 import com.jogo.componentes.AtaqueJogadorComponent;
+import com.jogo.componentes.ComponenteBuracoNegro;
 import com.jogo.componentes.ComponenteInimigo;
 import com.jogo.componentes.ComponenteInimigoVoador;
 import com.jogo.componentes.ComponenteJogador;
@@ -36,6 +37,7 @@ import javafx.scene.paint.ImagePattern;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.animation.TranslateTransition;
+import javafx.animation.ScaleTransition;
 import javafx.scene.shape.Rectangle;
 import com.almasb.fxgl.dsl.components.ExpireCleanComponent;
 import javafx.util.Duration;
@@ -366,7 +368,8 @@ public class FabricaEntidades implements EntityFactory {
         return new ComponenteAnimado(animacoes, larguraQuadro, centroX, peY, ESCALA_SPRITES,
                 () -> ComponenteAnimado.escolherEstado(inimigo.estaMachucado(), inimigo.estaAtacando(),
                         inimigo.estaNoChao(), inimigo.getVelocidadeX(), inimigo.getVelocidadeY()),
-                inimigo::estaOlhandoDireita);
+                inimigo::estaOlhandoDireita)
+                .comCongelamento(inimigo::estaCongelado);
     }
 
     //Explosão quando um inimigo morre (ver ComponenteInimigo.tomarDano).
@@ -425,7 +428,8 @@ public class FabricaEntidades implements EntityFactory {
                 }
 
                 ComponenteInimigo inimigo = ComponenteInimigo.obterDe(entidadeInimigo);
-                if (inimigo == null) {
+                //Congelado (RaioDeGelo / Buraco Negro) não machuca no toque
+                if (inimigo == null || inimigo.estaCongelado()) {
                     return;
                 }
 
@@ -485,7 +489,34 @@ public class FabricaEntidades implements EntityFactory {
                 .type(TipoEntidade.DISPARO_JOGADOR)
                 .bbox(new HitBox(BoundingShape.box(tamanho, tamanho)))
                 .view(visual)
-                .with(new ComponenteDisparoJogador(dano, direcaoX, direcaoY, velocidade, tempoVida, alvosMaximos))
+                .with(new ComponenteDisparoJogador(dano, direcaoX, direcaoY, velocidade, tempoVida, alvosMaximos,
+                        data.hasKey("congelamento") ? data.<Double>get("congelamento") : 0.0))
+                .build();
+    }
+
+    //Buraco negro (habilidades.BuracoNegro). x/y = centro. Sem física:
+    //só o sprite girando e crescendo; quem puxa e destrói os inimigos é
+    //o ComponenteBuracoNegro
+    @Spawns("buraco_negro")
+    public Entity spawnBuracoNegro(SpawnData data) {
+        double duracao = data.get("duracao");
+        AnimatedTexture sprite = new AnimatedTexture(
+                Sprites.animacao("magias", "buraco-negro", 8, 0.5, 3));
+        sprite.loop();
+        double lado = 64 * 3;
+        sprite.setTranslateX(-lado / 2);
+        sprite.setTranslateY(-lado / 2);
+        Group visual = new Group(sprite);
+        visual.setScaleX(0.1);
+        visual.setScaleY(0.1);
+        ScaleTransition abrir = new ScaleTransition(Duration.seconds(0.35), visual);
+        abrir.setToX(1);
+        abrir.setToY(1);
+        abrir.play();
+        return entityBuilder(data)
+                .view(visual)
+                .zIndex(50)
+                .with(new ComponenteBuracoNegro(duracao))
                 .build();
     }
 

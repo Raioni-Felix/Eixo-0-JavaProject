@@ -33,6 +33,10 @@ public class ComponenteInimigoDistancia extends ComponenteInimigo {
         if (RelogioJogo.emPeriodoDeGraca()) {
             return;
         }
+        //Congelado: fica parado (ver ComponenteInimigo.congelar)
+        if (atualizarCongelamento(tpf)) {
+            return;
+        }
 
         // !alvo.isActive() cobre o alvo já ter morrido, sem isso o
         // atirador continua "atirando" num jogador que já não existe

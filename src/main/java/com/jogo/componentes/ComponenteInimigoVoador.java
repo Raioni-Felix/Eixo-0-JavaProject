@@ -40,6 +40,10 @@ public class ComponenteInimigoVoador extends ComponenteInimigo {
         if (RelogioJogo.emPeriodoDeGraca()) {
             return;
         }
+        //Congelado: fica parado (ver ComponenteInimigo.congelar)
+        if (atualizarCongelamento(tpf)) {
+            return;
+        }
 
         if (tempoRecuo > 0) {
             tempoRecuo -= tpf;

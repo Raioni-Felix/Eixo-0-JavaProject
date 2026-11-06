@@ -49,4 +49,20 @@ class ComponenteInimigoTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new ComponenteInimigoMelee("X", 0, 100, 1, 1, 1));
     }
+
+    @Test
+    @DisplayName("Congelar: fica congelado o tempo pedido e não encurta um congelamento maior")
+    void congelar() {
+        ComponenteInimigo inimigo = new ComponenteInimigoMelee("Robô", 50, 100, 15, 40, 200);
+        assertFalse(inimigo.estaCongelado());
+        inimigo.congelar(3.0);
+        assertTrue(inimigo.estaCongelado());
+        inimigo.congelar(1.0); //menor: continua valendo o de 3 s
+        assertTrue(inimigo.atualizarCongelamento(2.5));
+        assertTrue(inimigo.estaCongelado());
+        assertTrue(inimigo.atualizarCongelamento(0.6));
+        assertFalse(inimigo.estaCongelado());
+        assertFalse(inimigo.atualizarCongelamento(0.1));
+        assertThrows(IllegalArgumentException.class, () -> inimigo.congelar(0));
+    }
 }

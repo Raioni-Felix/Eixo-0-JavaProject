@@ -76,7 +76,7 @@ O código fica em `src/main/java/com/jogo`, dividido em pacotes por responsabili
 
 `factories` guarda `FabricaEntidades`, responsável por criar de fato as entidades do jogo (jogador, inimigos, plataformas, projéteis, gatilhos de sala) e configurar a física de cada uma.
 
-`habilidades` guarda as habilidades com tempo de espera (cooldown) trazidas da versão barebones: `Habilidade` (abstrata), `GolpeDeEnergia` (abstrata), `BolaDeFogo` e `Apara`.
+`habilidades` guarda as habilidades com tempo de espera (cooldown) trazidas da versão barebones: `Habilidade` (abstrata), `GolpeDeEnergia` (abstrata), `BolaDeFogo` e `Apara`, mais as magias liberadas por nível: `RaioDeGelo` e `BuracoNegro`.
 
 `inventario` guarda o inventário do jogador e os itens que vão nele, também trazidos do barebones: `Inventario`, `Item` (abstrata), as interfaces `Inventariavel` e `Consumivel`, o enum `Categoria` e os itens `ModuloCura` e `ModuloEnergia`.
 
@@ -151,6 +151,8 @@ Quando um inimigo atinge o jogador, o dano é aplicado de um jeito um pouco dife
 | Q | trocar de arma (entre as que já foram pegas) |
 | X | Golpe de Energia (Bola de Fogo) |
 | C | Apara (parry) |
+| V | Raio de Gelo: congela o inimigo atingido (liberada no nível 2) |
+| B | Buraco Negro: gasta toda a energia e destrói todos os inimigos da sala (liberada no nível 3) |
 | 1 | usar Módulo de Cura |
 | 2 | usar Módulo de Energia |
 | I ou TAB | abrir/fechar o inventário |
@@ -178,6 +180,13 @@ A vida também ganhou um `curar(int)` em `ComponentePersonagem`: ignora quantida
 Cada `Habilidade` controla o próprio tempo de espera: o `ComponenteJogador` chama `atualizar(tpf)` dela a cada frame. O método `usar()` é `final` e sempre faz a mesma sequência: confere se pode usar (aprendida, fora do cooldown e com energia), gasta a energia, chama o `executar()` da subclasse e reinicia o cooldown. Cada subclasse só diz o que faz no `executar()`. A diferença pro barebones é que aqui não existe parâmetro de alvo: no FXGL quem decide em quem o golpe acerta é a posição na tela.
 
 `GolpeDeEnergia` é abstrata e já traz o `executar()` pronto: cria um disparo (`"disparo_jogador"` na `FabricaEntidades`, o mesmo das armas de fogo) que anda reto na direção em que o jogador está olhando. Quem move o disparo é o `ComponenteDisparoJogador`, que some ao acertar um inimigo (aplicando o dano), ao bater numa plataforma ou parede, ou depois de 1,5 segundo. `BolaDeFogo` é a subclasse concreta usada no jogo e só troca a cor do disparo (sobrescreve `getCor()`). No `ComponenteJogador` ela fica guardada numa variável do tipo `GolpeDeEnergia`, como exemplo de polimorfismo. Números (os mesmos do teste do barebones): dano 20, custo 15 de energia, espera de 2 segundos.
+
+### Magias liberadas por nível
+
+As duas nascem com `aprendida = false`; o `subirNivel()` do `ComponenteJogador` libera cada uma ao chegar no nível dela (`NIVEL_GELO = 2`, `NIVEL_BURACO_NEGRO = 3`), e o HUD avisa ("Nível 2! Nova magia..."). No inventário, as que ainda não foram liberadas aparecem apagadas com o nível que libera.
+
+- **Raio de Gelo (V)**: filha de `GolpeDeEnergia`, igual à `BolaDeFogo`. Não reescreve o `executar()`: sobrescreve `getCor()`, `getSprite()` e o gancho novo `getCongelamento()` (3 s; na mãe é 0). O disparo leva esse tempo, e o `ComponenteDisparoJogador` chama `congelar()` no inimigo atingido. Congelado, o inimigo (`ComponenteInimigo.congelar/estaCongelado`) fica parado, não ataca e não machuca no toque, e o sprite fica azulado. Custa 20 de energia, dano 8, espera de 3 s.
+- **Buraco Negro (B)**: filha direta de `Habilidade`. Sobrescreve `custoPara(jogador)` (método novo da `Habilidade`, que por padrão devolve o custo fixo) pra custar a **energia máxima inteira**: só dá pra usar com a barra cheia, e ela zera. O `executar()` abre o buraco (`"buraco_negro"` na fábrica) na frente da jogadora; o `ComponenteBuracoNegro` mantém todos os inimigos da sala congelados e puxando pro centro por 1,6 s e, ao fechar, dá em cada um dano igual à vida que ele tem: todos explodem e dão o XP normal. Espera de 20 s.
 
 `Apara` abre uma janela curta (0,3 segundo) em que `serAtingido()` ignora o golpe por inteiro, sem dano e sem empurrão, tanto no toque de inimigo quanto no projétil. Durante a janela aparece um contorno ciano em volta do jogador. Custo de 5 de energia e espera de 1,5 segundo.
 
@@ -282,9 +291,9 @@ São "checked" (herdam de `Exception`): quem chama é obrigado a tratar ou repas
 
 ## Testes
 
-70 testes JUnit 5 em `src/test/java`, todos passando. Rodam com `mvn test`.
+74 testes JUnit 5 em `src/test/java`, todos passando. Rodam com `mvn test`.
 
-- Unitários: `ComponenteAnimadoTest` (qual animação mostrar em cada situação, ampliação dos sprites), `ComponenteJogadorTest` (energia, cura, invencibilidade, subir de nível, usar módulos), `ComponenteInimigoTest` (XP de cada tipo, interfaces), `ArmaTest` (cooldown do `atacar()` com uma arma de teste, `multiplicarDano`, ids únicos), `ArmasDeFogoTest` (ganchos de cada arma, `Perfurante`, coleção polimórfica), `HabilidadeTest`, `InventarioTest` (pilha, duplicata, `listarDoTipo` genérico, sobrecargas), `ComponenteAuxiliaresTest`, `DificuldadeTest` (multiplicador de dano de cada dificuldade), `CatalogoArmasTest` (arma certa pra cada nome do JSON).
+- Unitários: `ComponenteAnimadoTest` (qual animação mostrar em cada situação, ampliação dos sprites), `ComponenteJogadorTest` (energia, cura, invencibilidade, subir de nível, usar módulos), `ComponenteInimigoTest` (XP de cada tipo, interfaces), `ArmaTest` (cooldown do `atacar()` com uma arma de teste, `multiplicarDano`, ids únicos), `ArmasDeFogoTest` (ganchos de cada arma, `Perfurante`, coleção polimórfica), `HabilidadeTest`, `InventarioTest` (pilha, duplicata, `listarDoTipo` genérico, sobrecargas), `ComponenteAuxiliaresTest`, `DificuldadeTest` (multiplicador de dano de cada dificuldade), magias novas em `HabilidadeTest` (custo do Buraco Negro, gelo, liberação por nível) e `congelar` em `ComponenteInimigoTest`, `CatalogoArmasTest` (arma certa pra cada nome do JSON).
 - Casos de sucesso e de falha: cada classe testa o caminho certo e os errados (sem energia, em cooldown, item que não existe, valores inválidos no construtor).
 - Exceções: `assertThrows` para cada exceção própria e para as `IllegalArgumentException` dos construtores.
 - Integração: `CarregadorDeNiveisTest` lê os JSON de verdade das 4 salas com o Gson (e JSON de teste quebrado/incompleto em `src/test/resources`); `JogadorSalaIntegracaoTest` carrega a sala 4, cria o jogador com os dados dela, coleta os módulos e o rifle do chão, soma o XP dos inimigos, sobe de nível e usa os módulos até dar a exceção.

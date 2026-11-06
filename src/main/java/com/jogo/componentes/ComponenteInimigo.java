@@ -54,6 +54,10 @@ public abstract class ComponenteInimigo extends ComponentePersonagem implements 
     private long instanteUltimoDano = 0;
     protected boolean olhandoDireita = false;
 
+    //Congelamento (RaioDeGelo e Buraco Negro): enquanto > 0 o inimigo não
+    //anda, não ataca e não machuca no toque
+    private double tempoCongelado = 0;
+
     //CONSTRUTOR
     //Super chama o construtor da superclasse ComponentePersonagem
     //Sempre primeira linha, pq a parte comum do objeto
@@ -163,11 +167,66 @@ public abstract class ComponenteInimigo extends ComponentePersonagem implements 
         return null;
     }
 
+    //CONGELAMENTO
+
+    //Congela por pelo menos "segundos" (não encurta um congelamento maior
+    //que já esteja valendo). Para o inimigo na hora.
+    public void congelar(double segundos) {
+        if (segundos <= 0) {
+            throw new IllegalArgumentException("Tempo de congelamento precisa ser positivo");
+        }
+        boolean jaEstava = estaCongelado();
+        tempoCongelado = Math.max(tempoCongelado, segundos);
+        if (!jaEstava && fisica != null) {
+            if (voador) {
+                fisica.setLinearVelocity(0, 0);
+            } else {
+                fisica.setVelocityX(0);
+            }
+        }
+    }
+
+    public boolean estaCongelado() {
+        return tempoCongelado > 0;
+    }
+
+    //Chamado no começo do onUpdate (aqui e nas filhas que sobrescrevem).
+    //Desconta o tempo e diz se ainda está congelado (= não faz mais nada
+    //neste frame)
+    protected boolean atualizarCongelamento(double tpf) {
+        if (tempoCongelado <= 0) {
+            return false;
+        }
+        tempoCongelado = Math.max(0, tempoCongelado - tpf);
+        return true;
+    }
+
+    //Buraco negro puxando: velocidade na direção do ponto
+    public void puxarPara(Point2D ponto, double forca) {
+        if (fisica == null || entity == null) {
+            return;
+        }
+        Point2D direcao = ponto.subtract(entity.getCenter());
+        if (direcao.magnitude() < 4) {
+            fisica.setLinearVelocity(0, 0);
+            return;
+        }
+        direcao = direcao.normalize().multiply(forca);
+        if (voador) {
+            fisica.setLinearVelocity(direcao.getX(), direcao.getY());
+        } else {
+            fisica.setVelocityX(direcao.getX());
+        }
+    }
+
     //onUpdate roda cada frame do jogo
     @Override
     public void onUpdate(double tpf) {
         //Ignora a rajada de ticks logo após despausar (ver RelogioJogo).
         if (RelogioJogo.emPeriodoDeGraca()) {
+            return;
+        }
+        if (atualizarCongelamento(tpf)) {
             return;
         }
 

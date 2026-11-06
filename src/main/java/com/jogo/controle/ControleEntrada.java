@@ -53,6 +53,8 @@ public class ControleEntrada {
         });
         acaoDoJogador("Golpe de Energia", KeyCode.X, ComponenteJogador::usarGolpeDeEnergia);
         acaoDoJogador("Apara", KeyCode.C, ComponenteJogador::usarApara);
+        acaoDoJogador("Raio de Gelo", KeyCode.V, ComponenteJogador::usarGelo);
+        acaoDoJogador("Buraco Negro", KeyCode.B, ComponenteJogador::usarBuracoNegro);
 
         //Inventário (I ou TAB) e tela cheia (F11)
         acaoAoApertar("Inventário", KeyCode.I, jogo::alternarInventario);

@@ -2,6 +2,9 @@ package com.jogo.componentes.visual;
 
 import com.almasb.fxgl.entity.component.Component;
 import com.almasb.fxgl.texture.AnimatedTexture;
+import javafx.scene.effect.Light;
+import javafx.scene.effect.Lighting;
+import javafx.scene.paint.Color;
 import com.almasb.fxgl.texture.AnimationChannel;
 
 import java.util.EnumMap;
@@ -68,6 +71,11 @@ public class ComponenteAnimado extends Component {
     private final BooleanSupplier olhandoDireita;
 
     private AnimatedTexture textura;
+    //Opcional (inimigos): quando true, o sprite fica azulado e a animação
+    //não troca de estado (fica na pose em que congelou)
+    private BooleanSupplier congelado = () -> false;
+    private boolean mostrandoCongelado = false;
+    private static final Lighting LUZ_GELO = criarLuzGelo();
     private EstadoAnimacao estadoAtual = EstadoAnimacao.PARADO;
     private String conjuntoAtual;
 
@@ -116,8 +124,31 @@ public class ComponenteAnimado extends Component {
         posicionar();
     }
 
+    //Liga o visual de congelado (chamado na fábrica, ex:
+    //.comCongelamento(inimigo::estaCongelado)). Devolve o próprio objeto
+    public ComponenteAnimado comCongelamento(BooleanSupplier congelado) {
+        this.congelado = congelado;
+        return this;
+    }
+
+    private static Lighting criarLuzGelo() {
+        Lighting luz = new Lighting(new Light.Distant(45, 60, Color.web("#9fe8ff")));
+        luz.setSurfaceScale(0);
+        luz.setDiffuseConstant(1.6);
+        return luz;
+    }
+
     @Override
     public void onUpdate(double tpf) {
+        boolean congeladoAgora = congelado.getAsBoolean();
+        if (congeladoAgora != mostrandoCongelado) {
+            mostrandoCongelado = congeladoAgora;
+            textura.setEffect(congeladoAgora ? LUZ_GELO : null);
+        }
+        if (congeladoAgora) {
+            posicionar();
+            return;
+        }
         String nomeConjunto = conjuntoValido();
         Map<EstadoAnimacao, AnimationChannel> animacoes = conjuntos.get(nomeConjunto);
         EstadoAnimacao novo = animacaoDisponivel(estado.get(), animacoes.keySet());

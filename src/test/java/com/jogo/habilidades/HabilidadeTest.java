@@ -96,4 +96,41 @@ class HabilidadeTest {
         assertEquals(25, golpe.getDano());
         assertEquals(15, golpe.getCustoEnergia());
     }
+
+    @Test
+    @DisplayName("Raio de Gelo: golpe de energia azul que congela (polimorfismo do getCongelamento)")
+    void raioDeGelo() {
+        GolpeDeEnergia gelo = new RaioDeGelo(true, 3.0, 20, 8, 3.0);
+        assertEquals(Color.LIGHTCYAN, gelo.getCor());
+        assertEquals("gelo", gelo.getSprite());
+        assertEquals(3.0, gelo.getCongelamento());
+        assertEquals(0.0, new BolaDeFogo(true, 2.0, 15, 0.0, 20).getCongelamento());
+        assertThrows(IllegalArgumentException.class, () -> new RaioDeGelo(true, 3.0, 20, 8, 0));
+    }
+
+    @Test
+    @DisplayName("Buraco Negro custa a energia máxima: só com a barra cheia")
+    void buracoNegroCusto() {
+        BuracoNegro buraco = new BuracoNegro(true, 20.0, 1.6);
+        assertEquals(50, buraco.custoPara(jogador));
+        assertTrue(buraco.podeUsar(jogador));
+        jogador.consumirEnergia(1);
+        assertFalse(buraco.podeUsar(jogador));
+    }
+
+    @Test
+    @DisplayName("Gelo libera no nível 2 e Buraco Negro no nível 3")
+    void liberarPorNivel() {
+        assertFalse(jogador.getGelo().isAprendida());
+        assertFalse(jogador.getBuracoNegro().isAprendida());
+        assertFalse(jogador.getGelo().podeUsar(jogador));
+
+        jogador.adicionarXp(100); //nível 2
+        assertTrue(jogador.getGelo().isAprendida());
+        assertFalse(jogador.getBuracoNegro().isAprendida());
+
+        jogador.adicionarXp(150); //nível 3
+        assertEquals(3, jogador.getNivel());
+        assertTrue(jogador.getBuracoNegro().isAprendida());
+    }
 }
