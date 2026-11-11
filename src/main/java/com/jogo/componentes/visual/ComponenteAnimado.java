@@ -1,7 +1,9 @@
 package com.jogo.componentes.visual;
 
+import com.almasb.fxgl.entity.Entity;
 import com.almasb.fxgl.entity.component.Component;
 import com.almasb.fxgl.texture.AnimatedTexture;
+import com.jogo.componentes.TimeScaleManager;
 import javafx.scene.effect.Light;
 import javafx.scene.effect.Lighting;
 import javafx.scene.paint.Color;
@@ -140,6 +142,9 @@ public class ComponenteAnimado extends Component {
 
     @Override
     public void onUpdate(double tpf) {
+        // Aplica time scale: animações de inimigos ficam lentas, jogador normal
+        double tpfEfetivo = TimeScaleManager.getTpfPara(tpf, entity);
+        
         boolean congeladoAgora = congelado.getAsBoolean();
         if (congeladoAgora != mostrandoCongelado) {
             mostrandoCongelado = congeladoAgora;

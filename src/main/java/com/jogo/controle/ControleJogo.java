@@ -24,7 +24,9 @@ import com.jogo.visao.TelaMenuPrincipal;
 import com.jogo.visao.TelaPausa;
 import com.jogo.visao.TelaSobreposta;
 import com.jogo.visao.TelaVitoria;
+import com.jogo.visao.efeitos.SandevistanShader;
 import com.jogo.componentes.ComponenteChefe;
+import com.jogo.componentes.TimeScaleManager;
 import java.util.List;
 import javafx.scene.input.KeyCombination;
 
@@ -96,10 +98,16 @@ public class ControleJogo {
     //liga essa flag antes, pra cair direto no jogo.
     private boolean pularMenuAoIniciar = false;
 
+    //SandevistanMichyle: rastreia estado anterior pra aplicar/remover shader
+    private boolean sandevistanAtivoAnterior = false;
+
     //=== Etapas do FXGL (chamadas pelo Main) ===
 
     //initGame(): monta a sala inicial, o jogador e o arsenal
     public void iniciarMundo() {
+        // Reset time scale antes de criar novo mundo (evita velocidade residual)
+        TimeScaleManager.reset();
+        
         getGameWorld().addEntityFactory(new FabricaEntidades());
 
         DadosNivel sala = salas.comecarDoInicio();
@@ -211,6 +219,17 @@ public class ControleJogo {
             hud.atualizarStatus(); //o XP muda quando um inimigo morre, sem avisar o controle
             avisarMagiasNovas();
             acompanharChefe(tpf);
+            
+            // SandevistanMichyle: aplica/remove shader visual quando estado muda
+            boolean sandevistanAtivo = getComponenteJogador().estaNoSandevistan();
+            if (sandevistanAtivo != sandevistanAtivoAnterior) {
+                if (sandevistanAtivo) {
+                    SandevistanShader.aplicarNaCena(getGameScene().getRoot());
+                } else {
+                    SandevistanShader.removerDaCena(getGameScene().getRoot());
+                }
+                sandevistanAtivoAnterior = sandevistanAtivo;
+            }
             return;
         }
 
@@ -377,6 +396,12 @@ public class ControleJogo {
         menuPrincipal.esconder();
         pausa.esconder();
 
+        // Remove shader do Sandevistan se ativo
+        if (sandevistanAtivoAnterior) {
+            SandevistanShader.removerDaCena(getGameScene().getRoot());
+            sandevistanAtivoAnterior = false;
+        }
+        
         pularMenuAoIniciar = true;
         despausarMotor();
         getGameController().startNewGame();
@@ -387,6 +412,13 @@ public class ControleJogo {
     //do montarInterface()
     public void voltarAoMenuPrincipal(TelaSobreposta telaParaEsconder) {
         telaParaEsconder.esconder();
+        
+        // Remove shader do Sandevistan se ativo
+        if (sandevistanAtivoAnterior) {
+            SandevistanShader.removerDaCena(getGameScene().getRoot());
+            sandevistanAtivoAnterior = false;
+        }
+        
         getGameController().startNewGame();
     }
 

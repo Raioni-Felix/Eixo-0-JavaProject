@@ -100,8 +100,26 @@ public class ComponentePersonagem extends Component implements Atacavel {
         return vidaMaxima;
     }
 
+    /**
+     * Define a vida atual diretamente (usado por efeitos como Cyberpsicose).
+     * Público para uso por efeitos de status em pacotes diferentes.
+     */
+    public void setVidaAtual(int vida) {
+        this.vidaAtual.set(Math.max(0, Math.min(vida, vidaMaxima)));
+    }
+
     public double getVelocidade() {
         return velocidade;
+    }
+
+    /**
+     * Define a velocidade de movimento (usado por efeitos como Cyberpsicose).
+     */
+    public void setVelocidade(double velocidade) {
+        if (velocidade < 0) {
+            throw new IllegalArgumentException("Velocidade não pode ser negativa: " + velocidade);
+        }
+        this.velocidade = velocidade;
     }
 
     @Override

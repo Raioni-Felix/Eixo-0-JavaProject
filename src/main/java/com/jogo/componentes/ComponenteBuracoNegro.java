@@ -2,6 +2,7 @@ package com.jogo.componentes;
 
 import com.almasb.fxgl.entity.Entity;
 import com.almasb.fxgl.entity.component.Component;
+import com.jogo.componentes.TimeScaleManager;
 import com.jogo.entidades.TipoEntidade;
 import javafx.geometry.Point2D;
 
@@ -37,7 +38,11 @@ public class ComponenteBuracoNegro extends Component {
         if (RelogioJogo.emPeriodoDeGraca()) {
             return;
         }
-        tempo += tpf;
+        
+        // Aplica time scale do Sandevistan
+        double tpfEfetivo = TimeScaleManager.getTpfPara(tpf, entity);
+        
+        tempo += tpfEfetivo;
         entity.getViewComponent().getParent().setRotate(tempo * -240);
 
         List<ComponenteInimigo> inimigos = inimigosDaSala();

@@ -3,6 +3,7 @@ package com.jogo.componentes;
 import com.almasb.fxgl.entity.Entity;
 import com.almasb.fxgl.entity.component.Component;
 import com.almasb.fxgl.physics.PhysicsComponent;
+import com.jogo.componentes.TimeScaleManager;
 import javafx.geometry.Point2D;
 
 import static com.almasb.fxgl.dsl.FXGL.spawn;
@@ -232,7 +233,11 @@ public abstract class ComponenteInimigo extends ComponentePersonagem implements 
         if (RelogioJogo.emPeriodoDeGraca()) {
             return;
         }
-        if (atualizarCongelamento(tpf)) {
+        
+        // Aplica time scale do Sandevistan (inimigos ficam lentos, jogador não)
+        double tpfEfetivo = TimeScaleManager.getTpfPara(tpf, this);
+        
+        if (atualizarCongelamento(tpfEfetivo)) {
             return;
         }
 
@@ -243,7 +248,7 @@ public abstract class ComponenteInimigo extends ComponentePersonagem implements 
             return;
         }
 
-        perseguirAlvo(tpf, alcanceAtaque);
+        perseguirAlvo(tpfEfetivo, alcanceAtaque);
     }
 
     //Persegue o alvo até distanciaParada, depois para e ataca. Voador

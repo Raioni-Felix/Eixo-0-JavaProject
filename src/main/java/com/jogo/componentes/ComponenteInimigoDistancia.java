@@ -2,6 +2,7 @@ package com.jogo.componentes;
 
 import com.almasb.fxgl.entity.Entity;
 import com.almasb.fxgl.entity.SpawnData;
+import com.jogo.componentes.TimeScaleManager;
 
 import static com.almasb.fxgl.dsl.FXGL.spawn;
 
@@ -33,8 +34,12 @@ public class ComponenteInimigoDistancia extends ComponenteInimigo {
         if (RelogioJogo.emPeriodoDeGraca()) {
             return;
         }
+        
+        // Aplica time scale do Sandevistan
+        double tpfEfetivo = TimeScaleManager.getTpfPara(tpf, this);
+        
         //Congelado: fica parado (ver ComponenteInimigo.congelar)
-        if (atualizarCongelamento(tpf)) {
+        if (atualizarCongelamento(tpfEfetivo)) {
             return;
         }
 
@@ -49,7 +54,7 @@ public class ComponenteInimigoDistancia extends ComponenteInimigo {
         // Usa alcanceDeteccao como distância de parada, em vez de
         // alcanceAtaque (que seria corpo a corpo). Persegue até ficar
         // "de longe o suficiente" pra atirar, não precisa encostar
-        perseguirAlvo(tpf, alcanceDeteccao);
+        perseguirAlvo(tpfEfetivo, alcanceDeteccao);
     }
 
 

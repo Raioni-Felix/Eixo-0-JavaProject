@@ -3,6 +3,8 @@ package com.jogo.visao;
 import com.jogo.componentes.ComponenteArma;
 import com.jogo.componentes.ComponenteChefe;
 import com.jogo.componentes.ComponenteJogador;
+import com.jogo.componentes.efeitos.Cyberpsicose;
+import com.jogo.habilidades.SandevistanMichyle;
 import com.jogo.componentes.visual.Sprites;
 import com.jogo.inventario.Inventario;
 import com.jogo.itens.CatalogoArmas;
@@ -53,6 +55,11 @@ public class HudJogo {
     private final Text qtdCura = criarTexto(0, Color.WHITE);
     private final Text qtdEnergia = criarTexto(0, Color.WHITE);
     private final ImageView iconeArma = new ImageView();
+    //SandevistanMichyle: indicador no HUD
+    private final Text sandevistanTexto = criarTexto(0, Color.web("#ff4d7a"));
+    private final ImageView sandevistanIcone = new ImageView();
+    //Cyberpsicose: indicador no HUD
+    private final Text cyberpsicoseTexto = criarTexto(0, Color.web("#ff3333"));
     //Barra do chefe, no topo e no meio da tela (só na sala dele)
     private static final double LARGURA_BARRA_CHEFE = 560;
     private final Rectangle fundoChefe = new Rectangle(LARGURA_BARRA_CHEFE + 6, 18, Color.web("#0b1420"));
@@ -97,15 +104,22 @@ public class HudJogo {
                 jogador.energiaAtualProperty()));
 
         //TEXTOS
-        //Ícones: [1] cura xN   [2] energia xN   [Q] arma
+        //Ícones: [1] cura xN   [2] energia xN   [Q] arma   [D] Sandevistan   [C] Cyberpsicose
         HBox icones = new HBox(8,
                 rotuloTecla("1"), icone("modulo_cura"), qtdCura, new Text("  "),
                 rotuloTecla("2"), icone("modulo_energia"), qtdEnergia, new Text("  "),
-                rotuloTecla("Q"), iconeArma);
+                rotuloTecla("Q"), iconeArma, new Text("  "),
+                rotuloTecla("D"), sandevistanIcone, sandevistanTexto, new Text("  "),
+                rotuloTecla("C"), cyberpsicoseTexto);
         qtdCura.setTranslateY(0);
         qtdEnergia.setTranslateY(0);
         qtdCura.setTranslateX(0);
         qtdEnergia.setTranslateX(0);
+        sandevistanTexto.setTranslateY(0);
+        sandevistanTexto.setTranslateX(0);
+        cyberpsicoseTexto.setTranslateY(0);
+        cyberpsicoseTexto.setTranslateX(0);
+        cyberpsicoseTexto.setText(""); // vazio por padrão
         icones.setAlignment(Pos.CENTER_LEFT);
         icones.setPadding(new Insets(4, 10, 4, 6));
         icones.setStyle("-fx-background-color: rgba(4,10,18,0.55); -fx-background-radius: 6;");
@@ -147,7 +161,7 @@ public class HudJogo {
                 + "  Energia x" + inventario.quantidadeDe(idModuloEnergia));
     }
 
-    //Arma equipada (e como ela ataca) e nível/XP
+    //Arma equipada (e como ela ataca), nível/XP e Sandevistan
     public void atualizarStatus() {
         Arma equipada = arma.getArmaEquipada();
         String textoArma = equipada == null ? "sem arma" : equipada.getNome() + " (" + equipada.getDescricaoCombate() + ")";
@@ -156,6 +170,34 @@ public class HudJogo {
         textoStatus.setText(textoArma
                 + "    Nv " + jogador.getNivel()
                 + "  XP " + jogador.getXp() + "/" + jogador.getXpProximoNivel());
+
+        // SandevistanMichyle indicator
+        SandevistanMichyle sandevistan = jogador.getSandevistan();
+        if (sandevistan.isAtivo()) {
+            sandevistanIcone.setImage(carregarIconeSandevistan(Color.web("#ff4d7a")));
+            sandevistanTexto.setText("ON (" + (int) sandevistan.getCooldownRestante() + "s)");
+            sandevistanTexto.setFill(Color.web("#ff4d7a"));
+        } else {
+            double cd = sandevistan.getCooldownRestante();
+            if (cd > 0) {
+                sandevistanIcone.setImage(carregarIconeSandevistan(Color.web("#ffaa00")));
+                sandevistanTexto.setText("CD: " + (int) cd + "s");
+                sandevistanTexto.setFill(Color.web("#ffaa00"));
+            } else {
+                sandevistanIcone.setImage(carregarIconeSandevistan(Color.web("#4de8d4")));
+                sandevistanTexto.setText("RDY");
+                sandevistanTexto.setFill(Color.web("#4de8d4"));
+            }
+        }
+
+        // Cyberpsicose indicator
+        Cyberpsicose cyberpsicose = sandevistan.getCyberpsicose();
+        if (cyberpsicose.estaAtivo()) {
+            cyberpsicoseTexto.setText("CYBERPSICOSE ATIVA");
+            cyberpsicoseTexto.setFill(Color.web("#ff3333"));
+        } else {
+            cyberpsicoseTexto.setText("");
+        }
     }
 
     //Mensagem que aparece por 2 segundos e some devagar
@@ -228,5 +270,39 @@ public class HudJogo {
         texto.setTranslateX(MARGEM);
         texto.setTranslateY(y);
         return texto;
+    }
+
+    /**
+     * Carrega o ícone do Sandevistan com fallback caso o sprite não exista.
+     * Retorna uma ImageView com o sprite ou um quadrado colorido como fallback.
+     * O fallback usa WritableImage (thread-safe) em vez de snapshot() que requer FX thread.
+     */
+    private javafx.scene.image.Image carregarIconeSandevistan(Color corFallback) {
+        try {
+            return Sprites.quadros("itens", "sandevistan", 1, 1).get(0);
+        } catch (Exception e) {
+            // Fallback: WritableImage não requer FX Application Thread
+            int size = 24;
+            javafx.scene.image.WritableImage img = new javafx.scene.image.WritableImage(size, size);
+            javafx.scene.image.PixelWriter pw = img.getPixelWriter();
+            int argb = ((int)(corFallback.getOpacity() * 255) << 24) |
+                       ((int)(corFallback.getRed() * 255) << 16) |
+                       ((int)(corFallback.getGreen() * 255) << 8) |
+                       ((int)(corFallback.getBlue() * 255));
+            // Desenha quadrado com cantos arredondados simples
+            for (int y = 0; y < size; y++) {
+                for (int x = 0; x < size; x++) {
+                    // Cantos arredondados (raio 4)
+                    boolean canto = (x < 4 && y < 4 && x*x + y*y > 16) ||
+                                    (x >= size-4 && y < 4 && (x-size+1)*(x-size+1) + y*y > 16) ||
+                                    (x < 4 && y >= size-4 && x*x + (y-size+1)*(y-size+1) > 16) ||
+                                    (x >= size-4 && y >= size-4 && (x-size+1)*(x-size+1) + (y-size+1)*(y-size+1) > 16);
+                    if (!canto) {
+                        pw.setArgb(x, y, argb);
+                    }
+                }
+            }
+            return img;
+        }
     }
 }

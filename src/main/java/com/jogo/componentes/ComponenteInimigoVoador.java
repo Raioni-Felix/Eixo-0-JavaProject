@@ -1,5 +1,6 @@
 package com.jogo.componentes;
 
+import com.jogo.componentes.TimeScaleManager;
 
 //Bixinho voador, herda de ComponenteInimigo,
 // mas não precisa de nada específico, pq
@@ -40,23 +41,27 @@ public class ComponenteInimigoVoador extends ComponenteInimigo {
         if (RelogioJogo.emPeriodoDeGraca()) {
             return;
         }
+        
+        // Aplica time scale do Sandevistan
+        double tpfEfetivo = TimeScaleManager.getTpfPara(tpf, this);
+        
         //Congelado: fica parado (ver ComponenteInimigo.congelar)
-        if (atualizarCongelamento(tpf)) {
+        if (atualizarCongelamento(tpfEfetivo)) {
             return;
         }
 
         if (tempoRecuo > 0) {
-            tempoRecuo -= tpf;
+            tempoRecuo -= tpfEfetivo;
             fisica.setLinearVelocity(0, -velocidade); //sobe na velocidade dele
             return;
         }
 
         if (!agressivo || alvo == null) {
             // Se não for agressivo ou não tiver alvo, apenas flutua
-            flutuar(tpf);
+            flutuar(tpfEfetivo);
         } else {
             // Se for agressivo e tiver alvo, segue o alvo
-            super.onUpdate(tpf); //Persegue e ataca já
+            super.onUpdate(tpfEfetivo); //Persegue e ataca já
             // usando alcanceAtaque
         }
     }

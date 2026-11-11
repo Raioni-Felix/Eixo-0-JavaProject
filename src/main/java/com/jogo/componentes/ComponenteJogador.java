@@ -9,11 +9,13 @@ import com.almasb.fxgl.texture.AnimatedTexture;
 import com.jogo.excecoes.ItemIncompativelException;
 import com.jogo.excecoes.ItemNaoEncontradoException;
 import com.jogo.componentes.visual.Sprites;
+import com.jogo.componentes.efeitos.Cyberpsicose;
 import com.jogo.habilidades.Apara;
 import com.jogo.habilidades.BolaDeFogo;
 import com.jogo.habilidades.BuracoNegro;
 import com.jogo.habilidades.RaioDeGelo;
 import com.jogo.habilidades.GolpeDeEnergia;
+import com.jogo.habilidades.SandevistanMichyle;
 import com.jogo.inventario.Consumivel;
 import com.jogo.inventario.Inventariavel;
 import com.jogo.inventario.Inventario;
@@ -189,6 +191,11 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
     //for Shift — dash() no toque (onKeyBegin dispara uma vez só, sem
     //precisar controlar "borda de subida" na mão) e desliga o boost
     //ao soltar (onKeyEnd).
+
+    // SandevistanMichyle (tecla D) - slow-motion estilo Cyberpunk 2077
+    private final SandevistanMichyle sandevistan = new SandevistanMichyle(true);
+    private double multiplicadorCooldownCyberpsicose = 1.0; // 1.0 normal, 2.0 com cyberpsicose
+
     public ComponenteJogador(String nome, int vidaMaxima, double velocidade, int energiaMaxima) {
         super(nome, vidaMaxima, velocidade);
         this.energiaMaxima = energiaMaxima;
@@ -215,6 +222,10 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
                 if (keyTrigger.getKey() == KeyCode.SHIFT) {
                     dash();
                 }
+                // Tecla D: Toggle SandevistanMichyle
+                if (keyTrigger.getKey() == KeyCode.D) {
+                    sandevistan.toggle(ComponenteJogador.this);
+                }
             }
 
             @Override
@@ -233,16 +244,22 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
             return;
         }
 
-        if (timerCooldownDash > 0) timerCooldownDash -= tpf;
+        // Aplica multiplicador de cooldown da Cyberpsicose (2x mais lento)
+        double tpfComMultiplicador = tpf / multiplicadorCooldownCyberpsicose;
+
+        if (timerCooldownDash > 0) timerCooldownDash -= tpfComMultiplicador;
 
         //Cooldown das habilidades: cada uma conta o próprio tempo.
-        golpe.atualizar(tpf);
-        apara.atualizar(tpf);
-        gelo.atualizar(tpf);
-        buracoNegro.atualizar(tpf);
+        golpe.atualizar(tpfComMultiplicador);
+        apara.atualizar(tpfComMultiplicador);
+        gelo.atualizar(tpfComMultiplicador);
+        buracoNegro.atualizar(tpfComMultiplicador);
+
+        // Atualiza SandevistanMichyle (consome energia, gerencia cooldown pós-desativação)
+        sandevistan.atualizarSandevistan(this, tpf);
 
         if (timerApara > 0) {
-            timerApara -= tpf;
+            timerApara -= tpfComMultiplicador;
             if (timerApara <= 0) {
                 escudo.setVisible(false);
             }
@@ -260,7 +277,7 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
         //antes (smoothstep) e ficou "flutuando" demais pro estilo
         //pretendido; isso aqui é mais fiel.
         if (timerDash > 0) {
-            timerDash -= tpf;
+            timerDash -= tpfComMultiplicador;
 
             if (timerDash <= 0) {
                 fisica.setVelocityX(0);
@@ -273,11 +290,11 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
             jaDeuDash = false;
         }
         if (timerInvencibilidade > 0) {
-            timerInvencibilidade -= tpf;
+            timerInvencibilidade -= tpfComMultiplicador;
         }
 
         if (timerPiscada > 0) {
-            timerPiscada -= tpf;
+            timerPiscada -= tpfComMultiplicador;
 
             if (timerPiscada <= 0) {
                 //Acabou a piscada, garante que a visão volta 100%
@@ -294,7 +311,7 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
 
         //Corta o deslize do empurrão se o jogador não mexeu em nada
         if (timerRecuperacaoEmpurrao > 0) {
-            timerRecuperacaoEmpurrao -= tpf;
+            timerRecuperacaoEmpurrao -= tpfComMultiplicador;
 
             if (timerRecuperacaoEmpurrao <= 0) {
                 fisica.setVelocityX(0);
@@ -334,6 +351,45 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
 
     public Dificuldade getDificuldade() {
         return dificuldade;
+    }
+
+    // === SandevistanMichyle & Cyberpsicose ===
+
+    /**
+     * Define a velocidade de movimento (usado pela Cyberpsicose para reduzir 50%).
+     */
+    public void setVelocidade(double velocidade) {
+        this.velocidade = velocidade;
+    }
+
+    /**
+     * Define o multiplicador de cooldown da Cyberpsicose (1.0 normal, 2.0 com debuff).
+     */
+    public void setMultiplicadorCooldownCyberpsicose(double multiplicador) {
+        this.multiplicadorCooldownCyberpsicose = multiplicador;
+    }
+
+    /**
+     * Aplica dano direto do debuff Cyberpsicose (ignora invencibilidade, não dá i-frames).
+     */
+    public void tomarDanoDebuff(int quant) {
+        super.tomarDano(quant);
+        // Não reinicia timerInvencibilidade - é dano contínuo do debuff
+        timerPiscada = DURACAO_PISCADA; // pisca visualmente
+    }
+
+    /**
+     * Verifica se o SandevistanMichyle está ativo no momento.
+     */
+    public boolean estaNoSandevistan() {
+        return sandevistan.isAtivo();
+    }
+
+    /**
+     * Retorna a habilidade SandevistanMichyle (para HUD, etc).
+     */
+    public SandevistanMichyle getSandevistan() {
+        return sandevistan;
     }
 
     public boolean estaInvencivel() {

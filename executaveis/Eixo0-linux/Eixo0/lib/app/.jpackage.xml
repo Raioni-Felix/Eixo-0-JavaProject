@@ -1,0 +1,7 @@
+<?xml version="1.0" ?>
+<jpackage-state version="21.0.12.1" platform="linux">
+  <app-version>1.0</app-version>
+  <main-launcher>Eixo0</main-launcher>
+  <main-class>com.jogo.Lancador</main-class>
+  <signed>false</signed>
+  <app-store>false</app-store></jpackage-state>

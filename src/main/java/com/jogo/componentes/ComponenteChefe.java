@@ -1,6 +1,7 @@
 package com.jogo.componentes;
 
 import com.almasb.fxgl.entity.SpawnData;
+import com.jogo.componentes.TimeScaleManager;
 import javafx.geometry.Point2D;
 
 import java.util.ArrayList;
@@ -84,15 +85,19 @@ public class ComponenteChefe extends ComponenteInimigo {
         if (RelogioJogo.emPeriodoDeGraca()) {
             return;
         }
-        if (atualizarCongelamento(tpf)) {
+        
+        // Aplica time scale do Sandevistan
+        double tpfEfetivo = TimeScaleManager.getTpfPara(tpf, this);
+        
+        if (atualizarCongelamento(tpfEfetivo)) {
             return;
         }
         if (alvo == null || !alvo.isActive()) {
             fisica.setLinearVelocity(0, 0);
             return;
         }
-        tempoNoEstado += tpf;
-        tempoTotal += tpf;
+        tempoNoEstado += tpfEfetivo;
+        tempoTotal += tpfEfetivo;
         olhandoDireita = alvo.getX() > entity.getX();
 
         switch (estado) {
