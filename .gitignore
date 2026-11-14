@@ -30,3 +30,8 @@ build/
 *.log
 logs/
 system/
+
+# Executáveis descompactados localmente #
+executaveis/Eixo0-windows/
+executaveis/Eixo0-linux/
+

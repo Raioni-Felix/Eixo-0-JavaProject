@@ -12,6 +12,13 @@ import com.almasb.fxgl.physics.box2d.dynamics.BodyDef;
 import com.almasb.fxgl.physics.box2d.dynamics.BodyType;
 import com.almasb.fxgl.physics.box2d.dynamics.FixtureDef;
 import com.almasb.fxgl.physics.box2d.dynamics.Fixture;
+import com.jogo.armadilhas.BlocoQueCai;
+import com.jogo.armadilhas.Hitbox;
+import com.jogo.armadilhas.SpikesRetrateis;
+import com.jogo.armadilhas.TrapFactory;
+import com.jogo.componentes.ComponenteArmadilha;
+import com.jogo.componentes.visual.FallingBlockVisual;
+import com.jogo.componentes.visual.SpikeTrapView;
 import com.jogo.componentes.AtaqueJogadorComponent;
 import com.jogo.componentes.ComponenteBuracoNegro;
 import com.jogo.componentes.ComponenteChefe;
@@ -166,6 +173,7 @@ public class FabricaEntidades implements EntityFactory {
         return entityBuilder(data)
                 .type(TipoEntidade.JOGADOR)
                 .bbox(new HitBox(BoundingShape.box(w, h)))
+                .zIndex(5)
                 .collidable()
                 .with(fisica)
                 .with(jogador)
@@ -682,6 +690,7 @@ public class FabricaEntidades implements EntityFactory {
     public Entity spawnPlataforma(SpawnData data) {
         double largura = data.get("largura");
         double altura = data.get("altura");
+        boolean isTeto = data.getY() <= 0;
 
         var fisica = new PhysicsComponent();
         fisica.setBodyType(BodyType.STATIC);
@@ -689,16 +698,17 @@ public class FabricaEntidades implements EntityFactory {
         return entityBuilder(data)
                 .type(TipoEntidade.PLATAFORMA)
                 .bbox(new HitBox(BoundingShape.box(largura, altura)))
-                .view(visualPlataforma(largura, altura))
+                .view(visualPlataforma(largura, altura, isTeto))
+                .zIndex(1)
                 .with(fisica)
                 .build();
     }
 
     //Visual da plataforma com as peças do tileset do Warped City
     //(sprites/cenario). Baixa (até 24 px): plataforma flutuante com as
-    //duas pontas e o meio repetido. Alta (o chão): blocos repetidos com
-    //a faixa ciano no topo. ImagePattern repete a imagem sozinho.
-    private Node visualPlataforma(double largura, double altura) {
+    //duas pontas e o meio repetido. Alta (o chão ou teto): blocos repetidos com
+    //a faixa ciano no topo (chão) ou na face inferior (teto).
+    private Node visualPlataforma(double largura, double altura, boolean isTeto) {
         Group grupo = new Group();
         if (altura <= 24) {
             double escala = altura / 16; //a peça tem 16 px de altura
@@ -716,9 +726,13 @@ public class FabricaEntidades implements EntityFactory {
             Image borda = Sprites.quadros("cenario", "chao-borda", 1, ESCALA_SPRITES).get(0);
             Rectangle corpo = new Rectangle(largura, altura);
             corpo.setFill(new ImagePattern(bloco, 0, 0, bloco.getWidth(), bloco.getHeight(), false));
-            Rectangle topo = new Rectangle(largura, borda.getHeight());
-            topo.setFill(new ImagePattern(borda, 0, 0, borda.getWidth(), borda.getHeight(), false));
-            grupo.getChildren().addAll(corpo, topo);
+            Rectangle faixaBorda = new Rectangle(largura, borda.getHeight());
+            faixaBorda.setFill(new ImagePattern(borda, 0, 0, borda.getWidth(), borda.getHeight(), false));
+            if (isTeto) {
+                faixaBorda.setScaleY(-1);
+                faixaBorda.setTranslateY(altura - borda.getHeight());
+            }
+            grupo.getChildren().addAll(corpo, faixaBorda);
         }
         return grupo;
     }
@@ -774,5 +788,90 @@ public class FabricaEntidades implements EntityFactory {
         gatilho.setProperty("ladoEntrada", ladoEntrada);
 
         return gatilho;
+    }
+
+    // === ARMADILHAS (Sistema Modular de Armadilhas) ===
+
+    @Spawns("armadilha_espinhos")
+    public Entity spawnArmadilhaEspinhos(SpawnData data) {
+        double largura = data.getData().containsKey("largura") ? ((Number) data.get("largura")).doubleValue() : 64.0;
+        double altura = data.getData().containsKey("altura") ? ((Number) data.get("altura")).doubleValue() : 32.0;
+        SpikesRetrateis espinhos = TrapFactory.createSpikes(data.getX(), data.getY(), largura, altura);
+
+        // Visual sincronizado quadro a quadro com o ciclo de ativação (spike-trap.gif)
+        Node visual = new SpikeTrapView(largura, altura);
+
+        Hitbox dmgHitbox = espinhos.getDamageHitbox();
+
+        return entityBuilder(data)
+                .type(TipoEntidade.ARMADILHA)
+                .bbox(new HitBox(new Point2D(dmgHitbox.getOffsetX(), dmgHitbox.getOffsetY()),
+                        BoundingShape.box(dmgHitbox.getWidth(), dmgHitbox.getHeight())))
+                .view(visual)
+                .zIndex(0)
+                .collidable()
+                .with(new ComponenteArmadilha(espinhos))
+                .build();
+    }
+
+    @Spawns("armadilha_bloco")
+    public Entity spawnArmadilhaBloco(SpawnData data) {
+        double largura = data.getData().containsKey("largura") ? ((Number) data.get("largura")).doubleValue() : 64.0;
+        double altura = data.getData().containsKey("altura") ? ((Number) data.get("altura")).doubleValue() : 64.0;
+        double distanciaQueda = data.getData().containsKey("distanciaQueda") ? ((Number) data.get("distanciaQueda")).doubleValue() : 320.0;
+        BlocoQueCai bloco = TrapFactory.createFallingBlock(data.getX(), data.getY(), largura, altura, distanciaQueda);
+
+        // Corpo sólido KINEMATIC: impede o jogador de atravessar o bloco (solidez física)
+        var fisica = new PhysicsComponent();
+        fisica.setBodyType(BodyType.KINEMATIC);
+
+        Hitbox dmgHitbox = bloco.getDamageHitbox();
+
+        // Visual sincronizado via AnimatedTexture recortando a spritesheet única pelos estados de TrapState
+        AnimatedTexture visual = FallingBlockVisual.criarTextura(largura, altura);
+        Node viewNode = (visual != null) ? visual : new Rectangle(largura, altura, Color.rgb(95, 90, 100));
+
+        ComponenteArmadilha comp = new ComponenteArmadilha(bloco);
+        if (visual != null) {
+            comp.configurarAnimacao(visual, FallingBlockVisual.getCanais(), largura, altura);
+        }
+
+        // Sensor de perímetro cobrindo 100% das 4 faces (cima, baixo, esquerda e direita)
+        // Garante aplicação de dano no jogador e parada exata no topo das plataformas/chão
+        fisica.addSensor(
+                new HitBox("BLOCK_PERIMETER_CONTACT",
+                        new Point2D(dmgHitbox.getOffsetX() - 2, dmgHitbox.getOffsetY() - 2),
+                        BoundingShape.box(dmgHitbox.getWidth() + 4, dmgHitbox.getHeight() + 4)),
+                new SensorCollisionHandler() {
+                    @Override
+                    protected void onCollisionBegin(Entity other) {
+                        if (other.hasComponent(ComponenteJogador.class)) {
+                            comp.aoColidirComJogador(other);
+                        } else if (other.getType() == TipoEntidade.PLATAFORMA) {
+                            comp.aoColidirComPlataforma(other);
+                        }
+                    }
+
+                    @Override
+                    protected void onCollision(Entity other) {
+                        if (other.hasComponent(ComponenteJogador.class)) {
+                            comp.aoColidirComJogador(other);
+                        } else if (other.getType() == TipoEntidade.PLATAFORMA) {
+                            comp.aoColidirComPlataforma(other);
+                        }
+                    }
+                }
+        );
+
+        return entityBuilder(data)
+                .type(TipoEntidade.ARMADILHA)
+                .bbox(new HitBox(new Point2D(dmgHitbox.getOffsetX(), dmgHitbox.getOffsetY()),
+                        BoundingShape.box(dmgHitbox.getWidth(), dmgHitbox.getHeight())))
+                .view(viewNode)
+                .zIndex(2)
+                .collidable()
+                .with(fisica)
+                .with(comp)
+                .build();
     }
 }

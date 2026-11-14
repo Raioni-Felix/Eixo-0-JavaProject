@@ -88,10 +88,9 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
 
 
 
-    //Por quanto tempo o jogador fica piscando depois de um hit. Só
-    //efeito visual, não mexe em colisão nem física. O empurrão roda
-    //sempre, piscando ou não.
-    private static final double DURACAO_PISCADA = 0.6;
+    //Por quanto tempo o jogador fica piscando depois de um hit. Acompanha
+    //a janela de invencibilidade (1.0s de I-Frames) alternando a opacidade.
+    private static final double DURACAO_PISCADA = 1.0;
     private double timerPiscada = 0;
     private static final double INTERVALO_PISCADA = 0.08;
     private static final double OPACIDADE_PISCADA_FRACA = 0.3;
@@ -340,24 +339,31 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
         return timerInvencibilidade > 0;
     }
 
+    /**
+     * Ativa a invulnerabilidade temporária (I-Frames) e o efeito visual de piscar/opacidade
+     * pela duração informada (em segundos).
+     */
+    public void ativarInvulnerabilidade(double segundos) {
+        if (segundos <= 0) {
+            return;
+        }
+        this.timerInvencibilidade = Math.max(this.timerInvencibilidade, segundos);
+        this.timerPiscada = Math.max(this.timerPiscada, segundos);
+    }
+
     //Chamado pelo sensor de contato de cada inimigo (ver
-    //FabricaEntidades.setupContatoComPlayer) e pelo projétil do
-    //atirador (ver ComponenteProjetil) quando acertam o jogador. O
-    //empurrão acontece sempre, dano e piscada só se não estiver
-    //invencível ainda.
+    //FabricaEntidades.setupContatoComPlayer), pelas armadilhas e pelo projétil do
+    //atirador (ver ComponenteProjetil) quando acertam o jogador.
+    //Enquanto estiver invencível (I-Frames de 1.0s), ignora novos hits consecutivos.
     public void serAtingido(Entity origem, int dano) {
-        //Apara ativa: o golpe é bloqueado por inteiro (sem dano e sem
-        //empurrão).
-        if (estaAparando()) {
+        //Apara ativa ou I-Frames ativos: o golpe é bloqueado por inteiro
+        if (estaAparando() || estaInvencivel()) {
             return;
         }
 
         empurrar(origem);
-
-        if (!estaInvencivel()) {
-            tomarDano(dano);
-            timerPiscada = DURACAO_PISCADA;
-        }
+        tomarDano(dano);
+        ativarInvulnerabilidade(duracaoInvencibilidade);
     }
 
     //Empurra pro lado oposto de quem bateu (baseado na posição de

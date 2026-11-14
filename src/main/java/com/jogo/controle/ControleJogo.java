@@ -25,6 +25,7 @@ import com.jogo.visao.TelaPausa;
 import com.jogo.visao.TelaSobreposta;
 import com.jogo.visao.TelaVitoria;
 import com.jogo.componentes.ComponenteChefe;
+import com.jogo.componentes.ComponenteArmadilha;
 import java.util.List;
 import javafx.scene.input.KeyCombination;
 
@@ -123,13 +124,14 @@ public class ControleJogo {
         salas.centralizarCamera(jogador);
         salas.spawnInimigos(sala, jogador);
         salas.spawnItens(sala);
+        salas.spawnArmadilhas(sala, jogador);
 
         //Sem isso, "Reiniciar" depois de morrer nunca mais mostraria o
         //Game Over numa segunda morte
         gameOverExibido = false;
     }
 
-    //initPhysics(): gravidade e o que acontece ao encostar em gatilho/item
+    // Configura a gravidade e as colisões do jogo.
     public void registrarColisoes() {
         getPhysicsWorld().setGravity(0, 1200);
 
@@ -163,11 +165,28 @@ public class ControleJogo {
                     hud.mostrarMensagem("+1 Módulo de Cura   [1] usar");
                 }
 
-                salas.registrarColeta(itemEntity.getString("idColeta"));
-                itemEntity.removeFromWorld();
-                hud.atualizarInventario();
-            }
-        });
+                                  salas.registrarColeta(itemEntity.getString("idColeta"));
+                  itemEntity.removeFromWorld();
+                  hud.atualizarInventario();
+              }
+          });
+
+          //Armadilha: colisão física com o jogador (aplica dano se ativa ou aciona gatilho)
+          getPhysicsWorld().addCollisionHandler(new CollisionHandler(TipoEntidade.JOGADOR, TipoEntidade.ARMADILHA) {
+              @Override
+              protected void onCollision(Entity jogadorEntity, Entity armadilhaEntity) {
+                  if (armadilhaEntity.hasComponent(ComponenteArmadilha.class)) {
+                      armadilhaEntity.getComponent(ComponenteArmadilha.class).aoColidirComJogador(jogadorEntity);
+                  }
+              }
+
+              @Override
+              protected void onCollisionBegin(Entity jogadorEntity, Entity armadilhaEntity) {
+                  if (armadilhaEntity.hasComponent(ComponenteArmadilha.class)) {
+                      armadilhaEntity.getComponent(ComponenteArmadilha.class).aoColidirComJogador(jogadorEntity);
+                  }
+              }
+          });
     }
 
     //initUI(): cria o HUD e as telas. A ordem de adicionar é a ordem de
