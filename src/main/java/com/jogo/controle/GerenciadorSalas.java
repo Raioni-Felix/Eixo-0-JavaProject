@@ -4,6 +4,7 @@ import com.almasb.fxgl.entity.Entity;
 import com.almasb.fxgl.entity.SpawnData;
 import com.almasb.fxgl.physics.PhysicsComponent;
 import com.almasb.fxgl.texture.Texture;
+import com.jogo.armadilhas.TrapProceduralGenerator;
 import com.jogo.componentes.ComponenteInimigo;
 import com.jogo.componentes.visual.ComponenteAnimacaoFundo;
 import com.jogo.excecoes.NivelInvalidoException;
@@ -53,6 +54,9 @@ public class GerenciadorSalas {
     //fica invisível.
     private static final double SUAVIZACAO_CAMERA = 6.0;
 
+    //Altura padrão da plataforma sólida de teto no topo visível da fase (y = 0)
+    public static final double ALTURA_TETO_PADRAO = 40.0;
+
     private int salaAtualIndex = 0;
 
     //Tamanho da sala atual (vem do JSON), usado pra travar a câmera
@@ -69,6 +73,9 @@ public class GerenciadorSalas {
 
     //Chefe já derrotado nesta partida: não volta, e a porta da arena abre
     private boolean chefeDerrotado = false;
+
+    //Gerador procedural de armadilhas para popular as salas automaticamente
+    private final TrapProceduralGenerator geradorArmadilhas = new TrapProceduralGenerator();
 
     //Jogo novo (Reiniciar/Menu Principal): volta pra primeira sala e
     //esquece os itens pegos. Monta o cenário e devolve os dados da sala
@@ -142,6 +149,16 @@ public class GerenciadorSalas {
                     .put("altura", plataforma.altura));
         }
 
+        //Teto físico sólido ao longo do topo da tela (y = 0) para fechar o limite
+        //superior da fase e servir de ancoragem principal para os BlocoQueCai
+        boolean possuiTetoNoJson = sala.plataformas != null
+                && sala.plataformas.stream().anyMatch(p -> p.y <= 0 && p.largura >= larguraNivel * 0.5);
+        if (!possuiTetoNoJson) {
+            spawn("plataforma", new SpawnData(0, 0)
+                    .put("largura", larguraNivel)
+                    .put("altura", ALTURA_TETO_PADRAO));
+        }
+
         //Borda esquerda: parede na primeira sala, gatilho pra anterior nas
         //outras. Na arena do chefe, a porta tranca até ele cair (Metroid)
         boolean arenaTrancada = temChefe(sala) && !chefeDerrotado;
@@ -209,6 +226,19 @@ public class GerenciadorSalas {
         }
     }
 
+    //Geração procedural de armadilhas: varre plataformas/tetos da sala e posiciona
+    //SpikesRetrateis e BlocoQueCai respeitando ancoragem física e regras de Fair Play
+    public void spawnArmadilhas(DadosNivel sala, Entity jogador) {
+        if (temChefe(sala)) {
+            return; //arena do chefe fica livre de armadilhas procedurais
+        }
+        geradorArmadilhas.populateWorld(sala, jogador);
+    }
+
+    public TrapProceduralGenerator getGeradorArmadilhas() {
+        return geradorArmadilhas;
+    }
+
     private static boolean temChefe(DadosNivel sala) {
         return sala.inimigos.stream().anyMatch(i -> "chefe".equals(i.tipo));
     }
@@ -262,6 +292,7 @@ public class GerenciadorSalas {
 
         spawnInimigos(sala, jogador);
         spawnItens(sala);
+        spawnArmadilhas(sala, jogador);
     }
 
     //Centraliza a câmera no jogador de uma vez (começo do jogo)
