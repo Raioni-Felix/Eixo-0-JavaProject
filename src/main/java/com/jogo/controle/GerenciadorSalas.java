@@ -31,6 +31,8 @@ import static com.almasb.fxgl.dsl.FXGL.getAppWidth;
 import static com.almasb.fxgl.dsl.FXGL.getGameScene;
 import static com.almasb.fxgl.dsl.FXGL.getGameWorld;
 import static com.almasb.fxgl.dsl.FXGL.spawn;
+import com.jogo.npcs.NpcsDasSalas;
+
 
 //CONTROLE das salas: carrega o JSON da sala (modelo, pacote niveis),
 //monta o cenário, cria inimigos e itens, troca de sala pelo gatilho e
@@ -293,6 +295,11 @@ public class GerenciadorSalas {
         spawnInimigos(sala, jogador);
         spawnItens(sala);
         spawnArmadilhas(sala, jogador);
+        NpcsDasSalas.criar(sala);
+        spawn("npc_curandeiro", new SpawnData(x, y)
+        .put("nome", "Dra. Vega")
+        .put("falas", List.of("Você parece ferida.", "Fique parada um instante."))
+        .put("curas", 1));
     }
 
     //Centraliza a câmera no jogador de uma vez (começo do jogo)
