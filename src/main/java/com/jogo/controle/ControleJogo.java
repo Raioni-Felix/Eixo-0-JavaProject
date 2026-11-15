@@ -28,6 +28,9 @@ import com.jogo.componentes.ComponenteChefe;
 import com.jogo.componentes.ComponenteArmadilha;
 import java.util.List;
 import javafx.scene.input.KeyCombination;
+import com.jogo.npcs.FabricaNpcs;
+import com.jogo.npcs.NpcsDasSalas;
+
 
 
 import static com.almasb.fxgl.dsl.FXGL.getGameController;
@@ -102,6 +105,7 @@ public class ControleJogo {
     //initGame(): monta a sala inicial, o jogador e o arsenal
     public void iniciarMundo() {
         getGameWorld().addEntityFactory(new FabricaEntidades());
+        getGameWorld().addEntityFactory(new FabricaNpcs());
 
         DadosNivel sala = salas.comecarDoInicio();
 
@@ -125,6 +129,8 @@ public class ControleJogo {
         salas.spawnInimigos(sala, jogador);
         salas.spawnItens(sala);
         salas.spawnArmadilhas(sala, jogador);
+        NpcsDasSalas.criar(sala);
+        
 
         //Sem isso, "Reiniciar" depois de morrer nunca mais mostraria o
         //Game Over numa segunda morte
