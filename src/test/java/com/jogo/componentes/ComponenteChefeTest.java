@@ -33,12 +33,13 @@ class ComponenteChefeTest {
     }
 
     @Test
-    @DisplayName("Rotação dos 3 ataques: Rajada -> Investida -> Chuva -> Rajada")
+    @DisplayName("Rotação dos 4 ataques: Rajada -> Investida -> Chuva -> Armadilhas -> Rajada")
     void rotacao() {
         assertEquals(AtaqueChefe.RAJADA, chefe.getProximoAtaque());
         assertEquals(AtaqueChefe.INVESTIDA, AtaqueChefe.RAJADA.proximo());
         assertEquals(AtaqueChefe.CHUVA, AtaqueChefe.INVESTIDA.proximo());
-        assertEquals(AtaqueChefe.RAJADA, AtaqueChefe.CHUVA.proximo());
+        assertEquals(AtaqueChefe.ARMADILHAS, AtaqueChefe.CHUVA.proximo());
+        assertEquals(AtaqueChefe.RAJADA, AtaqueChefe.ARMADILHAS.proximo());
         assertEquals(ComponenteChefe.Estado.PAIRANDO, chefe.getEstado());
     }
 
@@ -64,5 +65,21 @@ class ComponenteChefeTest {
         assertEquals(180, chefe.limitarX(0));
         assertEquals(1100, chefe.limitarX(5000));
         assertThrows(IllegalArgumentException.class, () -> new ComponenteChefe("X", 100, 100, 5, 300));
+    }
+
+    @Test
+    @DisplayName("Ataque Armadilhas: 3 espinhos na fase 1, 5 e a prensa na fase 2, sem sair da arena")
+    void ataqueArmadilhas() {
+        assertEquals(3, chefe.calcularPosicoesEspinhos(640).size());
+        assertFalse(chefe.usaPrensa());
+        //Um espinho embaixo de onde a jogadora estava
+        assertTrue(chefe.calcularPosicoesEspinhos(640).contains(640 - 32.0));
+        chefe.tomarDano(200);
+        assertEquals(5, chefe.calcularPosicoesEspinhos(640).size());
+        assertTrue(chefe.usaPrensa());
+        //Perto da parede, todos continuam dentro da arena (1280 de largura)
+        for (double x : chefe.calcularPosicoesEspinhos(20)) {
+            assertTrue(x >= 0 && x + 64 <= 1280);
+        }
     }
 }

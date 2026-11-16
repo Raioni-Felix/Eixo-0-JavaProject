@@ -116,8 +116,9 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
 
     //Recarga lenta da energia, pontos por segundo. Não existe no
     //barebones; sem ela o golpe acabava depois de 3 usos e só voltava
-    //com Módulo de Energia. Pra desligar, é só pôr 0.
-    private static final double RECARGA_ENERGIA_POR_SEGUNDO = 2.0;
+    //com Módulo de Energia. Pra desligar, é só pôr 0. Era 2; caiu pra 1
+    //quando a cura da Curandeira passou a custar energia (balanceamento).
+    private static final double RECARGA_ENERGIA_POR_SEGUNDO = 1.0;
     private double acumuladorRecarga = 0; //guarda a fração até virar 1 ponto
 
     //INVENTÁRIO (trazido do barebones): cada jogador tem o seu.

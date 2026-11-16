@@ -13,6 +13,8 @@ import com.almasb.fxgl.physics.box2d.dynamics.Fixture;
 import com.almasb.fxgl.physics.box2d.dynamics.FixtureDef;
 import com.almasb.fxgl.texture.AnimatedTexture;
 import com.almasb.fxgl.texture.AnimationChannel;
+import com.jogo.componentes.visual.Sprites;
+import javafx.geometry.Point2D;
 import javafx.scene.Node;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -25,6 +27,7 @@ import javafx.util.Duration;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static com.almasb.fxgl.dsl.FXGL.entityBuilder;
 
@@ -52,6 +55,9 @@ public class FabricaNpcs implements EntityFactory {
     private static final Sprite SPRITE_CURANDEIRO = new Sprite("curandeiro", 128, 128, 0, 7, 0.8);
 
     private static final int CATEGORY_PLAYER = 0x0002;
+    //Categoria própria dos NPCs: a FabricaEntidades tira esse bit do
+    //maskBits dos inimigos, então inimigo e NPC se atravessam.
+    public static final int CATEGORY_NPC = 0x0004;
     private static final double LARGURA = 20;
     private static final double ALTURA = 72;
     private static final double AJUSTE_Y = -56;
@@ -70,7 +76,33 @@ public class FabricaNpcs implements EntityFactory {
         String nome = data.get("nome");
         List<String> falas = data.get("falas");
         int curas = data.hasKey("curas") ? data.<Integer>get("curas") : 1;
-        return criarNpc(data, new NpcCurandeiro(nome, falas, curas), SPRITE_CURANDEIRO, Color.web("#50e678"));
+        int custo = data.hasKey("custoEnergia") ? data.<Integer>get("custoEnergia") : NpcCurandeiro.CUSTO_ENERGIA_PADRAO;
+        return criarNpc(data, new NpcCurandeiro(nome, falas, curas, custo), SPRITE_CURANDEIRO, Color.web("#50e678"));
+    }
+
+    //O chefe antes da luta (ver NpcChefe). Flutua parado no ar, sem
+    //física, com a animação "parado" do próprio chefe (mesma escala 1,5x
+    //e mesma caixa de 110 px da FabricaEntidades.spawnChefe).
+    @Spawns("npc_chefe")
+    public Entity spawnChefeNpc(SpawnData data) {
+        String nome = data.get("nome");
+        List<String> falas = data.get("falas");
+        Consumer<Point2D> aoDespertar = data.get("aoDespertar");
+
+        double lado = 110;
+        double escala = 1.5;
+        AnimatedTexture visual = new AnimatedTexture(Sprites.animacao("chefe", "normal-parado", 8, 0.9, escala));
+        visual.loop();
+        double tamanhoSprite = 96 * escala;
+        visual.setTranslateX((lado - tamanhoSprite) / 2);
+        visual.setTranslateY((lado - tamanhoSprite) / 2);
+
+        return entityBuilder(data)
+                .bbox(new HitBox(BoundingShape.box(lado, lado)))
+                .view(visual)
+                .zIndex(4)
+                .with(new NpcChefe(nome, falas, aoDespertar))
+                .build();
     }
 
    private Entity criarNpc(SpawnData data, ComponenteNpc npc, Sprite sprite, Color corReserva) {
@@ -85,6 +117,7 @@ public class FabricaNpcs implements EntityFactory {
         fisica.setOnPhysicsInitialized(() -> {
             for (Fixture fixture : fisica.getBody().getFixtures()) {
                 var filtro = fixture.getFilterData();
+                filtro.categoryBits = CATEGORY_NPC;
                 filtro.maskBits = filtro.maskBits & ~CATEGORY_PLAYER;
                 fixture.setFilterData(filtro);
             }

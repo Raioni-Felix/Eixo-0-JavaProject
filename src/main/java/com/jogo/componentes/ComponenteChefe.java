@@ -14,10 +14,14 @@ import static com.almasb.fxgl.dsl.FXGL.spawn;
  * ComponenteInimigo (vida, dano de toque, XP, congelar), mas com o
  * comportamento próprio numa máquina de estados, no estilo dos chefes
  * de Metroid: paira, avisa (brilha) e ataca, sempre na mesma rotação
- * de 3 ataques (ver AtaqueChefe):
+ * de 4 ataques (ver AtaqueChefe):
  *  - RAJADA: leque de tiros na direção da jogadora;
  *  - INVESTIDA: mergulha em cima de onde ela estava e volta pro alto;
- *  - CHUVA: marca colunas no chão e solta blocos do teto nelas.
+ *  - CHUVA: marca colunas no chão e solta blocos do teto nelas;
+ *  - ARMADILHAS: usa o sistema de armadilhas (pacote armadilhas): faz
+ *    brotar espinhos retráteis no chão em volta da jogadora e, na fase 2,
+ *    uma prensa (BlocoQueCai) em cima dela. Elas têm o aviso próprio
+ *    (tremem antes de subir/cair) e somem depois de um ciclo.
  * Com metade da vida ou menos entra na fase 2: espera menos entre os
  * ataques, avisa mais rápido e solta mais tiros/blocos.
  *
@@ -35,6 +39,13 @@ public class ComponenteChefe extends ComponenteInimigo {
     private static final double VELOCIDADE_TIRO = 380;
     private static final double VELOCIDADE_BLOCO = 520;
     private static final double TEMPO_ALERTA_CHUVA = 0.9;
+    //Chão de todas as salas (y = 680) e tamanho dos espinhos/prensa do ataque ARMADILHAS
+    private static final double Y_CHAO = 680;
+    private static final double LARGURA_ESPINHOS = 64;
+    private static final double ALTURA_ESPINHOS = 32;
+    private static final double LADO_PRENSA = 64;
+    private static final double Y_PRENSA = 40;
+    private static final double ESPACO_ENTRE_ESPINHOS = 150;
 
     private final double larguraArena;
     private Estado estado = Estado.PAIRANDO;
@@ -46,6 +57,9 @@ public class ComponenteChefe extends ComponenteInimigo {
     //Alvo da investida e colunas da chuva, guardados no começo do aviso
     private Point2D destinoInvestida;
     private final List<Double> colunasChuva = new ArrayList<>();
+    //Onde os espinhos do ataque ARMADILHAS vão brotar (x do canto esquerdo)
+    private final List<Double> posicoesEspinhos = new ArrayList<>();
+    private double xPrensa;
 
     public ComponenteChefe(String nome, int vidaMaxima, double velocidade, int dano, double larguraArena) {
         //voador (sem gravidade), "distância" e sempre agressivo
@@ -76,6 +90,28 @@ public class ComponenteChefe extends ComponenteInimigo {
 
     public int getQuantidadeBlocos() {
         return getFase() == 1 ? 4 : 6;
+    }
+
+    public int getQuantidadeEspinhos() {
+        return getFase() == 1 ? 3 : 5;
+    }
+
+    //A prensa em cima da jogadora só vem na fase 2
+    public boolean usaPrensa() {
+        return getFase() == 2;
+    }
+
+    //Espinhos espalhados em volta de um x (um embaixo dele), sem sair da
+    //arena. Público e sem motor, pra dar pra testar.
+    public List<Double> calcularPosicoesEspinhos(double xCentro) {
+        List<Double> posicoes = new ArrayList<>();
+        int n = getQuantidadeEspinhos();
+        for (int i = 0; i < n; i++) {
+            double x = xCentro - LARGURA_ESPINHOS / 2 + (i - n / 2) * ESPACO_ENTRE_ESPINHOS;
+            x = Math.max(10, Math.min(larguraArena - LARGURA_ESPINHOS - 10, x));
+            posicoes.add(x);
+        }
+        return posicoes;
     }
 
     //=== Máquina de estados ===
@@ -144,6 +180,12 @@ public class ComponenteChefe extends ComponenteInimigo {
                 colunasChuva.add(x);
                 spawn("alerta_chefe", new SpawnData(x - 14, 0).put("duracao", TEMPO_ALERTA_CHUVA));
             }
+        } else if (ataqueAtual == AtaqueChefe.ARMADILHAS) {
+            //Guarda onde a jogadora estava no começo do aviso
+            double xJogadora = alvo.getCenter().getX();
+            posicoesEspinhos.clear();
+            posicoesEspinhos.addAll(calcularPosicoesEspinhos(xJogadora));
+            xPrensa = Math.max(0, Math.min(larguraArena - LADO_PRENSA, xJogadora - LADO_PRENSA / 2));
         }
     }
 
@@ -158,6 +200,7 @@ public class ComponenteChefe extends ComponenteInimigo {
             case RAJADA -> dispararRajada();
             case INVESTIDA -> iniciarInvestida();
             case CHUVA -> soltarChuva();
+            case ARMADILHAS -> plantarArmadilhas();
         }
         mudarPara(Estado.ATACANDO);
     }
@@ -216,6 +259,26 @@ public class ComponenteChefe extends ComponenteInimigo {
     private void soltarChuva() {
         for (double x : colunasChuva) {
             spawnTiro(new Point2D(x, -10), new Point2D(0, 1), VELOCIDADE_BLOCO, "dado");
+        }
+    }
+
+    //Cria as armadilhas já acionadas (o aviso delas é o tremor antes de
+    //subir/cair) e de uso único. O dano vem do chefe; a prensa dói o dobro.
+    private void plantarArmadilhas() {
+        for (double x : posicoesEspinhos) {
+            spawn("armadilha_espinhos", new SpawnData(x, Y_CHAO - ALTURA_ESPINHOS)
+                    .put("largura", LARGURA_ESPINHOS)
+                    .put("altura", ALTURA_ESPINHOS)
+                    .put("dano", dano)
+                    .put("acionarAoNascer", true));
+        }
+        if (usaPrensa()) {
+            spawn("armadilha_bloco", new SpawnData(xPrensa, Y_PRENSA)
+                    .put("largura", LADO_PRENSA)
+                    .put("altura", LADO_PRENSA)
+                    .put("distanciaQueda", Y_CHAO - Y_PRENSA - LADO_PRENSA)
+                    .put("dano", dano * 2)
+                    .put("acionarAoNascer", true));
         }
     }
 

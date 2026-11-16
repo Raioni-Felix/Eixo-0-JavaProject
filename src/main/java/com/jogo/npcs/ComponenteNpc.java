@@ -68,6 +68,20 @@ public abstract class ComponenteNpc extends ComponentePersonagem {
     //jogador, e não só ao momento em que ele chegou.
     protected abstract void aoConversar(ComponentePersonagem jogador);
 
+    //Ganchos opcionais (padrão: nada). aoTerminarFalas() roda quando a
+    //última fala acaba (o chefe usa pra começar a luta) e
+    //aoEncerrarConversa() quando o jogador se afasta.
+    protected void aoTerminarFalas() {
+    }
+
+    protected void aoEncerrarConversa() {
+    }
+
+    //Distância pra conversa começar; filhas podem aumentar (o chefe flutua alto).
+    protected double getAlcanceConversa() {
+        return ALCANCE_CONVERSA;
+    }
+
     //Invulnerável: tiro, espada e Buraco Negro não fazem nada.
     @Override
     public void tomarDano(int quant) {
@@ -82,6 +96,9 @@ public abstract class ComponenteNpc extends ComponentePersonagem {
 
     //Passa pra próxima fala; depois da última volta pra primeira.
     public String avancarFala() {
+        if (indiceFala == falas.size() - 1) {
+            aoTerminarFalas(); //ouviu todas as falas
+        }
         indiceFala = (indiceFala + 1) % falas.size();
         tempoNaFala = 0;
         return getFalaAtual();
@@ -110,6 +127,9 @@ public abstract class ComponenteNpc extends ComponentePersonagem {
     }
 
     public void encerrarConversa() {
+        if (conversando) {
+            aoEncerrarConversa();
+        }
         conversando = false;
         indiceFala = 0;
         tempoNaFala = 0;
@@ -158,14 +178,14 @@ public abstract class ComponenteNpc extends ComponentePersonagem {
         Entity jogador = acharJogador();
         ComponentePersonagem personagem = jogador == null ? null : ComponentePersonagem.obterDe(jogador);
         boolean perto = personagem != null && jogador.isActive()
-                && entity.getCenter().distance(jogador.getCenter()) <= ALCANCE_CONVERSA;
+                && entity.getCenter().distance(jogador.getCenter()) <= getAlcanceConversa();
 
         atualizarConversa(perto, personagem, tpf);
         atualizarBalao();
     }
 
     //O jogador é sempre a entidade do tipo JOGADOR (mesmo tipo usado pela FabricaEntidades).
-    private Entity acharJogador() {
+    protected Entity acharJogador() {
         List<Entity> jogadores = getGameWorld().getEntitiesByType(TipoEntidade.JOGADOR);
         return jogadores.isEmpty() ? null : jogadores.get(0);
     }

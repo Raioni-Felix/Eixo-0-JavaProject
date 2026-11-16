@@ -138,7 +138,7 @@ public class ControleJogo {
         salas.spawnInimigos(sala, jogador);
         salas.spawnItens(sala);
         salas.spawnArmadilhas(sala, jogador);
-        NpcsDasSalas.criar(sala);
+        NpcsDasSalas.criar(sala, salas.getSalaAtualIndex(), salas.getTotalSalas());
 
         //Sem isso, "Reiniciar" depois de morrer nunca mais mostraria o
         //Game Over numa segunda morte
@@ -281,7 +281,7 @@ public class ControleJogo {
                 chefeAtual = chefes.get(0).getComponent(ComponenteChefe.class);
                 faseAvisada = 1;
                 hud.mostrarChefe(chefeAtual);
-                hud.mostrarMensagem(chefeAtual.getNome() + " despertou! A porta se trancou.");
+                hud.mostrarMensagem(chefeAtual.getNome() + " despertou! A luta começou.");
             }
         } else if (chefeAtual.estaMorto()) {
             salas.marcarChefeDerrotado();

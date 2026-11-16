@@ -47,6 +47,11 @@ public class ComponenteArmadilha extends Component {
     private double visualHeight;
     private boolean terrenoSincronizado = false;
 
+    //Armadilha de uso único (as que o chefe cria no ataque ARMADILHAS):
+    //some do mundo quando termina o primeiro ciclo e volta a INACTIVE
+    private boolean usoUnico = false;
+    private boolean jaDisparou = false;
+
     public ComponenteArmadilha(Trap trap) {
         if (trap == null) {
             throw new IllegalArgumentException("Armadilha não pode ser nula.");
@@ -172,6 +177,12 @@ public class ComponenteArmadilha extends Component {
         // 1. Atualiza temporizadores e máquina de estados da armadilha
         trap.update(tpf);
 
+        // Uso único: terminou o ciclo, sai do mundo
+        if (cicloUnicoTerminou()) {
+            entity.removeFromWorld();
+            return;
+        }
+
         // Se for um BlocoQueCai, garante continuamente que nunca ultrapasse o topo do chão
         if (trap instanceof BlocoQueCai bloco) {
             verificarLimiteSoloBloco(bloco);
@@ -244,6 +255,28 @@ public class ComponenteArmadilha extends Component {
      * 2) Alinhar a base dos SpikesRetrateis exatamente na linha superior do piso para que fiquem ocultos em INACTIVE
      *    e emerjam acima do chão em TELEGRAPHING e ACTIVE.
      */
+    public void setUsoUnico(boolean usoUnico) {
+        this.usoUnico = usoUnico;
+    }
+
+    public boolean isUsoUnico() {
+        return usoUnico;
+    }
+
+    //Pra armadilha de uso único: true quando ela já saiu de INACTIVE uma
+    //vez (disparou) e voltou pra INACTIVE (ciclo completo). Usa o estado
+    //da própria armadilha, então respeita a câmera lenta do Sandevistan.
+    public boolean cicloUnicoTerminou() {
+        if (!usoUnico) {
+            return false;
+        }
+        if (trap.getState() != TrapState.INACTIVE) {
+            jaDisparou = true;
+            return false;
+        }
+        return jaDisparou;
+    }
+
     private void sincronizarComTerreno() {
         try {
             List<Entity> plataformas = FXGL.getGameWorld().getEntitiesByType(TipoEntidade.PLATAFORMA);

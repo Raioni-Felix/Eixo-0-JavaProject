@@ -13,8 +13,10 @@ import com.almasb.fxgl.physics.box2d.dynamics.BodyType;
 import com.almasb.fxgl.physics.box2d.dynamics.FixtureDef;
 import com.almasb.fxgl.physics.box2d.dynamics.Fixture;
 import com.jogo.armadilhas.BlocoQueCai;
+import com.jogo.npcs.FabricaNpcs;
 import com.jogo.armadilhas.Hitbox;
 import com.jogo.armadilhas.SpikesRetrateis;
+import com.jogo.armadilhas.Trap;
 import com.jogo.armadilhas.TrapFactory;
 import com.jogo.componentes.ComponenteArmadilha;
 import com.jogo.componentes.visual.FallingBlockVisual;
@@ -500,7 +502,8 @@ public class FabricaEntidades implements EntityFactory {
                 }
 
                 var filtro = fixture.getFilterData();
-                filtro.maskBits = filtro.maskBits & ~CATEGORY_PLAYER;
+                //Nem jogador (vira sensor de dano) nem NPC (se atravessam)
+                filtro.maskBits = filtro.maskBits & ~CATEGORY_PLAYER & ~FabricaNpcs.CATEGORY_NPC;
                 fixture.setFilterData(filtro);
             }
         });
@@ -792,11 +795,28 @@ public class FabricaEntidades implements EntityFactory {
 
     // === ARMADILHAS (Sistema Modular de Armadilhas) ===
 
+    //Opções extras do SpawnData pras armadilhas criadas pelo chefe (ataque
+    //ARMADILHAS): "dano" troca o dano padrão e "acionarAoNascer" já começa
+    //o aviso na hora (sem esperar a jogadora chegar perto) e faz a
+    //armadilha sumir depois de um ciclo. As do gerador procedural não
+    //passam nada disso e continuam iguais.
+    private static void configurarArmadilhaDoChefe(SpawnData data, Trap trap, ComponenteArmadilha comp) {
+        if (data.hasKey("dano")) {
+            trap.setDamage(data.<Integer>get("dano"));
+        }
+        if (data.hasKey("acionarAoNascer") && data.<Boolean>get("acionarAoNascer")) {
+            trap.onTrigger();
+            comp.setUsoUnico(true);
+        }
+    }
+
     @Spawns("armadilha_espinhos")
     public Entity spawnArmadilhaEspinhos(SpawnData data) {
         double largura = data.getData().containsKey("largura") ? ((Number) data.get("largura")).doubleValue() : 64.0;
         double altura = data.getData().containsKey("altura") ? ((Number) data.get("altura")).doubleValue() : 32.0;
         SpikesRetrateis espinhos = TrapFactory.createSpikes(data.getX(), data.getY(), largura, altura);
+        ComponenteArmadilha compEspinhos = new ComponenteArmadilha(espinhos);
+        configurarArmadilhaDoChefe(data, espinhos, compEspinhos);
 
         // Visual sincronizado quadro a quadro com o ciclo de ativação (spike-trap.gif)
         Node visual = new SpikeTrapView(largura, altura);
@@ -810,7 +830,7 @@ public class FabricaEntidades implements EntityFactory {
                 .view(visual)
                 .zIndex(0)
                 .collidable()
-                .with(new ComponenteArmadilha(espinhos))
+                .with(compEspinhos)
                 .build();
     }
 
@@ -832,6 +852,7 @@ public class FabricaEntidades implements EntityFactory {
         Node viewNode = (visual != null) ? visual : new Rectangle(largura, altura, Color.rgb(95, 90, 100));
 
         ComponenteArmadilha comp = new ComponenteArmadilha(bloco);
+        configurarArmadilhaDoChefe(data, bloco, comp);
         if (visual != null) {
             comp.configurarAnimacao(visual, FallingBlockVisual.getCanais(), largura, altura);
         }

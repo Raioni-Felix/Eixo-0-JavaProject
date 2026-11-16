@@ -1,12 +1,13 @@
 package com.jogo.componentes;
 
-//Os três ataques do chefe (ComponenteChefe), na ordem em que ele usa.
+//Os quatro ataques do chefe (ComponenteChefe), na ordem em que ele usa.
 //Cada um tem um tempo de aviso (o chefe brilha antes de atacar) pra dar
 //chance de reagir, como nos chefes de Metroid.
 public enum AtaqueChefe {
     RAJADA("Rajada"),       //leque de tiros na direção da jogadora
     INVESTIDA("Investida"), //mergulha em cima de onde ela estava
-    CHUVA("Chuva de dados"); //colunas avisadas no chão e blocos caindo do teto
+    CHUVA("Chuva de dados"), //colunas avisadas no chão e blocos caindo do teto
+    ARMADILHAS("Armadilhas"); //espinhos (e, na fase 2, uma prensa) do sistema de armadilhas
 
     private final String nome;
 

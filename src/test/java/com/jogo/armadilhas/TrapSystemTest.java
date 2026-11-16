@@ -499,6 +499,24 @@ public class TrapSystemTest {
     }
 
     // Método main executável standalone para validação imediata no terminal
+    @Test
+    @DisplayName("Armadilha de uso único (ataque do chefe) termina depois de um ciclo")
+    void testArmadilhaDeUsoUnico() {
+        SpikesRetrateis spikes = new SpikesRetrateis(0, 0, 64, 32);
+        ComponenteArmadilha comp = new ComponenteArmadilha(spikes);
+        assertFalse(comp.cicloUnicoTerminou(), "Normal: nunca some sozinha");
+
+        comp.setUsoUnico(true);
+        spikes.onTrigger();
+        assertFalse(comp.cicloUnicoTerminou(), "Ainda no aviso");
+        spikes.update(spikes.getTelegraphDuration() + 0.01); //ACTIVE
+        spikes.update(spikes.getActiveDuration() + 0.01);    //COOLDOWN
+        assertFalse(comp.cicloUnicoTerminou());
+        spikes.update(spikes.getCooldownDuration() + 0.01);  //volta pra INACTIVE
+        assertEquals(TrapState.INACTIVE, spikes.getState());
+        assertTrue(comp.cicloUnicoTerminou(), "Ciclo completo: some do mundo");
+    }
+
     public static void main(String[] args) {
         System.out.println("=== EXECUTANDO SUITE DE TESTES DO TRAP SYSTEM ===");
         TrapSystemTest test = new TrapSystemTest();

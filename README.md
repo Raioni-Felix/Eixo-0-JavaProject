@@ -145,7 +145,9 @@ Nas bordas de cada sala existem entidades gatilho, que ao serem tocadas pelo jog
 
 ## Chefe: NEXUS (sala 5)
 
-A última sala (`nivel5.json`) é uma arena do tamanho da tela com o chefe **NEXUS**, um "logo de IA" flutuante: anel segmentado girando, hexágono com uma rede de nós e um núcleo/olho no meio. O desenho é original, feito pra este projeto no padrão genérico dos logos de IA, e não copia a marca de ninguém. Ao entrar, a porta da esquerda vira parede (como nas salas de chefe de Metroid) e só abre depois que ele cai; no topo aparece a barra de vida dele.
+A última sala (`nivel5.json`) é uma arena do tamanho da tela com o chefe **NEXUS**, um "logo de IA" flutuante: anel segmentado girando, hexágono com uma rede de nós e um núcleo/olho no meio. O desenho é original, feito pra este projeto no padrão genérico dos logos de IA, e não copia a marca de ninguém. Ao entrar, a porta da esquerda vira parede (como nas salas de chefe de Metroid) e só abre depois que ele cai.
+
+A luta não começa na hora: NEXUS começa como NPC (`npcs.NpcChefe`, filho de `ComponenteNpc`), flutuando parado e invulnerável. Chegando perto, ele conversa (balão com 4 falas); quando a última fala acaba, o NPC some e no lugar dele nasce o chefe de verdade (`ComponenteChefe`), e só então aparece a barra de vida no topo. Se a jogadora se afastar no meio, a conversa recomeça. Quem cria o chefe é o `GerenciadorSalas`: ele passa pro NPC um `Consumer<Point2D>` (`aoDespertar`) que spawna o chefe na posição onde o NPC estava, então o NPC não precisa saber vida nem dano do chefe. A Curandeira também fica nessa sala, perto da entrada.
 
 `ComponenteChefe` é filho de `ComponenteInimigo` (vida, dano de toque, XP, congelar), com uma máquina de estados própria: **paira** acima da jogadora, **avisa** (brilha e treme, animação de carga) e **ataca**, sempre na rotação do enum `AtaqueChefe`:
 
@@ -154,8 +156,11 @@ A última sala (`nivel5.json`) é uma arena do tamanho da tela com o chefe **NEX
 | Rajada | leque de 5 tiros na direção da jogadora | pular entre os tiros ou se esconder embaixo de uma plataforma |
 | Investida | mergulha em cima de onde ela estava (toque com dano dobrado) e sobe de volta | sair do lugar durante o aviso (dash) |
 | Chuva de dados | marca colunas vermelhas no chão e solta blocos do teto nelas | sair das colunas; as plataformas seguram os blocos |
+| Armadilhas | usa o sistema de armadilhas do pacote `armadilhas`: brotam 3 espinhos retráteis no chão em volta de onde a jogadora estava (5 na fase 2, mais uma prensa `BlocoQueCai` em cima dela) | os espinhos tremem 2 s antes de subir: sair de cima deles ou subir numa plataforma |
 
-Com metade da vida ou menos entra na **fase 2**: muda pra vermelho/laranja, espera menos entre os ataques, avisa mais rápido e solta 7 tiros e 6 blocos. Os tiros do chefe usam o `ComponenteProjetil` dos robôs, com o construtor novo que recebe a direção pronta e batem nas plataformas.
+Com metade da vida ou menos entra na **fase 2**: muda pra vermelho/laranja, espera menos entre os ataques, avisa mais rápido e solta 7 tiros, 6 blocos e 5 espinhos (mais a prensa).
+
+As armadilhas do chefe são as mesmas do gerador procedural, criadas pela `FabricaEntidades` com três opções a mais no `SpawnData`: `"dano"` (vem do dano do chefe; a prensa dói o dobro), e `"acionarAoNascer"`, que já começa o aviso sem esperar a jogadora chegar perto e marca o `ComponenteArmadilha` como de uso único (`setUsoUnico`): ela some do mundo quando termina o ciclo e volta pra INACTIVE. Como isso segue o estado da própria armadilha, funciona também com a câmera lenta do Sandevistan. Os tiros do chefe usam o `ComponenteProjetil` dos robôs, com o construtor novo que recebe a direção pronta e batem nas plataformas.
 
 O chefe também mostra polimorfismo nas magias: sobrescreve `congelar()` (o gelo dura metade), `puxarPara()` (o Buraco Negro não o arrasta) e `danoDeBuracoNegro()` (tira 25% da vida máxima em vez de matar). Ao morrer explode em vários pontos, dá 300 de XP e, 2 s depois, aparece a `TelaVitoria` com nível e tempo de jogo ("Jogar de novo" ou "Menu Principal").
 
@@ -169,7 +174,13 @@ Ao ligar, há 25% de chance de **Cyberpsicose** (`componentes.efeitos.Cyberpsico
 
 ## NPCs
 
-O pacote `npcs` (Kayk) tem a classe abstrata `ComponenteNpc` (filha de `ComponentePersonagem`, invulnerável) e as filhas `NpcInformante`, que só dá dicas, e `NpcCurandeiro`, que restaura a vida uma vez por sala. Basta chegar perto: aparece um balão com as falas, que trocam a cada 3 s. `NpcsDasSalas` coloca os dois em cada sala, menos na arena do chefe, e a `FabricaNpcs` cria as entidades.
+O pacote `npcs` (Kayk) tem a classe abstrata `ComponenteNpc` (filha de `ComponentePersonagem`, invulnerável) e as filhas `NpcInformante`, que só dá dicas, `NpcCurandeiro`, que restaura a vida, e `NpcChefe`, o NEXUS antes da luta (ver "Chefe"). Basta chegar perto: aparece um balão com as falas, que trocam a cada 3 s. `NpcsDasSalas` decide onde cada um aparece: o Informante só na **primeira sala** e a Curandeira só na **última** (a arena do chefe), e a `FabricaNpcs` cria as entidades.
+
+A Curandeira tem 3 curas e **cada cura custa 20 de energia** da jogadora (`NpcCurandeiro.CUSTO_ENERGIA_PADRAO`): com a vida incompleta e energia suficiente, ela cura tudo e desconta a energia; sem energia, avisa no balão quanto precisa e não gasta nada. Por isso a recarga natural de energia caiu de 2 para 1 ponto por segundo.
+
+Os NPCs têm uma categoria de colisão própria (`FabricaNpcs.CATEGORY_NPC`): o corpo deles não colide com a jogadora (como antes) nem com os inimigos, porque a `FabricaEntidades.configurarContatoComJogador()` tira esse bit do `maskBits` de todo inimigo. Inimigo e NPC se atravessam, sem se empurrar.
+
+`ComponenteNpc` ganhou três ganchos que as filhas podem sobrescrever: `aoTerminarFalas()` (quando a última fala acaba; o `NpcChefe` usa pra começar a luta), `aoEncerrarConversa()` (quando a jogadora se afasta) e `getAlcanceConversa()` (o chefe flutua alto, então conversa de mais longe).
 
 ## Armadilhas
 
@@ -217,7 +228,7 @@ OPTIONS no menu principal e "Opções" na pausa abrem `visao.TelaOpcoes`: **tela
 
 Essas partes vieram da versão barebones e seguem as mesmas regras de lá.
 
-O jogador tem energia, além da vida. Ela aparece numa barra azul embaixo da barra de vida, amarrada à propriedade `energiaAtual` do `ComponenteJogador` do mesmo jeito que a barra de vida. A energia só muda por três métodos: `consumirEnergia`, `recuperarEnergia` (que nunca passa da máxima) e `energiaSuficiente`, usado pra conferir se dá pra usar uma habilidade. A energia máxima vem do campo `"maxEnergy"` do bloco `"player"` do JSON (50 se não vier). Diferente do barebones, aqui a energia também recarrega devagar sozinha (`RECARGA_ENERGIA_POR_SEGUNDO`, 2 pontos por segundo); pra desligar isso é só pôr 0 nessa constante.
+O jogador tem energia, além da vida. Ela aparece numa barra azul embaixo da barra de vida, amarrada à propriedade `energiaAtual` do `ComponenteJogador` do mesmo jeito que a barra de vida. A energia só muda por três métodos: `consumirEnergia`, `recuperarEnergia` (que nunca passa da máxima) e `energiaSuficiente`, usado pra conferir se dá pra usar uma habilidade. A energia máxima vem do campo `"maxEnergy"` do bloco `"player"` do JSON (50 se não vier). Diferente do barebones, aqui a energia também recarrega devagar sozinha (`RECARGA_ENERGIA_POR_SEGUNDO`, 1 ponto por segundo; era 2 antes da cura da Curandeira custar energia); pra desligar isso é só pôr 0 nessa constante.
 
 A vida também ganhou um `curar(int)` em `ComponentePersonagem`: ignora quantidade menor ou igual a zero, não cura personagem morto e não passa da vida máxima.
 
@@ -335,9 +346,9 @@ São "checked" (herdam de `Exception`): quem chama é obrigado a tratar ou repas
 
 ## Testes
 
-96 testes JUnit 5 em `src/test/java`, todos passando. Rodam com `mvn test`.
+103 testes JUnit 5 em `src/test/java`, todos passando. Rodam com `mvn test`.
 
-- Unitários: `ComponenteAnimadoTest` (qual animação mostrar em cada situação, ampliação dos sprites), `ComponenteJogadorTest` (energia, cura, invencibilidade, subir de nível, usar módulos), `ComponenteInimigoTest` (XP de cada tipo, interfaces), `ArmaTest` (cooldown do `atacar()` com uma arma de teste, `multiplicarDano`, ids únicos), `ArmasDeFogoTest` (ganchos de cada arma, `Perfurante`, coleção polimórfica), `HabilidadeTest`, `InventarioTest` (pilha, duplicata, `listarDoTipo` genérico, sobrecargas), `ComponenteAuxiliaresTest`, `ComponenteChefeTest` (fases, rotação dos ataques, resistência às magias), `DificuldadeTest` (multiplicador de dano de cada dificuldade), magias novas em `HabilidadeTest` (custo do Buraco Negro, gelo, liberação por nível) e `congelar` em `ComponenteInimigoTest`, `CatalogoArmasTest` (arma certa pra cada nome do JSON), `SandevistanTest` (ligar e gastar energia, recarga, Cyberpsicose e o fim dela), `NpcTest` (falas, NPC sem falas, invulnerabilidade, cura do curandeiro) e `TrapSystemTest` (hitbox, ciclo dos espinhos, dano só quando ativos, queda do bloco, fábrica, avisos do `TrapListener`, quadros da prensa, posicionamento do gerador procedural, invencibilidade e tremida de câmera).
+- Unitários: `ComponenteAnimadoTest` (qual animação mostrar em cada situação, ampliação dos sprites), `ComponenteJogadorTest` (energia, cura, invencibilidade, subir de nível, usar módulos), `ComponenteInimigoTest` (XP de cada tipo, interfaces), `ArmaTest` (cooldown do `atacar()` com uma arma de teste, `multiplicarDano`, ids únicos), `ArmasDeFogoTest` (ganchos de cada arma, `Perfurante`, coleção polimórfica), `HabilidadeTest`, `InventarioTest` (pilha, duplicata, `listarDoTipo` genérico, sobrecargas), `ComponenteAuxiliaresTest`, `ComponenteChefeTest` (fases, rotação dos 4 ataques, posições dos espinhos do ataque Armadilhas, resistência às magias), `DificuldadeTest` (multiplicador de dano de cada dificuldade), magias novas em `HabilidadeTest` (custo do Buraco Negro, gelo, liberação por nível) e `congelar` em `ComponenteInimigoTest`, `CatalogoArmasTest` (arma certa pra cada nome do JSON), `SandevistanTest` (ligar e gastar energia, recarga, Cyberpsicose e o fim dela), `NpcTest` (falas, NPC sem falas, invulnerabilidade, cura do curandeiro e o custo de energia dela, em que sala cada NPC aparece, chefe que só desperta depois de ouvir todas as falas) e `TrapSystemTest` (hitbox, ciclo dos espinhos, dano só quando ativos, queda do bloco, fábrica, avisos do `TrapListener`, quadros da prensa, posicionamento do gerador procedural, invencibilidade e tremida de câmera, armadilha de uso único do chefe).
 - Casos de sucesso e de falha: cada classe testa o caminho certo e os errados (sem energia, em cooldown, item que não existe, valores inválidos no construtor).
 - Exceções: `assertThrows` para cada exceção própria e para as `IllegalArgumentException` dos construtores.
 - Integração: `CarregadorDeNiveisTest` lê os JSON de verdade das 5 salas com o Gson (e JSON de teste quebrado/incompleto em `src/test/resources`); `JogadorSalaIntegracaoTest` carrega a sala 4, cria o jogador com os dados dela, coleta os módulos e o rifle do chão, soma o XP dos inimigos, sobe de nível e usa os módulos até dar a exceção.

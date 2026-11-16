@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import static com.almasb.fxgl.dsl.FXGL.entityBuilder;
 import static com.almasb.fxgl.dsl.FXGL.getAppHeight;
@@ -72,6 +73,14 @@ public class GerenciadorSalas {
     //Itens do mapa já pegos ("sala<i>-item<j>"). Sem isso, voltar pra
     //uma sala recriava os módulos e dava pra pegar de novo infinitamente.
     private final Set<String> itensColetados = new HashSet<>();
+
+    //Altura do chefe enquanto conversa (antes da luta) e o que ele diz
+    private static final double Y_CHEFE_CONVERSANDO = 300;
+    private static final List<String> FALAS_DO_CHEFE = List.of(
+            "Então você chegou até aqui... Eu sou NEXUS.",
+            "Cada sala que você atravessou foi um teste meu.",
+            "Os espinhos e as prensas do caminho obedecem a mim.",
+            "Chega de conversa. Vamos ver se você sobrevive!");
 
     //Chefe já derrotado nesta partida: não volta, e a porta da arena abre
     private boolean chefeDerrotado = false;
@@ -195,20 +204,38 @@ public class GerenciadorSalas {
     //porque cada inimigo recebe ele como alvo.
     public void spawnInimigos(DadosNivel sala, Entity jogador) {
         for (DadosInimigo dadosInimigo : sala.inimigos) {
-            if ("chefe".equals(dadosInimigo.tipo) && chefeDerrotado) {
+            if ("chefe".equals(dadosInimigo.tipo)) {
+                if (!chefeDerrotado) {
+                    spawnChefeComoNpc(sala, dadosInimigo, jogador);
+                }
                 continue;
             }
-            Entity inimigo = spawn("inimigo_" + dadosInimigo.tipo, new SpawnData(dadosInimigo.x, dadosInimigo.y)
-                    .put("nome", dadosInimigo.nome)
-                    .put("vidaMaxima", dadosInimigo.vidaMaxima)
-                    .put("velocidade", dadosInimigo.velocidade)
-                    .put("dano", dadosInimigo.dano)
-                    .put("alcanceAtaque", dadosInimigo.alcanceAtaque)
-                    .put("alcanceDeteccao", dadosInimigo.alcanceDeteccao)
-                    .put("larguraSala", sala.larguraNivel)); //o chefe usa pra não sair da arena
-
-            ComponenteInimigo.obterDe(inimigo).definirAlvo(jogador);
+            spawnInimigo(sala, dadosInimigo, dadosInimigo.x, dadosInimigo.y, jogador);
         }
+    }
+
+    //O chefe começa como NPC (NpcChefe): conversa e, quando as falas
+    //acabam, vira o chefe de verdade na mesma posição e a luta começa.
+    //Ele espera mais baixo que a altura da luta, pra dar pra conversar
+    private void spawnChefeComoNpc(DadosNivel sala, DadosInimigo dadosChefe, Entity jogador) {
+        spawn("npc_chefe", new SpawnData(dadosChefe.x, Y_CHEFE_CONVERSANDO)
+                .put("nome", dadosChefe.nome)
+                .put("falas", FALAS_DO_CHEFE)
+                .put("aoDespertar", (Consumer<Point2D>) posicao ->
+                        spawnInimigo(sala, dadosChefe, posicao.getX(), posicao.getY(), jogador)));
+    }
+
+    private void spawnInimigo(DadosNivel sala, DadosInimigo dadosInimigo, double x, double y, Entity jogador) {
+        Entity inimigo = spawn("inimigo_" + dadosInimigo.tipo, new SpawnData(x, y)
+                .put("nome", dadosInimigo.nome)
+                .put("vidaMaxima", dadosInimigo.vidaMaxima)
+                .put("velocidade", dadosInimigo.velocidade)
+                .put("dano", dadosInimigo.dano)
+                .put("alcanceAtaque", dadosInimigo.alcanceAtaque)
+                .put("alcanceDeteccao", dadosInimigo.alcanceDeteccao)
+                .put("larguraSala", sala.larguraNivel)); //o chefe usa pra não sair da arena
+
+        ComponenteInimigo.obterDe(inimigo).definirAlvo(jogador);
     }
 
     //Módulos de cura/energia da sala ("items" do JSON), pulando os já pegos
@@ -297,7 +324,15 @@ public class GerenciadorSalas {
         spawnInimigos(sala, jogador);
         spawnItens(sala);
         spawnArmadilhas(sala, jogador);
-        NpcsDasSalas.criar(sala);
+        NpcsDasSalas.criar(sala, salaAtualIndex, SALAS_DO_MAPA.size());
+    }
+
+    public int getSalaAtualIndex() {
+        return salaAtualIndex;
+    }
+
+    public int getTotalSalas() {
+        return SALAS_DO_MAPA.size();
     }
 
     //Centraliza a câmera no jogador de uma vez (começo do jogo)

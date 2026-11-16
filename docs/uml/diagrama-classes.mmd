@@ -370,6 +370,8 @@ namespace componentes {
     -visualWidth : double
     -visualHeight : double
     -terrenoSincronizado : boolean
+    -usoUnico : boolean
+    -jaDisparou : boolean
     +ComponenteArmadilha(Trap)
     +ComponenteArmadilha(Trap, AnimatedTexture, Map~TrapState, AnimationChannel~)
     +configurarAnimacao(AnimatedTexture, Map~TrapState, AnimationChannel~, double, double)
@@ -378,6 +380,9 @@ namespace componentes {
     +setJogadorAlvo(Entity)
     +onAdded()
     +onUpdate(double)
+    +setUsoUnico(boolean)
+    +isUsoUnico() boolean
+    +cicloUnicoTerminou() boolean
     -sincronizarComTerreno()
     -verificarLimiteSoloBloco(BlocoQueCai)
     -buscarJogadorAlvo()
@@ -405,12 +410,17 @@ namespace componentes {
     -tempoTotal : double
     -destinoInvestida : Point2D
     -colunasChuva : List~Double~
+    -posicoesEspinhos : List~Double~
+    -xPrensa : double
     +ComponenteChefe(String, int, double, int, double)
     +getFase() int
     +getTempoPairando() double
     +getTempoAviso() double
     +getQuantidadeTiros() int
     +getQuantidadeBlocos() int
+    +getQuantidadeEspinhos() int
+    +usaPrensa() boolean
+    +calcularPosicoesEspinhos(double) List~Double~
     +onUpdate(double)
     -mudarPara(Estado)
     -pairar()
@@ -421,6 +431,7 @@ namespace componentes {
     -dispararRajada()
     -iniciarInvestida()
     -soltarChuva()
+    -plantarArmadilhas()
     -spawnTiro(Point2D, Point2D, double, String)
     -irPara(Point2D, double)
     +limitarX(double) double
@@ -843,6 +854,8 @@ namespace controle {
     +comecarDoInicio() DadosNivel
     -prepararSala(int) DadosNivel
     +spawnInimigos(DadosNivel, Entity)
+    -spawnChefeComoNpc(DadosNivel, DadosInimigo, Entity)
+    -spawnInimigo(DadosNivel, DadosInimigo, double, double, Entity)
     +spawnItens(DadosNivel)
     +spawnArmadilhas(DadosNivel, Entity)
     +getGeradorArmadilhas() TrapProceduralGenerator
@@ -851,6 +864,8 @@ namespace controle {
     +registrarColeta(String)
     +iniciarTransicao(int, String, Entity, CortinaTransicao)
     -trocarSala(int, String, Entity)
+    +getSalaAtualIndex() int
+    +getTotalSalas() int
     +centralizarCamera(Entity)
     +atualizarCamera(Entity, double)
     -limitarCameraX(double) double
@@ -908,6 +923,7 @@ namespace factories {
     -visualPlataforma(double, double, boolean) Node
     +spawnParede(SpawnData) Entity
     +spawnGatilho(SpawnData) Entity
+    -configurarArmadilhaDoChefe(SpawnData, Trap, ComponenteArmadilha)$
     +spawnArmadilhaEspinhos(SpawnData) Entity
     +spawnArmadilhaBloco(SpawnData) Entity
   }
@@ -1213,6 +1229,9 @@ namespace npcs {
     -textoExibido : String
     #ComponenteNpc(String, List~String~)
     #aoConversar(ComponentePersonagem)*
+    #aoTerminarFalas()
+    #aoEncerrarConversa()
+    #getAlcanceConversa() double
     +tomarDano(int)
     +getFalaAtual() String
     +avancarFala() String
@@ -1224,7 +1243,7 @@ namespace npcs {
     +atualizarConversa(boolean, ComponentePersonagem, double)
     +onAdded()
     +onUpdate(double)
-    -acharJogador() Entity
+    #acharJogador() Entity
     -atualizarBalao()
     +toString() String
   }
@@ -1232,16 +1251,34 @@ namespace npcs {
     +FabricaNpcs()
     +spawnInformante(SpawnData) Entity
     +spawnCurandeiro(SpawnData) Entity
+    +spawnChefeNpc(SpawnData) Entity
     -criarNpc(SpawnData, ComponenteNpc, Sprite, Color) Entity
     -criarVisual(Sprite, Color)$ Node
     -visualParado(Image)$ Node
     -visualAnimado(Image, Sprite)$ Node
   }
+  class NpcChefe {
+    -aoDespertar : Consumer~Point2D~
+    -conversaCompleta : boolean
+    -despertou : boolean
+    +NpcChefe(String, List~String~, Consumer~Point2D~)
+    #aoConversar(ComponentePersonagem)
+    #aoTerminarFalas()
+    #getAlcanceConversa() double
+    +conversaCompleta() boolean
+    +despertarSePronto(Point2D) boolean
+    +onUpdate(double)
+  }
   class NpcCurandeiro {
     -curasRestantes : int
+    -custoEnergia : int
+    -avisouFaltaEnergia : boolean
     +NpcCurandeiro(String, List~String~, int)
+    +NpcCurandeiro(String, List~String~, int, int)
     #aoConversar(ComponentePersonagem)
+    #aoEncerrarConversa()
     +getCurasRestantes() int
+    +getCustoEnergia() int
   }
   class NpcInformante {
     +NpcInformante(String, List~String~)
@@ -1249,8 +1286,9 @@ namespace npcs {
   }
   class NpcsDasSalas {
     -NpcsDasSalas()
-    +criar(DadosNivel)$
-    -temChefe(DadosNivel)$ boolean
+    +criar(DadosNivel, int, int)$
+    +temInformante(int)$ boolean
+    +temCurandeira(int, int)$ boolean
   }
 }
 namespace visao {
@@ -1497,6 +1535,7 @@ ArmaDeFogo <|-- Shotgun
 GameApplication <|-- Main
 ComponentePersonagem <|-- ComponenteNpc
 EntityFactory <|.. FabricaNpcs
+ComponenteNpc <|-- NpcChefe
 ComponenteNpc <|-- NpcCurandeiro
 ComponenteNpc <|-- NpcInformante
 Rectangle <|-- CortinaTransicao
