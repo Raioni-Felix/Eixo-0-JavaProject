@@ -17,6 +17,7 @@ public final class Controles {
             new String[]{"C", "Apara: bloqueia o próximo golpe"},
             new String[]{"V", "Raio de Gelo: congela o inimigo (nível 2)"},
             new String[]{"B", "Buraco Negro: toda a energia, destrói a sala (nível 3)"},
+            new String[]{"D", "Sandevistan: câmera lenta (liga/desliga, gasta energia)"},
             new String[]{"1 / 2", "usar Módulo de Cura / Energia"},
             new String[]{"I / TAB", "inventário"},
             new String[]{"ESC", "pausa"},

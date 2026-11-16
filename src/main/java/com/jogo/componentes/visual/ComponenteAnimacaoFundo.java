@@ -1,7 +1,9 @@
 package com.jogo.componentes.visual;
 
+import com.almasb.fxgl.entity.Entity;
 import com.almasb.fxgl.entity.component.Component;
 import com.almasb.fxgl.texture.Texture;
+import com.jogo.componentes.TimeScaleManager;
 import javafx.scene.image.Image;
 
 import java.util.List;
@@ -36,7 +38,10 @@ public class ComponenteAnimacaoFundo extends Component {
 
     @Override
     public void onUpdate(double tpf) {
-        tempoDecorrido += tpf;
+        // Aplica time scale do Sandevistan (fundo também entra no slow-motion)
+        double tpfEfetivo = TimeScaleManager.getTpfPara(tpf, entity);
+        
+        tempoDecorrido += tpfEfetivo;
 
         //Avança um quadro por vez em vez de pular direto pro quadro
         //"certo" com base no tempo total, assim funciona igual mesmo

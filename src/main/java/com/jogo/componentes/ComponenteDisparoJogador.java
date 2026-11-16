@@ -2,6 +2,7 @@ package com.jogo.componentes;
 
 import com.almasb.fxgl.entity.Entity;
 import com.almasb.fxgl.entity.component.Component;
+import com.jogo.componentes.TimeScaleManager;
 import com.jogo.entidades.TipoEntidade;
 
 import java.util.HashSet;
@@ -61,14 +62,18 @@ public class ComponenteDisparoJogador extends Component {
         if (RelogioJogo.emPeriodoDeGraca()) {
             return;
         }
+        
+        // Aplica time scale do Sandevistan (projéteis do jogador também ficam lentos)
+        // O alcance continua o mesmo pois velocidade E lifetime são escalados igualmente
+        double tpfEfetivo = TimeScaleManager.getTpfPara(tpf, entity);
 
-        tempoDeVida += tpf;
+        tempoDeVida += tpfEfetivo;
         if (tempoDeVida >= tempoVidaMaximo) {
             entity.removeFromWorld();
             return;
         }
 
-        entity.translate(direcaoX * velocidade * tpf, direcaoY * velocidade * tpf);
+        entity.translate(direcaoX * velocidade * tpfEfetivo, direcaoY * velocidade * tpfEfetivo);
 
         for (TipoEntidade tipo : TIPOS_INIMIGO) {
             for (Entity inimigo : getGameWorld().getEntitiesByType(tipo)) {

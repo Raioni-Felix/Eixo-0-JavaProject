@@ -48,7 +48,7 @@ Status: ✅ feito · 🧪 com teste automático · 🎮 testado jogando (depende
 | RNF01 | Java 17, FXGL 17.3, Gson, Maven | `pom.xml` |
 | RNF02 | Separação MVC | modelo (`componentes`, `itens`, `habilidades`, `inventario`, `niveis`, `entidades`, `factories`, `excecoes`), visão (`visao`, `componentes.visual`), controle (`controle`); `Main` só repassa as etapas do FXGL |
 | RNF03 | Balanceamento fora do código | vida, dano, velocidade, inimigos e itens de cada sala nos JSON de `assets/levels` |
-| RNF04 | Testes automatizados | 79 testes JUnit 5 (`mvn test`), unidade e integração |
+| RNF04 | Testes automatizados | 92 testes JUnit 5 (`mvn test`), unidade e integração |
 | RNF05 | Cobertura | JaCoCo: `inventario` 96%, `niveis` 95%, `excecoes` 100%; total ≈ 20%, porque visão/controle precisam do motor rodando |
 | RNF06 | 60 FPS, janela 1280×720 com tela cheia opcional (F11) | `Main.initSettings` |
 | RNF07 | Não acelerar depois de despausar | `componentes.RelogioJogo` |

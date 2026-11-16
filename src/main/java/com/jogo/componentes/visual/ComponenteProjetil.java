@@ -5,6 +5,7 @@ import com.almasb.fxgl.entity.component.Component;
 import com.jogo.componentes.ComponentePersonagem;
 import com.jogo.componentes.ComponenteJogador;
 import com.jogo.componentes.RelogioJogo;
+import com.jogo.componentes.TimeScaleManager;
 import com.jogo.entidades.TipoEntidade;
 
 import static com.almasb.fxgl.dsl.FXGL.getGameWorld;
@@ -82,7 +83,10 @@ public class ComponenteProjetil extends Component {
 
     @Override
     public void onUpdate(double tpf) {
-        tempoDeVida += tpf;
+        // Aplica time scale do Sandevistan (projéteis ficam lentos)
+        double tpfEfetivo = TimeScaleManager.getTpfPara(tpf, entity);
+        
+        tempoDeVida += tpfEfetivo;
 
         if (RelogioJogo.emPeriodoDeGraca()) {
             return;
@@ -94,7 +98,7 @@ public class ComponenteProjetil extends Component {
 
         // Sempre na mesma direção, isso que faz ser "bala" e não mais
         // "míssil teleguiado".
-        entity.translate(direcao.multiply(velocidade * tpf));
+        entity.translate(direcao.multiply(velocidade * tpfEfetivo));
 
         if (paraEmPlataforma) {
             for (Entity plataforma : getGameWorld().getEntitiesByType(TipoEntidade.PLATAFORMA)) {

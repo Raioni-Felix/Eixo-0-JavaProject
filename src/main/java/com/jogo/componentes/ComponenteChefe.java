@@ -1,6 +1,7 @@
 package com.jogo.componentes;
 
 import com.almasb.fxgl.entity.SpawnData;
+import com.jogo.componentes.TimeScaleManager;
 import javafx.geometry.Point2D;
 
 import java.util.ArrayList;
@@ -84,15 +85,19 @@ public class ComponenteChefe extends ComponenteInimigo {
         if (RelogioJogo.emPeriodoDeGraca()) {
             return;
         }
-        if (atualizarCongelamento(tpf)) {
+        
+        // Aplica time scale do Sandevistan
+        double tpfEfetivo = TimeScaleManager.getTpfPara(tpf, this);
+        
+        if (atualizarCongelamento(tpfEfetivo)) {
             return;
         }
         if (alvo == null || !alvo.isActive()) {
             fisica.setLinearVelocity(0, 0);
             return;
         }
-        tempoNoEstado += tpf;
-        tempoTotal += tpf;
+        tempoNoEstado += tpfEfetivo;
+        tempoTotal += tpfEfetivo;
         olhandoDireita = alvo.getX() > entity.getX();
 
         switch (estado) {
@@ -146,7 +151,7 @@ public class ComponenteChefe extends ComponenteInimigo {
         double tempoAviso = ataqueAtual == AtaqueChefe.CHUVA ? TEMPO_ALERTA_CHUVA : getTempoAviso();
         if (tempoNoEstado < tempoAviso) {
             //Treme um pouco enquanto carrega
-            fisica.setLinearVelocity(Math.sin(tempoTotal * 60) * 60, 0);
+            fisica.setLinearVelocity(Math.sin(tempoTotal * 60) * 60 * TimeScaleManager.getScale(), 0);
             return;
         }
         switch (ataqueAtual) {
@@ -159,6 +164,9 @@ public class ComponenteChefe extends ComponenteInimigo {
 
     private void atacar() {
         if (ataqueAtual == AtaqueChefe.INVESTIDA) {
+            //Recalcula a velocidade a cada frame: se o Sandevistan ligar
+            //no meio do mergulho, ele fica lento na hora
+            iniciarInvestida();
             //Mergulha até chegar no ponto (ou bater no chão) ou 1 s passar
             boolean chegou = entity.getCenter().distance(destinoInvestida) < 30;
             if (chegou || tempoNoEstado > 1.0) {
@@ -199,7 +207,7 @@ public class ComponenteChefe extends ComponenteInimigo {
     private void iniciarInvestida() {
         Point2D direcao = destinoInvestida.subtract(entity.getCenter());
         if (direcao.magnitude() > 0) {
-            direcao = direcao.normalize().multiply(VELOCIDADE_INVESTIDA);
+            direcao = direcao.normalize().multiply(VELOCIDADE_INVESTIDA * TimeScaleManager.getScale());
             fisica.setLinearVelocity(direcao.getX(), direcao.getY());
         }
     }
@@ -230,7 +238,7 @@ public class ComponenteChefe extends ComponenteInimigo {
             return;
         }
         //Mais devagar perto do ponto, pra não ficar tremendo
-        double v = Math.min(vel, delta.magnitude() * 3);
+        double v = Math.min(vel, delta.magnitude() * 3) * TimeScaleManager.getScale();
         Point2D velocidadeFinal = delta.normalize().multiply(v);
         fisica.setLinearVelocity(velocidadeFinal.getX(), velocidadeFinal.getY());
     }

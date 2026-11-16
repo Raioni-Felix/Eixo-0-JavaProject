@@ -14,12 +14,13 @@ import java.util.Map;
 /**
  * Utilitário e fábrica visual para a armadilha Bloco Que Cai (Ceiling Crusher).
  *
- * Recorta a spritesheet única contendo os 4 quadros (frames) de expressão/estado
- * diretamente por código através de {@link AnimationChannel} e {@link AnimatedTexture}:
- * - Frame 0: INACTIVE     (expressão neutra/dormente)
- * - Frame 1: TELEGRAPHING (expressão irritada/trincando dentes de aviso)
- * - Frame 2: ACTIVE       (expressão furiosa/olhos brilhantes caindo)
- * - Frame 3: COOLDOWN     (expressão recarregando/retornando)
+ * Recorta a spritesheet única (bloco-cai.png: prensa hidráulica, 4 quadros
+ * de 64x64 desenhados para o projeto) por código, com {@link AnimationChannel}
+ * e {@link AnimatedTexture}. O que muda entre os quadros são as luzes do painel:
+ * - Frame 0: INACTIVE     (parada, luz ciano)
+ * - Frame 1: TELEGRAPHING (luzes amarelas e vapor: vai cair)
+ * - Frame 2: ACTIVE       (luzes vermelhas: caindo)
+ * - Frame 3: COOLDOWN     (luzes azuis: subindo de volta)
  */
 public final class FallingBlockVisual {
 

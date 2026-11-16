@@ -20,6 +20,12 @@ public final class RelogioJogo {
         return System.nanoTime() < gracaAteNanos;
     }
 
+    //Zera o período de graça (usado nos testes: sem isso, um teste que
+    //chama marcarRetomada() fazia o próximo, rodado logo depois, falhar)
+    public static void zerar() {
+        gracaAteNanos = 0;
+    }
+
     //Chamado sempre que o motor é despausado (ver controle.ControleJogo)
     public static void marcarRetomada() {
         gracaAteNanos = System.nanoTime() + GRACA_NANOS;

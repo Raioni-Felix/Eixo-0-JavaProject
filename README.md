@@ -159,6 +159,22 @@ Com metade da vida ou menos entra na **fase 2**: muda pra vermelho/laranja, espe
 
 O chefe também mostra polimorfismo nas magias: sobrescreve `congelar()` (o gelo dura metade), `puxarPara()` (o Buraco Negro não o arrasta) e `danoDeBuracoNegro()` (tira 25% da vida máxima em vez de matar). Ao morrer explode em vários pontos, dá 300 de XP e, 2 s depois, aparece a `TelaVitoria` com nível e tempo de jogo ("Jogar de novo" ou "Menu Principal").
 
+## Sandevistan e Cyberpsicose (tecla D)
+
+`habilidades.SandevistanMichyle` liga e desliga uma câmera lenta: enquanto está ligado, inimigos, chefe, tiros, armadilhas, buraco negro e fundo andam a 25% da velocidade (`componentes.TimeScaleManager`), e a jogadora continua normal. Gasta 20 de energia por segundo, desliga sozinho quando a energia zera e depois fica 30 s em recarga. O HUD mostra "ON", a recarga ou "PRONTO" ao lado do ícone, e a tela ganha um brilho (`visao.efeitos.SandevistanShader`).
+
+Como a física do FXGL anda em tempo normal, reduzir só o tempo (tpf) não deixava ninguém lento: quem anda com física multiplica a velocidade por `TimeScaleManager.getScale()` (`ComponenteInimigo.velocidadeEfetiva()`, e o mesmo no chefe).
+
+Ao ligar, há 25% de chance de **Cyberpsicose** (`componentes.efeitos.Cyberpsicose`, que implementa a interface `Efeito`): a vida cai 8 por segundo até metade do que era, a jogadora anda na metade da velocidade e as recargas demoram o dobro. Dura até o Sandevistan acabar e a energia voltar a 50%. A velocidade reduzida é um multiplicador separado (`setMultiplicadorVelocidade`), então o +5 de velocidade de subir de nível não se perde.
+
+## NPCs
+
+O pacote `npcs` (Kayk) tem a classe abstrata `ComponenteNpc` (filha de `ComponentePersonagem`, invulnerável) e as filhas `NpcInformante`, que só dá dicas, e `NpcCurandeiro`, que restaura a vida uma vez por sala. Basta chegar perto: aparece um balão com as falas, que trocam a cada 3 s. `NpcsDasSalas` coloca os dois em cada sala, menos na arena do chefe, e a `FabricaNpcs` cria as entidades.
+
+## Armadilhas
+
+O pacote `armadilhas` (Vitor) tem a classe abstrata `Trap`, com o ciclo `TrapState` (inativa, aviso, ativa, recarga), e as filhas `SpikesRetrateis` (espinhos que saem do chão quando a jogadora chega perto) e `BlocoQueCai` (prensa presa no teto que cai em cima dela). `TrapProceduralGenerator` espalha as armadilhas pelas plataformas de cada sala com uma seed fixa (sempre nos mesmos lugares), longe do ponto de entrada; a arena do chefe fica sem armadilhas e sem o teto automático. Cada armadilha vira entidade pelo `ComponenteArmadilha`, e o dano chega na jogadora pelo `PlayerDamageTargetAdapter` (padrão Adapter), com 1 s de invencibilidade depois do golpe.
+
 ## Combate
 
 O ataque do jogador começa no `iniciarAtaque()` do `ComponenteJogador` (tecla Z), que chama o `ComponenteArma`, que por sua vez manda a arma equipada atacar (ver "Armas, interfaces de combate e polimorfismo"). A `Espada` cria uma entidade de hitbox separada através de `FabricaEntidades`, usando o componente `AtaqueJogadorComponent`. Essa entidade de ataque acompanha a posição do jogador a cada frame, o que evita que a hitbox fique presa num ponto fixo do cenário caso o jogador pule ou se mova durante o próprio ataque.
@@ -180,6 +196,7 @@ Quando um inimigo atinge o jogador, o dano é aplicado de um jeito um pouco dife
 | C | Apara (parry) |
 | V | Raio de Gelo: congela o inimigo atingido (liberada no nível 2) |
 | B | Buraco Negro: gasta toda a energia e destrói todos os inimigos da sala (liberada no nível 3) |
+| D | Sandevistan: liga/desliga a câmera lenta (gasta energia) |
 | 1 | usar Módulo de Cura |
 | 2 | usar Módulo de Energia |
 | I ou TAB | abrir/fechar o inventário |
@@ -318,7 +335,7 @@ São "checked" (herdam de `Exception`): quem chama é obrigado a tratar ou repas
 
 ## Testes
 
-79 testes JUnit 5 em `src/test/java`, todos passando. Rodam com `mvn test`.
+92 testes JUnit 5 em `src/test/java`, todos passando. Rodam com `mvn test`.
 
 - Unitários: `ComponenteAnimadoTest` (qual animação mostrar em cada situação, ampliação dos sprites), `ComponenteJogadorTest` (energia, cura, invencibilidade, subir de nível, usar módulos), `ComponenteInimigoTest` (XP de cada tipo, interfaces), `ArmaTest` (cooldown do `atacar()` com uma arma de teste, `multiplicarDano`, ids únicos), `ArmasDeFogoTest` (ganchos de cada arma, `Perfurante`, coleção polimórfica), `HabilidadeTest`, `InventarioTest` (pilha, duplicata, `listarDoTipo` genérico, sobrecargas), `ComponenteAuxiliaresTest`, `ComponenteChefeTest` (fases, rotação dos ataques, resistência às magias), `DificuldadeTest` (multiplicador de dano de cada dificuldade), magias novas em `HabilidadeTest` (custo do Buraco Negro, gelo, liberação por nível) e `congelar` em `ComponenteInimigoTest`, `CatalogoArmasTest` (arma certa pra cada nome do JSON).
 - Casos de sucesso e de falha: cada classe testa o caminho certo e os errados (sem energia, em cooldown, item que não existe, valores inválidos no construtor).

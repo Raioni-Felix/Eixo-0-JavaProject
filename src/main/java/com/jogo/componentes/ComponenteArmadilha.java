@@ -165,6 +165,10 @@ public class ComponenteArmadilha extends Component {
             buscarJogadorAlvo();
         }
 
+        // Câmera lenta do Sandevistan: a armadilha (queda, avisos, animação)
+        // anda no mesmo tempo dos inimigos
+        tpf = TimeScaleManager.getTpfPara(tpf, entity);
+
         // 1. Atualiza temporizadores e máquina de estados da armadilha
         trap.update(tpf);
 

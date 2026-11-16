@@ -3,6 +3,8 @@ package com.jogo.visao;
 import com.jogo.componentes.ComponenteArma;
 import com.jogo.componentes.ComponenteChefe;
 import com.jogo.componentes.ComponenteJogador;
+import com.jogo.componentes.efeitos.Cyberpsicose;
+import com.jogo.habilidades.SandevistanMichyle;
 import com.jogo.componentes.visual.Sprites;
 import com.jogo.inventario.Inventario;
 import com.jogo.itens.CatalogoArmas;
@@ -53,6 +55,11 @@ public class HudJogo {
     private final Text qtdCura = criarTexto(0, Color.WHITE);
     private final Text qtdEnergia = criarTexto(0, Color.WHITE);
     private final ImageView iconeArma = new ImageView();
+    //SandevistanMichyle: indicador no HUD
+    private final Text sandevistanTexto = criarTexto(0, Color.web("#ff4d7a"));
+    private final ImageView sandevistanIcone = icone("sandevistan");
+    //Cyberpsicose: indicador no HUD
+    private final Text cyberpsicoseTexto = criarTexto(0, Color.web("#ff3333"));
     //Barra do chefe, no topo e no meio da tela (só na sala dele)
     private static final double LARGURA_BARRA_CHEFE = 560;
     private final Rectangle fundoChefe = new Rectangle(LARGURA_BARRA_CHEFE + 6, 18, Color.web("#0b1420"));
@@ -97,15 +104,22 @@ public class HudJogo {
                 jogador.energiaAtualProperty()));
 
         //TEXTOS
-        //Ícones: [1] cura xN   [2] energia xN   [Q] arma
+        //Ícones: [1] cura xN   [2] energia xN   [Q] arma   [D] Sandevistan   e o aviso da Cyberpsicose
         HBox icones = new HBox(8,
                 rotuloTecla("1"), icone("modulo_cura"), qtdCura, new Text("  "),
                 rotuloTecla("2"), icone("modulo_energia"), qtdEnergia, new Text("  "),
-                rotuloTecla("Q"), iconeArma);
+                rotuloTecla("Q"), iconeArma, new Text("  "),
+                rotuloTecla("D"), sandevistanIcone, sandevistanTexto, new Text("  "),
+                cyberpsicoseTexto);
         qtdCura.setTranslateY(0);
         qtdEnergia.setTranslateY(0);
         qtdCura.setTranslateX(0);
         qtdEnergia.setTranslateX(0);
+        sandevistanTexto.setTranslateY(0);
+        sandevistanTexto.setTranslateX(0);
+        cyberpsicoseTexto.setTranslateY(0);
+        cyberpsicoseTexto.setTranslateX(0);
+        cyberpsicoseTexto.setText(""); // vazio por padrão
         icones.setAlignment(Pos.CENTER_LEFT);
         icones.setPadding(new Insets(4, 10, 4, 6));
         icones.setStyle("-fx-background-color: rgba(4,10,18,0.55); -fx-background-radius: 6;");
@@ -147,7 +161,7 @@ public class HudJogo {
                 + "  Energia x" + inventario.quantidadeDe(idModuloEnergia));
     }
 
-    //Arma equipada (e como ela ataca) e nível/XP
+    //Arma equipada (e como ela ataca), nível/XP e Sandevistan
     public void atualizarStatus() {
         Arma equipada = arma.getArmaEquipada();
         String textoArma = equipada == null ? "sem arma" : equipada.getNome() + " (" + equipada.getDescricaoCombate() + ")";
@@ -156,6 +170,36 @@ public class HudJogo {
         textoStatus.setText(textoArma
                 + "    Nv " + jogador.getNivel()
                 + "  XP " + jogador.getXp() + "/" + jogador.getXpProximoNivel());
+
+        // SandevistanMichyle: ligado (com quantos segundos a energia ainda
+        // aguenta), em recarga ou pronto. O ícone é carregado uma vez só
+        SandevistanMichyle sandevistan = jogador.getSandevistan();
+        if (sandevistan.isAtivo()) {
+            int segundos = (int) Math.ceil(jogador.getEnergiaAtual() / SandevistanMichyle.CONSUMO_ENERGIA_POR_SEGUNDO);
+            sandevistanIcone.setOpacity(1.0);
+            sandevistanTexto.setText("ON " + segundos + "s");
+            sandevistanTexto.setFill(Color.web("#ff4d7a"));
+        } else {
+            double cd = sandevistan.getCooldownRestante();
+            if (cd > 0) {
+                sandevistanIcone.setOpacity(0.4);
+                sandevistanTexto.setText("CD " + (int) Math.ceil(cd) + "s");
+                sandevistanTexto.setFill(Color.web("#ffaa00"));
+            } else {
+                sandevistanIcone.setOpacity(1.0);
+                sandevistanTexto.setText("PRONTO");
+                sandevistanTexto.setFill(Color.web("#4de8d4"));
+            }
+        }
+
+        // Cyberpsicose indicator
+        Cyberpsicose cyberpsicose = sandevistan.getCyberpsicose();
+        if (cyberpsicose.estaAtivo()) {
+            cyberpsicoseTexto.setText("CYBERPSICOSE ATIVA");
+            cyberpsicoseTexto.setFill(Color.web("#ff3333"));
+        } else {
+            cyberpsicoseTexto.setText("");
+        }
     }
 
     //Mensagem que aparece por 2 segundos e some devagar

@@ -153,9 +153,11 @@ public class GerenciadorSalas {
 
         //Teto físico sólido ao longo do topo da tela (y = 0) para fechar o limite
         //superior da fase e servir de ancoragem principal para os BlocoQueCai
+        //Na arena do chefe não: os blocos da "Chuva de dados" nascem no topo
+        //e batem nas plataformas, então um teto apagava todos na hora
         boolean possuiTetoNoJson = sala.plataformas != null
                 && sala.plataformas.stream().anyMatch(p -> p.y <= 0 && p.largura >= larguraNivel * 0.5);
-        if (!possuiTetoNoJson) {
+        if (!possuiTetoNoJson && !temChefe(sala)) {
             spawn("plataforma", new SpawnData(0, 0)
                     .put("largura", larguraNivel)
                     .put("altura", ALTURA_TETO_PADRAO));
@@ -296,10 +298,6 @@ public class GerenciadorSalas {
         spawnItens(sala);
         spawnArmadilhas(sala, jogador);
         NpcsDasSalas.criar(sala);
-        spawn("npc_curandeiro", new SpawnData(x, y)
-        .put("nome", "Dra. Vega")
-        .put("falas", List.of("Você parece ferida.", "Fique parada um instante."))
-        .put("curas", 1));
     }
 
     //Centraliza a câmera no jogador de uma vez (começo do jogo)

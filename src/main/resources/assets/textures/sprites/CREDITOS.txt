@@ -42,3 +42,13 @@ chefe/
   NEXUS, o chefe da sala 5: "logo de IA" genérico desenhado para este
   projeto (Eixo 0), sem copiar marca nenhuma. Conjuntos normal e fúria
   (parado, carga, dano), tiro e bloco da chuva.
+
+itens/sandevistan-1.png
+  Ícone do Sandevistan (Raioni), reduzido para 24x24.
+
+../bloco-cai.png
+  Prensa hidráulica do BlocoQueCai, 4 quadros 64x64, desenhada para este
+  projeto (Eixo 0).
+
+../spike-trap/
+  Quadros dos espinhos retráteis (Vitor). Origem e licença: a confirmar.

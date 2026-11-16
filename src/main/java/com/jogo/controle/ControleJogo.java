@@ -24,8 +24,10 @@ import com.jogo.visao.TelaMenuPrincipal;
 import com.jogo.visao.TelaPausa;
 import com.jogo.visao.TelaSobreposta;
 import com.jogo.visao.TelaVitoria;
+import com.jogo.visao.efeitos.SandevistanShader;
 import com.jogo.componentes.ComponenteChefe;
 import com.jogo.componentes.ComponenteArmadilha;
+import com.jogo.componentes.TimeScaleManager;
 import java.util.List;
 import javafx.scene.input.KeyCombination;
 import com.jogo.npcs.FabricaNpcs;
@@ -100,10 +102,17 @@ public class ControleJogo {
     //liga essa flag antes, pra cair direto no jogo.
     private boolean pularMenuAoIniciar = false;
 
+    //SandevistanMichyle: rastreia estado anterior pra aplicar/remover shader
+    private boolean sandevistanAtivoAnterior = false;
+    private boolean cyberpsicoseAvisada = false;
+
     //=== Etapas do FXGL (chamadas pelo Main) ===
 
     //initGame(): monta a sala inicial, o jogador e o arsenal
     public void iniciarMundo() {
+        // Reset time scale antes de criar novo mundo (evita velocidade residual)
+        TimeScaleManager.reset();
+        
         getGameWorld().addEntityFactory(new FabricaEntidades());
         getGameWorld().addEntityFactory(new FabricaNpcs());
 
@@ -130,7 +139,6 @@ public class ControleJogo {
         salas.spawnItens(sala);
         salas.spawnArmadilhas(sala, jogador);
         NpcsDasSalas.criar(sala);
-        
 
         //Sem isso, "Reiniciar" depois de morrer nunca mais mostraria o
         //Game Over numa segunda morte
@@ -171,28 +179,28 @@ public class ControleJogo {
                     hud.mostrarMensagem("+1 Módulo de Cura   [1] usar");
                 }
 
-                                  salas.registrarColeta(itemEntity.getString("idColeta"));
-                  itemEntity.removeFromWorld();
-                  hud.atualizarInventario();
-              }
-          });
+                salas.registrarColeta(itemEntity.getString("idColeta"));
+                itemEntity.removeFromWorld();
+                hud.atualizarInventario();
+            }
+        });
 
-          //Armadilha: colisão física com o jogador (aplica dano se ativa ou aciona gatilho)
-          getPhysicsWorld().addCollisionHandler(new CollisionHandler(TipoEntidade.JOGADOR, TipoEntidade.ARMADILHA) {
-              @Override
-              protected void onCollision(Entity jogadorEntity, Entity armadilhaEntity) {
-                  if (armadilhaEntity.hasComponent(ComponenteArmadilha.class)) {
-                      armadilhaEntity.getComponent(ComponenteArmadilha.class).aoColidirComJogador(jogadorEntity);
-                  }
-              }
+        //Armadilha: colisão física com o jogador (aplica dano se ativa ou aciona gatilho)
+        getPhysicsWorld().addCollisionHandler(new CollisionHandler(TipoEntidade.JOGADOR, TipoEntidade.ARMADILHA) {
+            @Override
+            protected void onCollision(Entity jogadorEntity, Entity armadilhaEntity) {
+                if (armadilhaEntity.hasComponent(ComponenteArmadilha.class)) {
+                    armadilhaEntity.getComponent(ComponenteArmadilha.class).aoColidirComJogador(jogadorEntity);
+                }
+            }
 
-              @Override
-              protected void onCollisionBegin(Entity jogadorEntity, Entity armadilhaEntity) {
-                  if (armadilhaEntity.hasComponent(ComponenteArmadilha.class)) {
-                      armadilhaEntity.getComponent(ComponenteArmadilha.class).aoColidirComJogador(jogadorEntity);
-                  }
-              }
-          });
+            @Override
+            protected void onCollisionBegin(Entity jogadorEntity, Entity armadilhaEntity) {
+                if (armadilhaEntity.hasComponent(ComponenteArmadilha.class)) {
+                    armadilhaEntity.getComponent(ComponenteArmadilha.class).aoColidirComJogador(jogadorEntity);
+                }
+            }
+        });
     }
 
     //initUI(): cria o HUD e as telas. A ordem de adicionar é a ordem de
@@ -236,6 +244,23 @@ public class ControleJogo {
             hud.atualizarStatus(); //o XP muda quando um inimigo morre, sem avisar o controle
             avisarMagiasNovas();
             acompanharChefe(tpf);
+            
+            // SandevistanMichyle: aplica/remove shader visual quando estado muda
+            boolean sandevistanAtivo = getComponenteJogador().estaNoSandevistan();
+            if (sandevistanAtivo != sandevistanAtivoAnterior) {
+                if (sandevistanAtivo) {
+                    SandevistanShader.aplicarNaCena(getGameScene().getRoot());
+                } else {
+                    SandevistanShader.removerDaCena(getGameScene().getRoot());
+                }
+                sandevistanAtivoAnterior = sandevistanAtivo;
+            }
+            //Cyberpsicose: aviso vermelho quando começa
+            boolean cyberAtiva = getComponenteJogador().getSandevistan().getCyberpsicose().estaAtivo();
+            if (cyberAtiva && !cyberpsicoseAvisada) {
+                hud.mostrarAviso("CYBERPSICOSE! Vida caindo, lenta e com recargas dobradas");
+            }
+            cyberpsicoseAvisada = cyberAtiva;
             return;
         }
 
@@ -402,6 +427,12 @@ public class ControleJogo {
         menuPrincipal.esconder();
         pausa.esconder();
 
+        // Remove shader do Sandevistan se ativo
+        if (sandevistanAtivoAnterior) {
+            SandevistanShader.removerDaCena(getGameScene().getRoot());
+            sandevistanAtivoAnterior = false;
+        }
+        
         pularMenuAoIniciar = true;
         despausarMotor();
         getGameController().startNewGame();
@@ -412,6 +443,13 @@ public class ControleJogo {
     //do montarInterface()
     public void voltarAoMenuPrincipal(TelaSobreposta telaParaEsconder) {
         telaParaEsconder.esconder();
+        
+        // Remove shader do Sandevistan se ativo
+        if (sandevistanAtivoAnterior) {
+            SandevistanShader.removerDaCena(getGameScene().getRoot());
+            sandevistanAtivoAnterior = false;
+        }
+        
         getGameController().startNewGame();
     }
 

@@ -34,6 +34,9 @@ class ComponenteAuxiliaresTest {
     void relogio() {
         RelogioJogo.marcarRetomada();
         assertTrue(RelogioJogo.emPeriodoDeGraca());
+        //Limpa pra não atrapalhar os testes que rodam logo depois
+        RelogioJogo.zerar();
+        assertFalse(RelogioJogo.emPeriodoDeGraca());
     }
 
     @Test

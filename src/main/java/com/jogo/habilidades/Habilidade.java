@@ -83,4 +83,11 @@ public abstract class Habilidade {
     public void setAprendida(boolean aprendida) {
         this.aprendida = aprendida;
     }
+
+    /**
+     * Setter protegido para subclasses que precisam manipular o cooldown diretamente.
+     */
+    protected void setTempoRestante(double tempoRestante) {
+        this.tempoRestante = Math.max(0, tempoRestante);
+    }
 }

@@ -1,5 +1,6 @@
 package com.jogo.componentes;
 
+import com.jogo.componentes.TimeScaleManager;
 
 //Bixinho voador, herda de ComponenteInimigo,
 // mas não precisa de nada específico, pq
@@ -40,22 +41,28 @@ public class ComponenteInimigoVoador extends ComponenteInimigo {
         if (RelogioJogo.emPeriodoDeGraca()) {
             return;
         }
+        
+        // Aplica time scale do Sandevistan
+        double tpfEfetivo = TimeScaleManager.getTpfPara(tpf, this);
+        
         //Congelado: fica parado (ver ComponenteInimigo.congelar)
-        if (atualizarCongelamento(tpf)) {
+        if (atualizarCongelamento(tpfEfetivo)) {
             return;
         }
 
         if (tempoRecuo > 0) {
-            tempoRecuo -= tpf;
-            fisica.setLinearVelocity(0, -velocidade); //sobe na velocidade dele
+            tempoRecuo -= tpfEfetivo;
+            fisica.setLinearVelocity(0, -velocidadeEfetiva()); //sobe na velocidade dele
             return;
         }
 
         if (!agressivo || alvo == null) {
             // Se não for agressivo ou não tiver alvo, apenas flutua
-            flutuar(tpf);
+            flutuar(tpfEfetivo);
         } else {
             // Se for agressivo e tiver alvo, segue o alvo
+            //tpf normal: o onUpdate da mãe já aplica a câmera lenta (com
+            //tpfEfetivo aqui o drone ficava lento duas vezes)
             super.onUpdate(tpf); //Persegue e ataca já
             // usando alcanceAtaque
         }
@@ -81,7 +88,7 @@ public class ComponenteInimigoVoador extends ComponenteInimigo {
     //gravidade).
     private void flutuar(double tpf) {
         tempoFlutuando += tpf * velocidadeFlutuacao;
-        double velocidadeVertical = Math.cos(tempoFlutuando) * amplitudeFlutuacao;
+        double velocidadeVertical = Math.cos(tempoFlutuando) * amplitudeFlutuacao * TimeScaleManager.getScale();
         fisica.setLinearVelocity(0, velocidadeVertical);
     }
 }

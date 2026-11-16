@@ -3,6 +3,7 @@ package com.jogo.componentes;
 import com.almasb.fxgl.entity.Entity;
 import com.almasb.fxgl.entity.component.Component;
 import com.almasb.fxgl.physics.PhysicsComponent;
+import com.jogo.componentes.TimeScaleManager;
 import javafx.geometry.Point2D;
 
 import static com.almasb.fxgl.dsl.FXGL.spawn;
@@ -207,6 +208,13 @@ public abstract class ComponenteInimigo extends ComponentePersonagem implements 
         return getVidaAtual();
     }
 
+    //Velocidade de movimento já com a câmera lenta do Sandevistan.
+    //A física do FXGL anda em tempo normal, então a velocidade é que
+    //precisa diminuir (só reduzir o tpf não deixava o inimigo lento)
+    protected double velocidadeEfetiva() {
+        return velocidade * TimeScaleManager.getScale();
+    }
+
     //Buraco negro puxando: velocidade na direção do ponto
     public void puxarPara(Point2D ponto, double forca) {
         if (fisica == null || entity == null) {
@@ -217,7 +225,7 @@ public abstract class ComponenteInimigo extends ComponentePersonagem implements 
             fisica.setLinearVelocity(0, 0);
             return;
         }
-        direcao = direcao.normalize().multiply(forca);
+        direcao = direcao.normalize().multiply(forca * TimeScaleManager.getScale());
         if (voador) {
             fisica.setLinearVelocity(direcao.getX(), direcao.getY());
         } else {
@@ -232,7 +240,11 @@ public abstract class ComponenteInimigo extends ComponentePersonagem implements 
         if (RelogioJogo.emPeriodoDeGraca()) {
             return;
         }
-        if (atualizarCongelamento(tpf)) {
+        
+        // Aplica time scale do Sandevistan (inimigos ficam lentos, jogador não)
+        double tpfEfetivo = TimeScaleManager.getTpfPara(tpf, this);
+        
+        if (atualizarCongelamento(tpfEfetivo)) {
             return;
         }
 
@@ -243,7 +255,7 @@ public abstract class ComponenteInimigo extends ComponentePersonagem implements 
             return;
         }
 
-        perseguirAlvo(tpf, alcanceAtaque);
+        perseguirAlvo(tpfEfetivo, alcanceAtaque);
     }
 
     //Persegue o alvo até distanciaParada, depois para e ataca. Voador
@@ -259,11 +271,11 @@ public abstract class ComponenteInimigo extends ComponentePersonagem implements 
 
             if (voador) {
                 double comprimento = Math.hypot(dx, dy);
-                double vx = comprimento > 0 ? (dx / comprimento) * velocidade : 0;
-                double vy = comprimento > 0 ? (dy / comprimento) * velocidade : 0;
+                double vx = comprimento > 0 ? (dx / comprimento) * velocidadeEfetiva() : 0;
+                double vy = comprimento > 0 ? (dy / comprimento) * velocidadeEfetiva() : 0;
                 fisica.setLinearVelocity(vx, vy);
             } else {
-                fisica.setVelocityX(dx > 0 ? velocidade : -velocidade);
+                fisica.setVelocityX(dx > 0 ? velocidadeEfetiva() : -velocidadeEfetiva());
             }
         } else {
             // Perto o suficiente pra atacar: para de andar. Pro

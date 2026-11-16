@@ -111,9 +111,6 @@ public class FabricaNpcs implements EntityFactory {
         if (url != null) {
             Image imagem = new Image(url.toExternalForm());
             if (!imagem.isError() && imagem.getHeight() > 0) {
-                System.out.println("[NPC] Imagem carregada com sucesso: " + sprite.arquivo + 
-                                   " (" + (int)imagem.getWidth() + "x" + (int)imagem.getHeight() + "px)");
-                
                 Node visual = sprite.quadros > 1 ? visualAnimado(imagem, sprite) : visualParado(imagem);
                 if (visual != null) {
                     return visual;
