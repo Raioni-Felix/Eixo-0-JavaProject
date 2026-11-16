@@ -50,5 +50,17 @@ itens/sandevistan-1.png
   Prensa hidráulica do BlocoQueCai, 4 quadros 64x64, desenhada para este
   projeto (Eixo 0).
 
+npcs/ (curandeiro.png e informante.png, Kayk)
+  Do pacote "Free Wizard Sprite Sheets Pixel Art", da CraftPix.net (2023).
+  https://craftpix.net/freebies/free-wizard-sprite-sheets-pixel-art/
+  Licença de freebie da CraftPix: uso livre em projetos pessoais e
+  comerciais, pode modificar, atribuição não obrigatória
+  (https://craftpix.net/file-licenses/). Não pode redistribuir os
+  arquivos soltos fora do jogo.
+  curandeiro = animação Idle da "magician of light" (7 quadros 128x128);
+  informante = animação Idle do "magician of darkness" (8 quadros 128x128).
+
 ../spike-trap/
-  Quadros dos espinhos retráteis (Vitor). Origem e licença: a confirmar.
+  Quadros dos espinhos retráteis (Vitor), tirados de um GIF de 171x192.
+  Origem e licença: a confirmar com o Vitor (busca reversa no Google Lens
+  e no TinEye em 16/11/2026 não achou a fonte).

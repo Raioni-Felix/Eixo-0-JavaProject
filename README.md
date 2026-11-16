@@ -67,7 +67,7 @@ No Windows, é só extrair o zip e abrir `Eixo0\Eixo0.exe`. Os arquivos da pasta
 ## Documentação
 
 - [`docs/REQUISITOS.md`](docs/REQUISITOS.md): requisitos funcionais e não funcionais, com onde cada um está no código e qual teste cobre.
-- [`docs/uml/diagrama-classes.svg`](docs/uml/diagrama-classes.svg): diagrama de classes UML completo, gerado a partir do código (fonte Mermaid em `docs/uml/diagrama-classes.mmd`).
+- [`docs/uml/diagrama-classes.svg`](docs/uml/diagrama-classes.svg): diagrama de classes UML completo, gerado a partir do código (fonte Mermaid em `docs/uml/diagrama-classes.mmd`). Para regerar depois de mudar o código: `python3 docs/uml/gerar_uml.py src/main/java/com/jogo docs/uml/diagrama-classes.mmd` (precisa de `pip install javalang tree-sitter tree-sitter-java`) e depois `mmdc -i docs/uml/diagrama-classes.mmd -o docs/uml/diagrama-classes.svg`.
 
 ## Estrutura geral
 
@@ -307,8 +307,8 @@ Antes o `Main` tinha cerca de 1.400 linhas e misturava telas, HUD, teclas, troca
 
 | Camada | Pacotes | O que faz |
 |---|---|---|
-| Modelo | `componentes`, `itens`, `habilidades`, `inventario`, `niveis`, `entidades`, `factories`, `excecoes` | dados e regras do jogo: vida, energia, XP, armas, inventário, salas |
-| Visão | `visao`, `componentes.visual` | o que aparece na tela: HUD, telas, cortina, animações |
+| Modelo | `componentes`, `componentes.efeitos`, `itens`, `habilidades`, `inventario`, `niveis`, `entidades`, `factories`, `excecoes`, `armadilhas`, `npcs` | dados e regras do jogo: vida, energia, XP, armas, inventário, salas |
+| Visão | `visao`, `visao.efeitos`, `componentes.visual` | o que aparece na tela: HUD, telas, cortina, animações |
 | Controle | `controle` (+ `Main`) | liga as duas: teclas, fluxo menu/pausa/Game Over, troca de sala, trata exceções |
 
 O `Main` só repassa cada etapa do FXGL pro controle. O modelo não depende do controle (por isso o `RelogioJogo` fica em `componentes`: quem lê são os componentes, o controle só avisa quando despausou). A visão também não conhece o controle: as telas recebem `Runnable` pros botões e o HUD só lê o modelo.
@@ -335,9 +335,9 @@ São "checked" (herdam de `Exception`): quem chama é obrigado a tratar ou repas
 
 ## Testes
 
-92 testes JUnit 5 em `src/test/java`, todos passando. Rodam com `mvn test`.
+96 testes JUnit 5 em `src/test/java`, todos passando. Rodam com `mvn test`.
 
-- Unitários: `ComponenteAnimadoTest` (qual animação mostrar em cada situação, ampliação dos sprites), `ComponenteJogadorTest` (energia, cura, invencibilidade, subir de nível, usar módulos), `ComponenteInimigoTest` (XP de cada tipo, interfaces), `ArmaTest` (cooldown do `atacar()` com uma arma de teste, `multiplicarDano`, ids únicos), `ArmasDeFogoTest` (ganchos de cada arma, `Perfurante`, coleção polimórfica), `HabilidadeTest`, `InventarioTest` (pilha, duplicata, `listarDoTipo` genérico, sobrecargas), `ComponenteAuxiliaresTest`, `ComponenteChefeTest` (fases, rotação dos ataques, resistência às magias), `DificuldadeTest` (multiplicador de dano de cada dificuldade), magias novas em `HabilidadeTest` (custo do Buraco Negro, gelo, liberação por nível) e `congelar` em `ComponenteInimigoTest`, `CatalogoArmasTest` (arma certa pra cada nome do JSON).
+- Unitários: `ComponenteAnimadoTest` (qual animação mostrar em cada situação, ampliação dos sprites), `ComponenteJogadorTest` (energia, cura, invencibilidade, subir de nível, usar módulos), `ComponenteInimigoTest` (XP de cada tipo, interfaces), `ArmaTest` (cooldown do `atacar()` com uma arma de teste, `multiplicarDano`, ids únicos), `ArmasDeFogoTest` (ganchos de cada arma, `Perfurante`, coleção polimórfica), `HabilidadeTest`, `InventarioTest` (pilha, duplicata, `listarDoTipo` genérico, sobrecargas), `ComponenteAuxiliaresTest`, `ComponenteChefeTest` (fases, rotação dos ataques, resistência às magias), `DificuldadeTest` (multiplicador de dano de cada dificuldade), magias novas em `HabilidadeTest` (custo do Buraco Negro, gelo, liberação por nível) e `congelar` em `ComponenteInimigoTest`, `CatalogoArmasTest` (arma certa pra cada nome do JSON), `SandevistanTest` (ligar e gastar energia, recarga, Cyberpsicose e o fim dela), `NpcTest` (falas, NPC sem falas, invulnerabilidade, cura do curandeiro) e `TrapSystemTest` (hitbox, ciclo dos espinhos, dano só quando ativos, queda do bloco, fábrica, avisos do `TrapListener`, quadros da prensa, posicionamento do gerador procedural, invencibilidade e tremida de câmera).
 - Casos de sucesso e de falha: cada classe testa o caminho certo e os errados (sem energia, em cooldown, item que não existe, valores inválidos no construtor).
 - Exceções: `assertThrows` para cada exceção própria e para as `IllegalArgumentException` dos construtores.
 - Integração: `CarregadorDeNiveisTest` lê os JSON de verdade das 5 salas com o Gson (e JSON de teste quebrado/incompleto em `src/test/resources`); `JogadorSalaIntegracaoTest` carrega a sala 4, cria o jogador com os dados dela, coleta os módulos e o rifle do chão, soma o XP dos inimigos, sobe de nível e usa os módulos até dar a exceção.
@@ -351,6 +351,8 @@ Os sprites ficam em `src/main/resources/assets/textures/sprites`, uma pasta por 
 - `jogador`, `drone` (o inimigo voador) e `explosao`: do pacote Warped City, de ansimuz, CC0 (domínio público). As animações com espada, adagas e arma vieram em folhas de sprite ampliadas do pacote e foram reduzidas ao tamanho original; os quadros de "parado", "cair" e "atirar correndo" foram montados a partir delas.
 - `robo-melee` e `robo-atirador`: desenhados para este projeto, na paleta do Warped City.
 - `chefe` (NEXUS: conjuntos normal e fúria, com parado, carga e dano; tiro e bloco da chuva): desenhado para este projeto.
+- `npcs` (curandeiro e informante): animação "idle" de dois magos do pacote Free Wizard Sprite Sheets Pixel Art, da CraftPix.net (licença de freebie: uso livre em jogos, sem atribuição obrigatória).
+- `bloco-cai.png` (prensa do bloco que cai): desenhado para este projeto. `spike-trap/` (espinhos): origem a confirmar com o Vitor.
 
 | Personagem | Animações |
 |---|---|

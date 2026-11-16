@@ -1,6 +1,6 @@
 # Requisitos — Eixo 0 (FXGL)
 
-Metroidvania 2D em Java com FXGL. O jogador explora 5 salas ligadas, enfrenta três tipos de inimigo e um chefe, usa armas, habilidades e módulos, e sobe de nível.
+Metroidvania 2D em Java com FXGL. O jogador explora 5 salas ligadas, enfrenta três tipos de inimigo, armadilhas e um chefe, conversa com NPCs, usa armas, habilidades (incluindo o Sandevistan) e módulos, e sobe de nível.
 
 Status: ✅ feito · 🧪 com teste automático · 🎮 testado jogando (depende da janela do FXGL).
 
@@ -31,6 +31,10 @@ Status: ✅ feito · 🧪 com teste automático · 🎮 testado jogando (depende
 | RF21 | Opções (menu principal e pausa): tela cheia (também F11), dificuldade Fácil/Normal/Difícil (multiplica o dano recebido) e lista de controles | `visao.TelaOpcoes`, `componentes.Dificuldade`, `controle.Controles` | 🧪 `DificuldadeTest` · 🎮 |
 | RF22 | Magias por nível: Raio de Gelo (V, nível 2) congela o inimigo atingido por 3 s; Buraco Negro (B, nível 3) gasta toda a energia, puxa e destrói todos os inimigos da sala | `RaioDeGelo`, `BuracoNegro`, `ComponenteBuracoNegro`, `ComponenteInimigo.congelar` | 🧪 `HabilidadeTest`, `ComponenteInimigoTest` · 🎮 |
 | RF23 | Sala 5: chefe NEXUS com 3 ataques avisados (Rajada, Investida, Chuva de dados) em rotação, fase 2 com metade da vida, porta trancada até ele cair, barra de vida no topo e tela de Vitória | `ComponenteChefe`, `AtaqueChefe`, `visao.TelaVitoria`, `HudJogo.mostrarChefe` | 🧪 `ComponenteChefeTest`, `CarregadorDeNiveisTest` · 🎮 |
+| RF24 | Sandevistan (D): liga/desliga câmera lenta; inimigos, chefe, tiros, armadilhas e fundo a 25% da velocidade, jogadora normal; gasta 20 de energia/s, desliga quando a energia zera e fica 30 s em recarga; HUD mostra ON/recarga/PRONTO e a tela ganha um brilho | `habilidades.SandevistanMichyle`, `componentes.TimeScaleManager`, `visao.efeitos.SandevistanShader` | 🧪 `SandevistanTest` · 🎮 |
+| RF25 | Cyberpsicose: 25% de chance ao ligar o Sandevistan; vida cai 8/s até metade, velocidade pela metade e recargas em dobro, até o Sandevistan acabar e a energia voltar a 50% | `componentes.efeitos.Cyberpsicose` (interface `Efeito`), `ComponenteJogador.setMultiplicadorVelocidade` | 🧪 `SandevistanTest` · 🎮 |
+| RF26 | Armadilhas: espinhos retráteis e bloco que cai (prensa), com ciclo inativa → aviso → ativa → recarga; posicionadas por gerador com seed fixa, longe da entrada e fora da arena do chefe; dano com empurrão, 1 s de invencibilidade e tremida de câmera | pacote `armadilhas` (`Trap`, `SpikesRetrateis`, `BlocoQueCai`, `TrapProceduralGenerator`, `PlayerDamageTargetAdapter`), `componentes.ComponenteArmadilha` | 🧪 `TrapSystemTest` · 🎮 |
+| RF27 | NPCs invulneráveis em cada sala (menos a do chefe): Informante dá dicas e Curandeiro restaura a vida uma vez por sala; ao chegar perto aparece um balão com as falas, que trocam a cada 3 s | pacote `npcs` (`ComponenteNpc`, `NpcInformante`, `NpcCurandeiro`, `NpcsDasSalas`, `FabricaNpcs`) | 🧪 `NpcTest` · 🎮 |
 
 ## Tratamento de erros
 
@@ -46,9 +50,9 @@ Status: ✅ feito · 🧪 com teste automático · 🎮 testado jogando (depende
 | # | Requisito | Como foi atendido |
 |---|---|---|
 | RNF01 | Java 17, FXGL 17.3, Gson, Maven | `pom.xml` |
-| RNF02 | Separação MVC | modelo (`componentes`, `itens`, `habilidades`, `inventario`, `niveis`, `entidades`, `factories`, `excecoes`), visão (`visao`, `componentes.visual`), controle (`controle`); `Main` só repassa as etapas do FXGL |
+| RNF02 | Separação MVC | modelo (`componentes`, `componentes.efeitos`, `itens`, `habilidades`, `inventario`, `niveis`, `entidades`, `factories`, `excecoes`, `armadilhas`, `npcs`), visão (`visao`, `visao.efeitos`, `componentes.visual`), controle (`controle`); `Main` só repassa as etapas do FXGL |
 | RNF03 | Balanceamento fora do código | vida, dano, velocidade, inimigos e itens de cada sala nos JSON de `assets/levels` |
-| RNF04 | Testes automatizados | 92 testes JUnit 5 (`mvn test`), unidade e integração |
+| RNF04 | Testes automatizados | 96 testes JUnit 5 (`mvn test`), unidade e integração |
 | RNF05 | Cobertura | JaCoCo: `inventario` 96%, `niveis` 95%, `excecoes` 100%; total ≈ 20%, porque visão/controle precisam do motor rodando |
 | RNF06 | 60 FPS, janela 1280×720 com tela cheia opcional (F11) | `Main.initSettings` |
 | RNF07 | Não acelerar depois de despausar | `componentes.RelogioJogo` |

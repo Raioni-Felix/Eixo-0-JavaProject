@@ -1,5 +1,325 @@
 classDiagram
 direction TB
+namespace armadilhas {
+  class BlocoQueCai {
+    -initialY : double
+    -currentY : double
+    -velocityY : double
+    -gravity : double
+    -maxFallDistance : double
+    -retractionSpeed : double
+    -groundStayDuration : double
+    -groundTimer : double
+    -hitGround : boolean
+    +BlocoQueCai(double, double, double, double)
+    +BlocoQueCai(double, double, double, double, double, double, int)
+    #updateActive(double)
+    #updateCustom(double)
+    +onImpact()
+    +onReset()
+    +isDangerous() boolean
+    +checkCollision(DamageTarget) boolean
+    +applyDamage(DamageTarget)
+    #renderContent(Graphics, double, double)
+    +getInitialY() double
+    +getVelocityY() double
+    +getMaxFallDistance() double
+    +setMaxFallDistance(double)
+    +alignWithGroundSurface(double)
+    +getGroundStayDuration() double
+    +setGroundStayDuration(double)
+    +hasHitGround() boolean
+  }
+  class DamageSource {
+    <<interface>>
+    +getDamage()* int
+    +getKnockbackForce()* double
+    +getName()* String
+  }
+  class DamageTarget {
+    <<interface>>
+    +takeDamage(int, DamageSource)*
+    +applyKnockback(double, double)*
+    +getX()* double
+    +getY()* double
+    +getHitbox()* Hitbox
+    +isAlive()* boolean
+    +isInvulnerable() boolean
+    +activateInvulnerability(double)
+  }
+  class FxglTrapFeedbackListener {
+    -impactShakePower : double
+    -damageShakePower : double
+    -invulnerabilityDuration : double
+    -impactShakeCount : int
+    -damageShakeCount : int
+    -lastShakePower : double
+    +FxglTrapFeedbackListener()
+    +FxglTrapFeedbackListener(double, double, double)
+    +onImpact(Trap)
+    +onDamageDealt(Trap, DamageTarget, int)
+    -triggerCameraShake(double)
+    +getImpactShakeCount() int
+    +getDamageShakeCount() int
+    +getLastShakePower() double
+    +getImpactShakePower() double
+    +getDamageShakePower() double
+    +getInvulnerabilityDuration() double
+  }
+  class Hitbox {
+    -offsetX : double
+    -offsetY : double
+    -width : double
+    -height : double
+    +Hitbox(double, double, double, double)
+    +getOffsetX() double
+    +setOffsetX(double)
+    +getOffsetY() double
+    +setOffsetY(double)
+    +getWidth() double
+    +setWidth(double)
+    +getHeight() double
+    +setHeight(double)
+    +getMinX(double) double
+    +getMaxX(double) double
+    +getMinY(double) double
+    +getMaxY(double) double
+    +intersects(double, double, Hitbox, double, double) boolean
+    +toAwtRectangle(double, double) Rectangle
+    +toString() String
+  }
+  class PlayerDamageTargetAdapter {
+    -playerEntity : Entity
+    -componenteJogador : ComponenteJogador
+    -hitbox : Hitbox
+    -trapEntity : Entity
+    -invulnerabilityTimer : double
+    +PlayerDamageTargetAdapter(Entity)
+    +PlayerDamageTargetAdapter(Entity, Entity)
+    +setTrapEntity(Entity)
+    +update(double)
+    +isInvulnerable() boolean
+    +activateInvulnerability(double)
+    +takeDamage(int, DamageSource)
+    +applyKnockback(double, double)
+    +getX() double
+    +getY() double
+    +getHitbox() Hitbox
+    +isAlive() boolean
+    +getInvulnerabilityTimer() double
+  }
+  class SpikesRetrateis {
+    -numberOfSpikes : int
+    -spikeExtensionRatio : double
+    -cyclic : boolean
+    +SpikesRetrateis(double, double, double, double)
+    +SpikesRetrateis(double, double, double, double, double, double, double, double, int)
+    #transitionTo(TrapState)
+    #updateCustom(double)
+    #updateInactive(double)
+    #renderContent(Graphics, double, double)
+    +getNumberOfSpikes() int
+    +setNumberOfSpikes(int)
+    +getSpikeExtensionRatio() double
+    +isCyclic() boolean
+    +setCyclic(boolean)
+  }
+  class Trap {
+    <<abstract>>
+    #name : String
+    #x : double
+    #y : double
+    #width : double
+    #height : double
+    #damageHitbox : Hitbox
+    #triggerBox : Hitbox
+    #state : TrapState
+    #stateTimer : double
+    #inactiveDuration : double
+    #telegraphDuration : double
+    #activeDuration : double
+    #cooldownDuration : double
+    #damage : int
+    #knockbackForce : double
+    #invulnerabilityGrantDuration : double
+    #shakeIntensity : double
+    #shakeOffsetX : double
+    #shakeOffsetY : double
+    #listeners : List~TrapListener~
+    #debugHitboxes : boolean
+    +Trap(String, double, double, double, double)
+    +update(double)
+    #updateInactive(double)
+    #updateTelegraphing(double)
+    #updateActive(double)
+    #updateCooldown(double)
+    +onTrigger()
+    +onReset()
+    #transitionTo(TrapState)
+    +checkTrigger(DamageTarget) boolean
+    +checkCollision(DamageTarget) boolean
+    +applyDamage(DamageTarget)
+    +render(Graphics)
+    #renderContent(Graphics, double, double)*
+    #renderTelegraphEffect(Graphics, double, double)
+    #renderDebugBounds(Graphics2D)
+    #updateCustom(double)
+    +addListener(TrapListener)
+    +removeListener(TrapListener)
+    #notifyTelegraphStarted(double)
+    #notifyTriggered()
+    #notifyImpact()
+    +getInvulnerabilityGrantDuration() double
+    +setInvulnerabilityGrantDuration(double)
+    +getDamage() int
+    +setDamage(int)
+    +getKnockbackForce() double
+    +setKnockbackForce(double)
+    +getName() String
+    +getX() double
+    +setX(double)
+    +getY() double
+    +setY(double)
+    +getWidth() double
+    +getHeight() double
+    +getDamageHitbox() Hitbox
+    +setDamageHitbox(Hitbox)
+    +getTriggerBox() Hitbox
+    +setTriggerBox(Hitbox)
+    +getState() TrapState
+    +getStateTimer() double
+    +getInactiveDuration() double
+    +setInactiveDuration(double)
+    +getTelegraphDuration() double
+    +setTelegraphDuration(double)
+    +getActiveDuration() double
+    +setActiveDuration(double)
+    +getCooldownDuration() double
+    +setCooldownDuration(double)
+    +isDebugHitboxes() boolean
+    +setDebugHitboxes(boolean)
+    +getShakeOffsetX() double
+    +getShakeOffsetY() double
+  }
+  class TrapFactory {
+    -TrapFactory()
+    +createSpikes(double, double, double, double)$ SpikesRetrateis
+    +createSpikes(double, double, double, double, double, double, double, double, int)$ SpikesRetrateis
+    +createFallingBlock(double, double, double, double, double)$ BlocoQueCai
+    +createFromTileCoordinates(String, int, int, int, Map~String, Object~)$ Trap
+    +createFromTileData(String, double, double, Map~String, Object~)$ Trap
+    -getDouble(Map~String, Object~, String, double)$ double
+    -getInt(Map~String, Object~, String, int)$ int
+  }
+  class TrapGenerationConfig {
+    -minTraps : int
+    -maxTraps : int
+    -spawnChance : double
+    -seed : Long
+    -safeZoneRadius : double
+    -minDistanceBetweenTraps : double
+    -portalSafeMargin : double
+    -gridStepX : double
+    -platformEdgeMargin : double
+    -maxCeilingTopY : double
+    -spikeWidth : double
+    -spikeHeight : double
+    -minTopClearance : double
+    -blockWidth : double
+    -blockHeight : double
+    -minFallClearance : double
+    +TrapGenerationConfig()
+    +TrapGenerationConfig(int, int, double, Long)
+    +padrao()$ TrapGenerationConfig
+    +comSeed(long)$ TrapGenerationConfig
+    +withMinTraps(int) TrapGenerationConfig
+    +withMaxTraps(int) TrapGenerationConfig
+    +withSpawnChance(double) TrapGenerationConfig
+    +withSeed(Long) TrapGenerationConfig
+    +withRandomSeed() TrapGenerationConfig
+    +withSafeZoneRadius(double) TrapGenerationConfig
+    +withMinDistanceBetweenTraps(double) TrapGenerationConfig
+    +withPortalSafeMargin(double) TrapGenerationConfig
+    +withGridStepX(double) TrapGenerationConfig
+    +withSpikeDimensions(double, double) TrapGenerationConfig
+    +withBlockDimensions(double, double) TrapGenerationConfig
+    +withMinTopClearance(double) TrapGenerationConfig
+    +withMinFallClearance(double) TrapGenerationConfig
+    +getMinTraps() int
+    +setMinTraps(int)
+    +getMaxTraps() int
+    +setMaxTraps(int)
+    +getSpawnChance() double
+    +setSpawnChance(double)
+    +getSeed() Long
+    +setSeed(Long)
+    +getSafeZoneRadius() double
+    +setSafeZoneRadius(double)
+    +getMinDistanceBetweenTraps() double
+    +setMinDistanceBetweenTraps(double)
+    +getPortalSafeMargin() double
+    +setPortalSafeMargin(double)
+    +getGridStepX() double
+    +setGridStepX(double)
+    +getPlatformEdgeMargin() double
+    +setPlatformEdgeMargin(double)
+    +getSpikeWidth() double
+    +getSpikeHeight() double
+    +getMinTopClearance() double
+    +getBlockWidth() double
+    +getBlockHeight() double
+    +getMinFallClearance() double
+    +getMaxCeilingTopY() double
+    +setMaxCeilingTopY(double)
+    +withMaxCeilingTopY(double) TrapGenerationConfig
+  }
+  class TrapListener {
+    <<interface>>
+    +onStateChanged(Trap, TrapState, TrapState)
+    +onTelegraphStarted(Trap, double)
+    +onTriggered(Trap)
+    +onDamageDealt(Trap, DamageTarget, int)
+    +onImpact(Trap)
+    +onReset(Trap)
+  }
+  class TrapProceduralGenerator {
+    -config : TrapGenerationConfig
+    +TrapProceduralGenerator()
+    +TrapProceduralGenerator(long)
+    +TrapProceduralGenerator(boolean)
+    +TrapProceduralGenerator(TrapGenerationConfig)
+    +getConfig() TrapGenerationConfig
+    +setConfig(TrapGenerationConfig)
+    +populateWorld(DadosNivel, Entity) List~Entity~
+    +populateWorld(DadosNivel, Entity, Long) List~Entity~
+    +generateTraps(DadosNivel, double, double) List~Trap~
+    +generateTraps(DadosNivel, double, double, Long) List~Trap~
+    +generatePlacements(List~PlatformBounds~, double, double, double, double) List~TrapPlacement~
+    +generatePlacements(List~PlatformBounds~, double, double, double, double, Long) List~TrapPlacement~
+    -findCeilingBlockCandidates(List~PlatformBounds~, double, double, double) List~TrapPlacement~
+    -findFloorSpikeCandidates(List~PlatformBounds~, double, double, double) List~TrapPlacement~
+    -findMainGroundBelow(List~PlatformBounds~, PlatformBounds, double, double, double) double
+    -isVerticalCorridorClear(List~PlatformBounds~, PlatformBounds, double, double, double, double) boolean
+    -isTopClearanceFree(List~PlatformBounds~, PlatformBounds, double, double, double, double) boolean
+    -isWithinLevelSafeBounds(double, double, double) boolean
+    -isInsidePlayerSafeZone(double, double, double, double, double, double) boolean
+    -respectsMinDistance(TrapPlacement, List~TrapPlacement~) boolean
+    -interleaveCandidates(List~TrapPlacement~, List~TrapPlacement~) List~TrapPlacement~
+    +extractPlatforms(DadosNivel) List~PlatformBounds~
+    +extractPlatformsFromDados(DadosNivel) List~PlatformBounds~
+  }
+  class TrapSpawner {
+    +TrapSpawner()
+    +TrapSpawner(long)
+    +TrapSpawner(boolean)
+    +TrapSpawner(TrapGenerationConfig)
+  }
+  class TrapState {
+    +values()$ TrapState[]
+    +valueOf(String)$ TrapState
+    -TrapState()
+  }
+}
 namespace componentes {
   class Atacante {
     <<interface>>
@@ -39,6 +359,35 @@ namespace componentes {
     +getArmaEquipada() Arma
     +atacar() boolean
   }
+  class ComponenteArmadilha {
+    -trap : Trap
+    -feedbackListener : FxglTrapFeedbackListener
+    -jogador : Entity
+    -damageTarget : DamageTarget
+    -visualNode : Node
+    -animatedTexture : AnimatedTexture
+    -canaisAnimacao : Map~TrapState, AnimationChannel~
+    -visualWidth : double
+    -visualHeight : double
+    -terrenoSincronizado : boolean
+    +ComponenteArmadilha(Trap)
+    +ComponenteArmadilha(Trap, AnimatedTexture, Map~TrapState, AnimationChannel~)
+    +configurarAnimacao(AnimatedTexture, Map~TrapState, AnimationChannel~, double, double)
+    +configurarAnimacao(AnimatedTexture, Map~TrapState, AnimationChannel~)
+    +configurarSpritesheet(Image, int, int, int, double, double)
+    +setJogadorAlvo(Entity)
+    +onAdded()
+    +onUpdate(double)
+    -sincronizarComTerreno()
+    -verificarLimiteSoloBloco(BlocoQueCai)
+    -buscarJogadorAlvo()
+    +aoColidirComPlataforma(Entity)
+    +aoColidirComJogador(Entity)
+    +getTrap() Trap
+    +getFeedbackListener() FxglTrapFeedbackListener
+    +getAnimatedTexture() AnimatedTexture
+    +getCanaisAnimacao() Map~TrapState, AnimationChannel~
+  }
   class ComponenteBuracoNegro {
     -duracao : double
     -tempo : double
@@ -49,6 +398,7 @@ namespace componentes {
   }
   class ComponenteChefe {
     -larguraArena : double
+    -estado : Estado
     -proximoAtaque : AtaqueChefe
     -ataqueAtual : AtaqueChefe
     -tempoNoEstado : double
@@ -62,6 +412,7 @@ namespace componentes {
     +getQuantidadeTiros() int
     +getQuantidadeBlocos() int
     +onUpdate(double)
+    -mudarPara(Estado)
     -pairar()
     -comecarAviso()
     -avisar()
@@ -80,6 +431,7 @@ namespace componentes {
     +danoDeBuracoNegro() int
     +tomarDano(int)
     +getExperienciaConcedida() int
+    +getEstado() Estado
     +getProximoAtaque() AtaqueChefe
   }
   class ComponenteDisparoJogador {
@@ -125,6 +477,7 @@ namespace componentes {
     +estaCongelado() boolean
     #atualizarCongelamento(double) boolean
     +danoDeBuracoNegro() int
+    #velocidadeEfetiva() double
     +puxarPara(Point2D, double)
     +onUpdate(double)
     #perseguirAlvo(double, double)
@@ -184,6 +537,9 @@ namespace componentes {
     -timerCooldownDash : double
     -timerDash : double
     -boostDashAtivo : boolean
+    -sandevistan : SandevistanMichyle
+    -multiplicadorCooldownCyberpsicose : double
+    -multiplicadorVelocidade : double
     -dificuldade : Dificuldade
     -instanteUltimoAtaque : long
     -instanteUltimaMagia : long
@@ -194,7 +550,14 @@ namespace componentes {
     +tomarDano(int)
     +setDificuldade(Dificuldade)
     +getDificuldade() Dificuldade
+    +setMultiplicadorVelocidade(double)
+    +getMultiplicadorVelocidade() double
+    +setMultiplicadorCooldownCyberpsicose(double)
+    +tomarDanoDebuff(int)
+    +estaNoSandevistan() boolean
+    +getSandevistan() SandevistanMichyle
     +estaInvencivel() boolean
+    +ativarInvulnerabilidade(double)
     +serAtingido(Entity, int)
     -empurrar(Entity)
     +pular()
@@ -256,7 +619,9 @@ namespace componentes {
     +getNome() String
     +getVidaAtual() int
     +getVidaMaxima() int
+    +setVidaAtual(int)
     +getVelocidade() double
+    +setVelocidade(double)
     +toString() String
     +obterDe(Entity)$ ComponentePersonagem
   }
@@ -278,7 +643,46 @@ namespace componentes {
     -gracaAteNanos : long$
     -RelogioJogo()
     +emPeriodoDeGraca()$ boolean
+    +zerar()$
     +marcarRetomada()$
+  }
+  class TimeScaleManager {
+    -ativo : boolean$
+    -jogadorReferencia : ComponenteJogador$
+    -TimeScaleManager()
+    +setAtivo(boolean, ComponenteJogador)$
+    +isAtivo()$ boolean
+    +getScale()$ double
+    +getJogadorScale()$ double
+    +isJogador(ComponentePersonagem)$ boolean
+    +isJogador(Entity)$ boolean
+    +getTpfPara(double, ComponentePersonagem)$ double
+    +getTpfPara(double, Entity)$ double
+    +reset()$
+  }
+}
+namespace componentes_efeitos {
+  class Cyberpsicose {
+    -ativo : boolean
+    -vidaLimite : double
+    -timerDano : double
+    -sandevistanAcabou : boolean
+    +Cyberpsicose()
+    +aplicar(ComponentePersonagem)
+    +remover(ComponentePersonagem)
+    +marcarFimDoSandevistan()
+    +atualizar(ComponentePersonagem, double) boolean
+    +estaAtivo() boolean
+    +getNome() String
+    +estaNoLimiteVida(ComponenteJogador) boolean
+  }
+  class Efeito {
+    <<interface>>
+    +aplicar(ComponentePersonagem)*
+    +remover(ComponentePersonagem)*
+    +atualizar(ComponentePersonagem, double)* boolean
+    +estaAtivo()* boolean
+    +getNome()* String
   }
 }
 namespace componentes_visual {
@@ -293,22 +697,31 @@ namespace componentes_visual {
     +onUpdate(double)
   }
   class ComponenteAnimado {
+    -conjuntos : Map~String, Map~EstadoAnimacao, AnimationChannel~~
     -conjunto : Supplier~String~
     -larguraQuadro : double
     -escala : double
     -centroX : double
     -peY : double
+    -estado : Supplier~EstadoAnimacao~
     -olhandoDireita : BooleanSupplier
     -textura : AnimatedTexture
     -congelado : BooleanSupplier
     -mostrandoCongelado : boolean
+    -estadoAtual : EstadoAnimacao
     -conjuntoAtual : String
+    +ComponenteAnimado(Map~EstadoAnimacao, AnimationChannel~, double, double, double, double, Supplier~EstadoAnimacao~, BooleanSupplier)
+    +ComponenteAnimado(Map~String, Map~EstadoAnimacao, AnimationChannel~~, Supplier~String~, double, double, double, double, Supplier~EstadoAnimacao~, BooleanSupplier)
     +onAdded()
     +comCongelamento(BooleanSupplier) ComponenteAnimado
     -criarLuzGelo()$ Lighting
     +onUpdate(double)
     -conjuntoValido() String
+    +getEstado() EstadoAnimacao
     -posicionar()
+    +escolherEstado(boolean, boolean, boolean, double, double)$ EstadoAnimacao
+    +escolherEstadoJogadora(boolean, boolean, boolean, boolean, boolean, double, double)$ EstadoAnimacao
+    +animacaoDisponivel(EstadoAnimacao, Set~EstadoAnimacao~)$ EstadoAnimacao
   }
   class ComponenteProjetil {
     -origem : Entity
@@ -323,6 +736,28 @@ namespace componentes_visual {
     +ComponenteProjetil(Entity, Entity, int, double, Point2D, double)
     +onAdded()
     +onUpdate(double)
+  }
+  class FallingBlockVisual {
+    -spritesheet : Image$
+    -canais : Map~TrapState, AnimationChannel~$
+    -FallingBlockVisual()
+    +carregarRecursos()$
+    +criarTextura(double, double)$ AnimatedTexture
+    +getCanais()$ Map~TrapState, AnimationChannel~
+    +getSpritesheet()$ Image
+  }
+  class SpikeTrapView {
+    -carregado : boolean$
+    -largura : double
+    -altura : double
+    -clipMask : Rectangle
+    -timerAnimacao : double
+    -extensionOffsetY : double
+    +SpikeTrapView(double, double)
+    -carregarQuadros()$
+    +getQuadroInativo()$ Image
+    +atualizar(TrapState, double, double)
+    +getExtensionOffsetY() double
   }
   class Sprites {
     -Sprites()
@@ -364,6 +799,8 @@ namespace controle {
     -fechouInventarioEm : long
     -gameOverExibido : boolean
     -pularMenuAoIniciar : boolean
+    -sandevistanAtivoAnterior : boolean
+    -cyberpsicoseAvisada : boolean
     +ControleJogo()
     +iniciarMundo()
     +registrarColisoes()
@@ -401,11 +838,14 @@ namespace controle {
     -transicionando : boolean
     -itensColetados : Set~String~
     -chefeDerrotado : boolean
+    -geradorArmadilhas : TrapProceduralGenerator
     +GerenciadorSalas()
     +comecarDoInicio() DadosNivel
     -prepararSala(int) DadosNivel
     +spawnInimigos(DadosNivel, Entity)
     +spawnItens(DadosNivel)
+    +spawnArmadilhas(DadosNivel, Entity)
+    +getGeradorArmadilhas() TrapProceduralGenerator
     -temChefe(DadosNivel)$ boolean
     +marcarChefeDerrotado()
     +registrarColeta(String)
@@ -450,10 +890,13 @@ namespace factories {
     +spawnAtaqueJogador(SpawnData) Entity
     +spawnInimigoVoador(SpawnData) Entity
     +spawnChefe(SpawnData) Entity
+    -animacoesChefe(String)$ Map~EstadoAnimacao, AnimationChannel~
     +spawnProjetilChefe(SpawnData) Entity
     +spawnAlertaChefe(SpawnData) Entity
     +spawnInimigoDistancia(SpawnData) Entity
     +spawnInimigoMelee(SpawnData) Entity
+    -animacoesJogadora(String, int, int, int, int, int) Map~EstadoAnimacao, AnimationChannel~
+    -animacaoInimigo(ComponenteInimigo, Map~EstadoAnimacao, AnimationChannel~, double, double, double) ComponenteAnimado
     +spawnExplosao(SpawnData) Entity
     -configurarContatoComJogador(PhysicsComponent, Entity, double, double)
     +spawnProjetil(SpawnData) Entity
@@ -462,9 +905,11 @@ namespace factories {
     +spawnItem(SpawnData) Entity
     +spawnImpacto(SpawnData) Entity
     +spawnPlataforma(SpawnData) Entity
-    -visualPlataforma(double, double) Node
+    -visualPlataforma(double, double, boolean) Node
     +spawnParede(SpawnData) Entity
     +spawnGatilho(SpawnData) Entity
+    +spawnArmadilhaEspinhos(SpawnData) Entity
+    +spawnArmadilhaBloco(SpawnData) Entity
   }
 }
 namespace habilidades {
@@ -512,6 +957,7 @@ namespace habilidades {
     +getCustoEnergia() int
     +isAprendida() boolean
     +setAprendida(boolean)
+    #setTempoRestante(double)
   }
   class RaioDeGelo {
     -segundosCongelado : double
@@ -519,6 +965,24 @@ namespace habilidades {
     +getCor() Color
     +getSprite() String
     +getCongelamento() double
+  }
+  class SandevistanMichyle {
+    -ativo : boolean
+    -acumuladorConsumo : double
+    -cooldownPosDesativar : double
+    -cyberpsicose : Cyberpsicose
+    +SandevistanMichyle(boolean)
+    +custoPara(ComponenteJogador) int
+    +podeUsar(ComponenteJogador) boolean
+    +toggle(ComponenteJogador) boolean
+    -ativar(ComponenteJogador) boolean
+    -desativar(ComponenteJogador)
+    +atualizarSandevistan(ComponenteJogador, double)
+    #executar(ComponenteJogador)
+    +isAtivo() boolean
+    +getCooldownRestante() double
+    +getCyberpsicose() Cyberpsicose
+    +getDuracao() double
   }
 }
 namespace inventario {
@@ -553,7 +1017,7 @@ namespace inventario {
     +quantidadeItem() int
     +inventarioVazio() boolean
     +listarDoTipo(Class~T~) List~T~
-    +getItens() Inventariavel~
+    +getItens() Map~String, Inventariavel~
   }
   class Item {
     <<abstract>>
@@ -736,6 +1200,59 @@ namespace niveis {
     +DadosPlataforma()
   }
 }
+namespace npcs {
+  class ComponenteNpc {
+    <<abstract>>
+    -falas : List~String~
+    -indiceFala : int
+    -tempoNaFala : double
+    -conversando : boolean
+    -aviso : String
+    -tempoAviso : double
+    -balao : Label
+    -textoExibido : String
+    #ComponenteNpc(String, List~String~)
+    #aoConversar(ComponentePersonagem)*
+    +tomarDano(int)
+    +getFalaAtual() String
+    +avancarFala() String
+    +estaConversando() boolean
+    +getTextoBalao() String
+    #mostrarAviso(String)
+    +iniciarConversa(ComponentePersonagem)
+    +encerrarConversa()
+    +atualizarConversa(boolean, ComponentePersonagem, double)
+    +onAdded()
+    +onUpdate(double)
+    -acharJogador() Entity
+    -atualizarBalao()
+    +toString() String
+  }
+  class FabricaNpcs {
+    +FabricaNpcs()
+    +spawnInformante(SpawnData) Entity
+    +spawnCurandeiro(SpawnData) Entity
+    -criarNpc(SpawnData, ComponenteNpc, Sprite, Color) Entity
+    -criarVisual(Sprite, Color)$ Node
+    -visualParado(Image)$ Node
+    -visualAnimado(Image, Sprite)$ Node
+  }
+  class NpcCurandeiro {
+    -curasRestantes : int
+    +NpcCurandeiro(String, List~String~, int)
+    #aoConversar(ComponentePersonagem)
+    +getCurasRestantes() int
+  }
+  class NpcInformante {
+    +NpcInformante(String, List~String~)
+    #aoConversar(ComponentePersonagem)
+  }
+  class NpcsDasSalas {
+    -NpcsDasSalas()
+    +criar(DadosNivel)$
+    -temChefe(DadosNivel)$ boolean
+  }
+}
 namespace visao {
   class CortinaTransicao {
     +CortinaTransicao()
@@ -764,6 +1281,9 @@ namespace visao {
     -qtdCura : Text
     -qtdEnergia : Text
     -iconeArma : ImageView
+    -sandevistanTexto : Text
+    -sandevistanIcone : ImageView
+    -cyberpsicoseTexto : Text
     -fundoChefe : Rectangle
     -vidaChefe : Rectangle
     -nomeChefe : Text
@@ -840,6 +1360,17 @@ namespace visao {
     +atualizar(int, double)
   }
 }
+namespace visao_efeitos {
+  class SandevistanShader {
+    +SandevistanShader()
+    +getEfeitoJogador()$ Effect
+    +getEfeitoCena()$ Effect
+    +aplicarNoJogador(ViewComponent)$
+    +removerDoJogador(ViewComponent)$
+    +aplicarNaCena(Node)$
+    +removerDaCena(Node)$
+  }
+}
 class Component {
   <<FXGL>>
 }
@@ -852,16 +1383,27 @@ class Exception {
 class GameApplication {
   <<FXGL>>
 }
+class ImageView {
+  <<JavaFX>>
+}
 class Rectangle {
   <<JavaFX>>
 }
 class StackPane {
   <<JavaFX>>
 }
+PlayerDamageTargetAdapter --> "1" ComponenteJogador : componenteJogador
+PlayerDamageTargetAdapter --> "1" Hitbox : hitbox
+Trap --> "1" Hitbox : damageHitbox
+Trap --> "1" Hitbox : triggerBox
+Trap --> "1" TrapState : state
+Trap --> "*" TrapListener : listeners
+TrapProceduralGenerator --> "1" TrapGenerationConfig : config
 ComponenteArma --> "1" Arma : armaEquipada
 ComponenteArma --> "1" ComponenteJogador : jogador
-ComponenteArma ..> ItemNaoEncontradoException : lança
-ComponenteArma ..> ItemIncompativelException : lança
+ComponenteArmadilha --> "1" Trap : trap
+ComponenteArmadilha --> "1" FxglTrapFeedbackListener : feedbackListener
+ComponenteArmadilha --> "1" DamageTarget : damageTarget
 ComponenteChefe --> "1" AtaqueChefe : proximoAtaque
 ComponenteChefe --> "1" AtaqueChefe : ataqueAtual
 ComponenteJogador --> "1" Inventario : inventario
@@ -869,9 +1411,8 @@ ComponenteJogador --> "1" GolpeDeEnergia : golpe
 ComponenteJogador --> "1" Apara : apara
 ComponenteJogador --> "1" RaioDeGelo : gelo
 ComponenteJogador --> "1" BuracoNegro : buracoNegro
+ComponenteJogador --> "1" SandevistanMichyle : sandevistan
 ComponenteJogador --> "1" Dificuldade : dificuldade
-ComponenteJogador ..> ItemNaoEncontradoException : lança
-ComponenteJogador ..> ItemIncompativelException : lança
 ControleEntrada --> "1" ControleJogo : jogo
 ControleJogo --> "1" GerenciadorSalas : salas
 ControleJogo --> "1" HudJogo : hud
@@ -885,64 +1426,84 @@ ControleJogo --> "1" TelaOpcoes : opcoes
 ControleJogo --> "1" CortinaTransicao : cortina
 ControleJogo --> "1" Dificuldade : dificuldade
 ControleJogo --> "1" TelaSobreposta : telaAntesDasOpcoes
+GerenciadorSalas --> "1" TrapProceduralGenerator : geradorArmadilhas
+SandevistanMichyle --> "1" Cyberpsicose : cyberpsicose
 Inventario --> "*" Inventariavel : itens
 Item --> "1" Categoria : categoria
 Main --> "1" ControleJogo : controle
 Main --> "1" ControleEntrada : entrada
-CarregadorDeNiveis ..> NivelInvalidoException : lança
 DadosNivel --> "1" DadosJogador : jogador
 DadosNivel --> "*" DadosPlataforma : plataformas
 DadosNivel --> "*" DadosInimigo : inimigos
 DadosNivel --> "*" DadosItem : itens
 HudJogo --> "1" ComponenteJogador : jogador
 HudJogo --> "1" ComponenteArma : arma
-GameApplication <|-- Main
-JogoException <|-- ItemIncompativelException
-JogoException <|-- NivelInvalidoException
-JogoException <|-- ItemNaoEncontradoException
-Exception <|-- JogoException
-TelaSobreposta <|-- TelaMenuPrincipal
-TelaSobreposta <|-- TelaGameOver
-TelaSobreposta <|-- TelaVitoria
-StackPane <|-- TelaSobreposta
-TelaSobreposta <|-- TelaInventario
-TelaSobreposta <|-- TelaOpcoes
-Rectangle <|-- CortinaTransicao
-TelaSobreposta <|-- TelaPausa
-ArmaDeFogo <|-- RifleSniper
-Perfurante <|.. RifleSniper
-ArmaDeFogo <|-- PistolaDuplaDePlasma
-Arma <|-- Espada
-Arma <|-- ArmaDeFogo
-Espada <|-- AdagaDupla
-Inventariavel <|.. Arma
-ArmaDeFogo <|-- Shotgun
-Habilidade <|-- BuracoNegro
-Habilidade <|-- GolpeDeEnergia
-GolpeDeEnergia <|-- BolaDeFogo
-GolpeDeEnergia <|-- RaioDeGelo
-Habilidade <|-- Apara
-Item <|-- ModuloEnergia
-Consumivel <|.. ModuloEnergia
-Inventariavel <|.. Item
-Item <|-- ModuloCura
-Consumivel <|.. ModuloCura
-ComponenteInimigo <|-- ComponenteChefe
+ComponenteArma ..> ItemNaoEncontradoException : lança
+ComponenteArma ..> ItemIncompativelException : lança
+ComponenteJogador ..> ItemNaoEncontradoException : lança
+ComponenteJogador ..> ItemIncompativelException : lança
+CarregadorDeNiveis ..> NivelInvalidoException : lança
+Trap <|-- BlocoQueCai
+TrapListener <|.. FxglTrapFeedbackListener
+DamageTarget <|.. PlayerDamageTargetAdapter
+Trap <|-- SpikesRetrateis
+DamageSource <|.. Trap
+TrapProceduralGenerator <|-- TrapSpawner
 Component <|-- AtaqueJogadorComponent
-Component <|-- ComponentePersonagem
-Atacavel <|.. ComponentePersonagem
 Component <|-- ComponenteArma
-ComponenteInimigo <|-- ComponenteInimigoVoador
-ComponenteInimigo <|-- ComponenteInimigoDistancia
-Component <|-- ComponenteDisparoJogador
-ComponentePersonagem <|-- ComponenteJogador
-Atacante <|.. ComponenteJogador
-ComponenteInimigo <|-- ComponenteInimigoMelee
+Component <|-- ComponenteArmadilha
 Component <|-- ComponenteBuracoNegro
+ComponenteInimigo <|-- ComponenteChefe
+Component <|-- ComponenteDisparoJogador
 ComponentePersonagem <|-- ComponenteInimigo
 Atacante <|.. ComponenteInimigo
 ConcedeExperiencia <|.. ComponenteInimigo
-Component <|-- ComponenteProjetil
+ComponenteInimigo <|-- ComponenteInimigoDistancia
+ComponenteInimigo <|-- ComponenteInimigoMelee
+ComponenteInimigo <|-- ComponenteInimigoVoador
+ComponentePersonagem <|-- ComponenteJogador
+Atacante <|.. ComponenteJogador
+Component <|-- ComponentePersonagem
+Atacavel <|.. ComponentePersonagem
+Efeito <|.. Cyberpsicose
 Component <|-- ComponenteAnimacaoFundo
 Component <|-- ComponenteAnimado
+Component <|-- ComponenteProjetil
+ImageView <|-- SpikeTrapView
+JogoException <|-- ItemIncompativelException
+JogoException <|-- ItemNaoEncontradoException
+Exception <|-- JogoException
+JogoException <|-- NivelInvalidoException
 EntityFactory <|.. FabricaEntidades
+Habilidade <|-- Apara
+GolpeDeEnergia <|-- BolaDeFogo
+Habilidade <|-- BuracoNegro
+Habilidade <|-- GolpeDeEnergia
+GolpeDeEnergia <|-- RaioDeGelo
+Habilidade <|-- SandevistanMichyle
+Inventariavel <|.. Item
+Item <|-- ModuloCura
+Consumivel <|.. ModuloCura
+Item <|-- ModuloEnergia
+Consumivel <|.. ModuloEnergia
+Espada <|-- AdagaDupla
+Inventariavel <|.. Arma
+Arma <|-- ArmaDeFogo
+Arma <|-- Espada
+ArmaDeFogo <|-- PistolaDuplaDePlasma
+ArmaDeFogo <|-- RifleSniper
+Perfurante <|.. RifleSniper
+ArmaDeFogo <|-- Shotgun
+GameApplication <|-- Main
+ComponentePersonagem <|-- ComponenteNpc
+EntityFactory <|.. FabricaNpcs
+ComponenteNpc <|-- NpcCurandeiro
+ComponenteNpc <|-- NpcInformante
+Rectangle <|-- CortinaTransicao
+TelaSobreposta <|-- TelaGameOver
+TelaSobreposta <|-- TelaInventario
+TelaSobreposta <|-- TelaMenuPrincipal
+TelaSobreposta <|-- TelaOpcoes
+TelaSobreposta <|-- TelaPausa
+StackPane <|-- TelaSobreposta
+TelaSobreposta <|-- TelaVitoria
