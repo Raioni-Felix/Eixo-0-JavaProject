@@ -22,13 +22,15 @@ class NpcTest {
     }
 
     @Test
-    @DisplayName("Conversa começa perto, troca de fala com o tempo e acaba ao se afastar")
+    @DisplayName("Conversa começa perto, Enter troca a fala e ela acaba ao se afastar")
     void conversa() {
         NpcInformante npc = new NpcInformante("Info", List.of("a", "b"));
         npc.atualizarConversa(true, jogador, 0.1);
         assertTrue(npc.estaConversando());
         assertEquals("a", npc.getFalaAtual());
-        npc.atualizarConversa(true, jogador, ComponenteNpc.SEGUNDOS_POR_FALA);
+        npc.atualizarConversa(true, jogador, 10); //o tempo não passa a fala sozinho
+        assertEquals("a", npc.getFalaAtual());
+        npc.avancarFala(); //Enter
         assertEquals("b", npc.getFalaAtual());
         npc.atualizarConversa(false, jogador, 0.1);
         assertFalse(npc.estaConversando());
@@ -87,13 +89,13 @@ class NpcTest {
     }
 
     @Test
-    @DisplayName("Informante só na primeira sala, Curandeira só na última")
+    @DisplayName("Informante só na primeira sala, Curandeira só na penúltima")
     void ondeAparecem() {
         assertTrue(NpcsDasSalas.temInformante(0));
         assertFalse(NpcsDasSalas.temInformante(1));
         assertFalse(NpcsDasSalas.temCurandeira(0, 5));
-        assertFalse(NpcsDasSalas.temCurandeira(3, 5));
-        assertTrue(NpcsDasSalas.temCurandeira(4, 5));
+        assertTrue(NpcsDasSalas.temCurandeira(3, 5)); //penúltima, antes do chefe
+        assertFalse(NpcsDasSalas.temCurandeira(4, 5)); //arena do chefe
     }
 
     @Test
@@ -102,11 +104,11 @@ class NpcTest {
         List<Point2D> despertares = new ArrayList<>();
         NpcChefe npc = new NpcChefe("NEXUS", List.of("a", "b"), despertares::add);
         npc.atualizarConversa(true, jogador, 0.1);
-        npc.atualizarConversa(true, jogador, ComponenteNpc.SEGUNDOS_POR_FALA); //vai pra "b"
+        npc.avancarFala(); //Enter: vai pra "b"
         assertFalse(npc.conversaCompleta());
         assertFalse(npc.despertarSePronto(new Point2D(10, 20)));
 
-        npc.atualizarConversa(true, jogador, ComponenteNpc.SEGUNDOS_POR_FALA); //"b" acabou
+        npc.avancarFala(); //Enter na última: "b" acabou
         assertTrue(npc.conversaCompleta());
         assertTrue(npc.despertarSePronto(new Point2D(10, 20)));
         assertFalse(npc.despertarSePronto(new Point2D(10, 20))); //uma vez só
@@ -118,10 +120,10 @@ class NpcTest {
     void chefeConversaInterrompida() {
         NpcChefe npc = new NpcChefe("NEXUS", List.of("a", "b"), p -> fail("não devia despertar"));
         npc.atualizarConversa(true, jogador, 0.1);
-        npc.atualizarConversa(true, jogador, ComponenteNpc.SEGUNDOS_POR_FALA);
+        npc.avancarFala();
         npc.atualizarConversa(false, jogador, 0.1); //saiu de perto: recomeça do "a"
         npc.atualizarConversa(true, jogador, 0.1);
-        npc.atualizarConversa(true, jogador, ComponenteNpc.SEGUNDOS_POR_FALA);
+        npc.avancarFala();
         assertFalse(npc.conversaCompleta());
         assertFalse(npc.despertarSePronto(Point2D.ZERO));
     }

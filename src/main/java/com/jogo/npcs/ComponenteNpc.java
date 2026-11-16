@@ -17,11 +17,11 @@ import static com.almasb.fxgl.dsl.FXGL.getGameWorld;
  * inimigos. Como a base exige vida > 0, o NPC tem vida 1 e sobrescreve
  * tomarDano() pra ignorar qualquer dano: é invulnerável.
  *
- * Como funciona a conversa (sem tecla, sem mexer no HUD):
+ * Como funciona a conversa (sem mexer no HUD):
  *  - o jogador chega perto (ALCANCE_CONVERSA): a conversa começa e
  *    aparece um balão em cima do NPC com a primeira fala;
- *  - a cada SEGUNDOS_POR_FALA a fala passa pra próxima (volta pra
- *    primeira depois da última);
+ *  - Enter passa pra próxima fala (ControleJogo.passarFalaNpc, que chama
+ *    avancarFala); depois da última volta pra primeira;
  *  - o jogador se afasta: a conversa termina e o balão some.
  *
  * Abstrata: cada tipo de NPC decide o que faz enquanto conversa com o
@@ -32,12 +32,10 @@ import static com.almasb.fxgl.dsl.FXGL.getGameWorld;
 public abstract class ComponenteNpc extends ComponentePersonagem {
 
     public static final double ALCANCE_CONVERSA = 140;
-    public static final double SEGUNDOS_POR_FALA = 3.0;
     public static final double SEGUNDOS_AVISO = 2.5;
 
     private final List<String> falas;
     private int indiceFala = 0;
-    private double tempoNaFala = 0;
     private boolean conversando = false;
 
     //Aviso temporário (ex.: "Pronto! Sua vida foi restaurada."): aparece no
@@ -100,7 +98,7 @@ public abstract class ComponenteNpc extends ComponentePersonagem {
             aoTerminarFalas(); //ouviu todas as falas
         }
         indiceFala = (indiceFala + 1) % falas.size();
-        tempoNaFala = 0;
+        tempoAviso = 0; //Enter também tira o aviso da frente
         return getFalaAtual();
     }
 
@@ -122,7 +120,6 @@ public abstract class ComponenteNpc extends ComponentePersonagem {
     public void iniciarConversa(ComponentePersonagem jogador) {
         conversando = true;
         indiceFala = 0;
-        tempoNaFala = 0;
         aoConversar(jogador);
     }
 
@@ -132,7 +129,6 @@ public abstract class ComponenteNpc extends ComponentePersonagem {
         }
         conversando = false;
         indiceFala = 0;
-        tempoNaFala = 0;
         tempoAviso = 0;
     }
 
@@ -148,10 +144,6 @@ public abstract class ComponenteNpc extends ComponentePersonagem {
         }
         aoConversar(jogador);
         tempoAviso = Math.max(0, tempoAviso - tpf);
-        tempoNaFala += tpf;
-        if (tempoNaFala >= SEGUNDOS_POR_FALA) {
-            avancarFala();
-        }
     }
 
     //=== Parte do motor (FXGL) ===
@@ -198,7 +190,7 @@ public abstract class ComponenteNpc extends ComponentePersonagem {
         if (!conversando) {
             return;
         }
-        String texto = getTextoBalao();
+        String texto = getTextoBalao() + "   [Enter]";
         if (!texto.equals(textoExibido)) {
             balao.setText(texto);
             textoExibido = texto;

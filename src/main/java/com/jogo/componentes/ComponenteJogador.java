@@ -114,10 +114,13 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
     protected int energiaMaxima;
     protected IntegerProperty energiaAtual = new SimpleIntegerProperty();
 
-    //Recarga lenta da energia, pontos por segundo. Não existe no
-    //barebones; sem ela o golpe acabava depois de 3 usos e só voltava
-    //com Módulo de Energia. Pra desligar, é só pôr 0. Era 2; caiu pra 1
-    //quando a cura da Curandeira passou a custar energia (balanceamento).
+    //Energia: até o nível NIVEL_RECARGA_AUTOMATICA ela NÃO recarrega
+    //sozinha; só volta acertando inimigos (ENERGIA_POR_ACERTO a cada
+    //golpe/tiro/magia que acerta, ver ComponenteInimigo.tomarDano) ou com
+    //Módulo de Energia. A partir desse nível também recarrega devagar,
+    //RECARGA_ENERGIA_POR_SEGUNDO pontos por segundo (e os acertos continuam valendo).
+    public static final int NIVEL_RECARGA_AUTOMATICA = 6;
+    public static final int ENERGIA_POR_ACERTO = 3;
     private static final double RECARGA_ENERGIA_POR_SEGUNDO = 1.0;
     private double acumuladorRecarga = 0; //guarda a fração até virar 1 ponto
 
@@ -630,8 +633,9 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
         energiaAtual.set(Math.max(0, energiaAtual.get() - custoEnergia));
     }
 
-    private void recarregarEnergia(double tpf) {
-        if (energiaAtual.get() >= energiaMaxima) {
+    //Sem modificador de acesso (só o pacote) pra dar pra testar
+    void recarregarEnergia(double tpf) {
+        if (!recargaAutomaticaLiberada() || energiaAtual.get() >= energiaMaxima) {
             acumuladorRecarga = 0;
             return;
         }
@@ -641,6 +645,15 @@ public class ComponenteJogador extends ComponentePersonagem implements Atacante 
             acumuladorRecarga -= pontos;
             recuperarEnergia(pontos);
         }
+    }
+
+    public boolean recargaAutomaticaLiberada() {
+        return nivel >= NIVEL_RECARGA_AUTOMATICA;
+    }
+
+    //Chamado quando um ataque da jogadora acerta um inimigo
+    public void registrarAcerto() {
+        recuperarEnergia(ENERGIA_POR_ACERTO);
     }
 
     public ReadOnlyIntegerProperty energiaAtualProperty() {

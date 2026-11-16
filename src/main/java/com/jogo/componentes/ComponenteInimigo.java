@@ -113,6 +113,9 @@ public abstract class ComponenteInimigo extends ComponentePersonagem implements 
         Point2D centro = entity != null ? entity.getCenter() : null;
         super.tomarDano(quant);
         instanteUltimoDano = System.nanoTime();
+        if (quant > 0) {
+            recompensarAcertoDoAlvo();
+        }
         if (estaMorto()) {
             concederExperienciaAoAlvo();
             if (centro != null) {
@@ -125,6 +128,18 @@ public abstract class ComponenteInimigo extends ComponentePersonagem implements 
     //O XP vai pro alvo, que é sempre o jogador (ver
     //controle.GerenciadorSalas.spawnInimigos()). getExperienciaConcedida() é
     //polimórfico: cada tipo de inimigo devolve o próprio valor.
+    //Quem dá dano em inimigo é sempre a jogadora (espada, tiro, magia,
+    //Buraco Negro), então todo acerto devolve um pouco de energia pra ela
+    private void recompensarAcertoDoAlvo() {
+        if (alvo == null || !alvo.isActive()) {
+            return;
+        }
+        ComponenteJogador jogador = alvo.getComponent(ComponenteJogador.class);
+        if (jogador != null) {
+            jogador.registrarAcerto();
+        }
+    }
+
     private void concederExperienciaAoAlvo() {
         if (alvo == null || !alvo.isActive()) {
             return;

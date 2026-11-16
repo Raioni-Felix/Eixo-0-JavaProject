@@ -15,8 +15,9 @@ import static com.almasb.fxgl.dsl.FXGL.spawn;
  *   NpcsDasSalas.criar(sala, indiceDaSala, totalDeSalas);
  *
  *  - o Informante só aparece na PRIMEIRA sala, dando as dicas do começo;
- *  - a Curandeira só aparece na ÚLTIMA sala (a arena do chefe), perto da
- *    entrada. Cada cura custa energia da jogadora (NpcCurandeiro).
+ *  - a Curandeira só aparece na PENÚLTIMA sala, perto da porta da arena
+ *    do chefe (última chance de se curar). Cada cura custa energia da
+ *    jogadora (NpcCurandeiro).
  *  - o próprio chefe começa como NPC (NpcChefe), mas quem cria ele é o
  *    GerenciadorSalas, junto com os inimigos da sala.
  *
@@ -28,7 +29,7 @@ public final class NpcsDasSalas {
 
     private static final double Y_INICIAL = 560;
     private static final double X_INFORMANTE = 560;
-    private static final double X_CURANDEIRA = 300;
+    private static final double DISTANCIA_CURANDEIRA_DO_FIM = 500;
     private static final int CURAS_DA_CURANDEIRA = 3;
 
     private NpcsDasSalas() {
@@ -42,16 +43,16 @@ public final class NpcsDasSalas {
                             "Olá! Há armas e módulos espalhados pelas salas.",
                             "Aperte C na hora certa pra aparar um golpe sem tomar dano.",
                             "Cuidado com os espinhos e as prensas do caminho.",
-                            "No fim do caminho existe um chefe. Uma curandeira espera por você lá.")));
+                            "Antes do chefe há uma curandeira. Aperte Enter pra passar as falas.")));
         }
 
         if (temCurandeira(indiceSala, totalSalas)) {
-            spawn("npc_curandeiro", new SpawnData(X_CURANDEIRA, Y_INICIAL)
+            spawn("npc_curandeiro", new SpawnData(sala.larguraNivel - DISTANCIA_CURANDEIRA_DO_FIM, Y_INICIAL)
                     .put("nome", "Curandeira")
                     .put("falas", List.of(
                             "Fique perto que eu cuido dos seus ferimentos.",
                             "Mas cada cura custa " + NpcCurandeiro.CUSTO_ENERGIA_PADRAO + " da sua energia.",
-                            "Tenho " + CURAS_DA_CURANDEIRA + " curas. Use com sabedoria contra o NEXUS."))
+                            "O NEXUS espera depois daquela porta. Tenho " + CURAS_DA_CURANDEIRA + " curas, use bem."))
                     .put("curas", CURAS_DA_CURANDEIRA));
         }
     }
@@ -62,6 +63,6 @@ public final class NpcsDasSalas {
     }
 
     public static boolean temCurandeira(int indiceSala, int totalSalas) {
-        return indiceSala == totalSalas - 1;
+        return indiceSala == totalSalas - 2;
     }
 }

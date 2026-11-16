@@ -30,6 +30,8 @@ import com.jogo.componentes.ComponenteArmadilha;
 import com.jogo.componentes.TimeScaleManager;
 import java.util.List;
 import javafx.scene.input.KeyCombination;
+import com.jogo.npcs.ComponenteNpc;
+import com.jogo.componentes.ComponentePersonagem;
 import com.jogo.npcs.FabricaNpcs;
 import com.jogo.npcs.NpcsDasSalas;
 
@@ -314,6 +316,8 @@ public class ControleJogo {
             hud.mostrarMensagem("Nível " + nivel + "! Nova magia: Raio de Gelo [V]");
         } else if (nivel == ComponenteJogador.NIVEL_BURACO_NEGRO) {
             hud.mostrarMensagem("Nível " + nivel + "! Nova magia: Buraco Negro [B] (energia cheia)");
+        } else if (nivel == ComponenteJogador.NIVEL_RECARGA_AUTOMATICA) {
+            hud.mostrarMensagem("Nível " + nivel + "! A energia agora recarrega sozinha");
         } else {
             hud.mostrarMensagem("Nível " + nivel + "!");
         }
@@ -414,6 +418,20 @@ public class ControleJogo {
     }
 
     //"PLAY" do menu principal
+    //Enter: avança a fala de todo NPC que está conversando com a jogadora
+    //(normalmente só um, o que está perto). No NEXUS, passar a última fala
+    //começa a luta (NpcChefe.aoTerminarFalas)
+    public void passarFalaNpc() {
+        if (!jogador.isActive()) {
+            return;
+        }
+        for (Entity entidade : getGameWorld().getEntities()) {
+            if (ComponentePersonagem.obterDe(entidade) instanceof ComponenteNpc npc && npc.estaConversando()) {
+                npc.avancarFala();
+            }
+        }
+    }
+
     public void iniciarJogo() {
         menuPrincipal.esconder();
         despausarMotor();

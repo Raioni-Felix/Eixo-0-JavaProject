@@ -57,6 +57,9 @@ public class ControleEntrada {
         acaoDoJogador("Buraco Negro", KeyCode.B, ComponenteJogador::usarBuracoNegro);
 
         //Inventário (I ou TAB) e tela cheia (F11)
+        //Enter: passa a fala do NPC que está conversando
+        acaoAoApertar("Passar fala", KeyCode.ENTER, jogo::passarFalaNpc);
+
         acaoAoApertar("Inventário", KeyCode.I, jogo::alternarInventario);
         acaoAoApertar("Inventário (TAB)", KeyCode.TAB, jogo::alternarInventario);
         acaoAoApertar("Tela cheia", KeyCode.F11, jogo::trocarTelaCheia);

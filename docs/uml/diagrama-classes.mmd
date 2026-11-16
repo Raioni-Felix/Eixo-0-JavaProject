@@ -481,6 +481,7 @@ namespace componentes {
     +getDano() int
     +iniciarAtaque()
     +tomarDano(int)
+    -recompensarAcertoDoAlvo()
     -concederExperienciaAoAlvo()
     #aplicarDanoDireto(Entity)
     +obterDe(Entity)$ ComponenteInimigo
@@ -588,7 +589,9 @@ namespace componentes {
     +recuperarEnergia(int)
     +energiaSuficiente(int) boolean
     +consumirEnergia(int)
-    -recarregarEnergia(double)
+    ~recarregarEnergia(double)
+    +recargaAutomaticaLiberada() boolean
+    +registrarAcerto()
     +energiaAtualProperty() ReadOnlyIntegerProperty
     +getEnergiaAtual() int
     +getEnergiaMaxima() int
@@ -829,6 +832,7 @@ namespace controle {
     -trocarDificuldade()
     +abrirMenuPausa()
     +retomarDaPausa()
+    +passarFalaNpc()
     +iniciarJogo()
     +reiniciarNivel()
     +voltarAoMenuPrincipal(TelaSobreposta)
@@ -1221,7 +1225,6 @@ namespace npcs {
     <<abstract>>
     -falas : List~String~
     -indiceFala : int
-    -tempoNaFala : double
     -conversando : boolean
     -aviso : String
     -tempoAviso : double

@@ -130,4 +130,22 @@ class ComponenteJogadorTest {
         assertThrows(ItemIncompativelException.class, () -> jogador.usarItem(espada.getId()));
         assertTrue(jogador.getInventario().temItem(espada.getId()));
     }
+
+    @Test
+    @DisplayName("Antes do nível 6 a energia só volta acertando inimigos; depois recarrega sozinha")
+    void energiaPorAcerto() {
+        jogador.consumirEnergia(50);
+        jogador.recarregarEnergia(10); //10 s parada
+        assertEquals(0, jogador.getEnergiaAtual());
+        assertFalse(jogador.recargaAutomaticaLiberada());
+
+        jogador.registrarAcerto();
+        assertEquals(ComponenteJogador.ENERGIA_POR_ACERTO, jogador.getEnergiaAtual());
+
+        jogador.adicionarXp(1000); //100+150+200+250+300: nível 6
+        assertEquals(ComponenteJogador.NIVEL_RECARGA_AUTOMATICA, jogador.getNivel());
+        assertTrue(jogador.recargaAutomaticaLiberada());
+        jogador.recarregarEnergia(10);
+        assertTrue(jogador.getEnergiaAtual() > ComponenteJogador.ENERGIA_POR_ACERTO);
+    }
 }
