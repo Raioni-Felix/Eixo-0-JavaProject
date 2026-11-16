@@ -17,7 +17,7 @@ import com.jogo.componentes.efeitos.Cyberpsicose;
  */
 public class SandevistanMichyle extends Habilidade {
 
-    public static final double CONSUMO_ENERGIA_POR_SEGUNDO = 20.0;
+    public static final double CONSUMO_ENERGIA_POR_SEGUNDO = 10.0;
     private static final double CHANCE_CYBERPSICOSE = 0.25; // 25%
     private static final double COOLDOWN_POS_DESATIVAR = 30.0; // 30 segundos
 
